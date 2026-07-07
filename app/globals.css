@@ -1,26 +1,101 @@
-@import "tailwindcss";
+/* app/globals.css */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600&family=Poppins:wght@700&display=swap');
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* BASE PARA REM: 1rem = 10px */
+  font-size: 62.5%; /* 16px * 0.625 = 10px */
+
+  /* COLORES INSTITUCIONALES UCS */
+ /*--color-primario: #090c9b; /* Azul UCS #377de2*/
+ --color-primario: #3066be; /* Azul UCS #377de2*/
+  --color-secundario: #00a8e8; /* Rojo UCS */
+  --color-acento: #FDB913; /* Amarillo dorado */
+  --color-fondo: #F5F7FA;
+  --color-texto: #03045e;
+  --color-blanco: #FFFFFF;
+  --color-borde: #090c9b;
+
+  /* TIPOGRAFÍA */
+  --font-principal: 'Inter', sans-serif;
+  --font-titulos: 'Poppins', sans-serif;
+
+  /* TAMAÑOS DE FUENTE EN REM */
+  --text-xs: 1.2rem;   /* 12px */
+  --text-sm: 1.4rem;   /* 14px */
+  --text-base: 1.6rem; /* 16px */
+  --text-lg: 1.8rem;   /* 18px */
+  --text-xl: 2.0rem;   /* 20px */
+  --text-2xl: 2.4rem;  /* 24px */
+  --text-3xl: 3.0rem;  /* 30px */
+  --text-4xl: 4.0rem;  /* 40px */
+
+ /* VARIABLES GLOBALES DE SGPC */
+  --logo-header-url: url('https://img.icons8.com/?size=100&id=VP8eT8Cq7cQl&format=png&color=000000');
+  --logo-ucs-url: url('https://img.icons8.com/?size=100&id=VP8eT8Cq7cQl&format=png&color=000000');
+  --footer-text: "© 2026 GAQE";
+
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  font-size: 62.5%; /* Lo ponemos también aquí por si acaso */
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-principal);
+  font-size: var(--text-base); /* 1.6rem = 16px por defecto */
+  background-color: var(--color-fondo);
+  color: var(--color-texto);
+  line-height: 1.6;
+}
+
+h1 { font-size: var(--text-4xl); font-family: var(--font-titulos); } /* 40px */
+h2 { font-size: var(--text-3xl); font-family: var(--font-titulos); } /* 30px */
+h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); } /* 24px */
+
+/* COMPONENTES GLOBALES */
+.btn-primario {
+  background-color: var(--color-primario);
+  color: var(--color-blanco);
+  border: none;
+  border-radius: 0.8rem; /* 8px */
+  padding: 1.2rem 2.4rem; /* 12px 24px */
+  font-size: var(--text-base); /* 16px */
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.btn-primario:hover {
+  opacity: 0.9;
+  background-color: var(--color-borde);
+}
+
+.input-sgpc {
+  width: 100%;
+  padding: 1rem; /* 10px */
+  font-size: var(--text-base); /* 16px */
+  border: 1px solid var(--color-borde);
+  border-radius: 0.6rem; /* 6px */
+}
+.input-sgpc:focus {
+  outline: 0.2rem solid var(--color-borde); /* 2px */
+  border-color: var(--color-primario);
+}
+
+/* CONTENEDOR RESPONSIVE */
+.container-sgpc {
+  width: 100%;
+  max-width: 120rem; /* 1200px */
+  margin: 0 auto;
+  padding: 0 2rem; /* 20px a los lados en cel */
+}
+
+/* CARD DEL LOGIN */
+.card-sgpc {
+  background-color: var(--color-blanco);
+  border-radius: 1.2rem; /* 12px */
+  padding: 3.2rem; /* 32px */
+  box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: 42rem; /* 420px max en desktop */
 }
