@@ -5,11 +5,6 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/client';
 import Link from 'next/link';
 
-/* const EyeIcon = ({ open }: { open: boolean }) => open? (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
-) : (
-  <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
-); */
 const EyeIcon = ({ open }: { open: boolean }) => open? (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primario)" strokeWidth="1.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
 ) : (
@@ -145,16 +140,8 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)} 
                 required 
                 placeholder="example@mail.com"
-                className="input-sgpc"
-                style={{ 
-                  width: '100%',
-                  boxSizing: 'border-box', /* ESTA ES LA CLAVE */
-                  border: '1px solid var(--color-secundario)',
-                  borderRadius: '0.8rem',
-                  padding: '1.4rem 4rem 1.4rem 1.4rem',
-                  fontSize: 'var(--text-base)'
-                  /* outline: 'none' */
-                }}
+                className="input-login"
+                
               />
               <div style={{ position: 'absolute', right: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-texto)', pointerEvents: 'none' }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primario)"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
@@ -182,17 +169,8 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)} 
                 required 
                 placeholder="********"
-                className="input-sgpc"
-                style={{ 
-                  paddingRight: '4rem',
-                  width: '100%',
-                  boxSizing: 'border-box', /* ESTA ES LA CLAVE */
-                  border: '1px solid var(--color-secundario)',
-                  borderRadius: '0.8rem',
-                  padding: '1.4rem 4rem 1.4rem 1.4rem',
-                  fontSize: 'var(--text-base)',
-                  /*outline: 'none'*/
-                }}
+                className="input-login"
+                
               />
               <button 
                 type="button" 
@@ -219,10 +197,10 @@ export default function LoginPage() {
             </button>
 
             <p style={{ textAlign: 'center', fontSize: 'var(--text-sm)', color: 'var(--color-texto)' }}>
-              {isLogin? '¿Aún no eres miembro?' : '¿Ya tienes cuenta?'}
-              <a href="#" onClick={(e) => { e.preventDefault(); setIsLogin(!isLogin); }} style={{ color: 'var(--color-primario)', fontWeight: 600, marginLeft: '0.4rem', textDecoration: 'none' }}>
-                {isLogin? 'Regístrate' : 'Iniciar sesión'}
-              </a>
+              ¿Aún no eres miembro?
+              <Link href="/register" style={{ color: 'var(--color-primario)', fontWeight: 600, marginLeft: '0.4rem', textDecoration: 'none' }}>
+                Regístrate
+              </Link>
             </p>
 
           </form>
