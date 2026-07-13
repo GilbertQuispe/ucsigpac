@@ -37,7 +37,7 @@ export default function LoginPage() {
     else {
       if (isLogin) {
         showToast('¡Login exitoso!', 'success');
-        router.push('/dashboard');
+        router.push('/panel');
       } else {
         showToast('Revisa tu correo para confirmar tu cuenta', 'success');
       }
