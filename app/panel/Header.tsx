@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/client'
 import { useRouter } from 'next/navigation'
 
+
 export default function Header({ nombre }: { nombre: string }) {
   const [time, setTime] = useState('')
   const supabase = createClient()
@@ -36,6 +37,7 @@ export default function Header({ nombre }: { nombre: string }) {
           Salir
         </button>
       </div>
+
     </header>
   )
 }

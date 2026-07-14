@@ -16,8 +16,8 @@
   --color-borde: #090c9b;
 
   /* TIPOGRAFÍA */
-  --font-principal: 'Inter', sans-serif;
-  --font-titulos: 'Poppins', sans-serif;
+  --font-titulos: 'Montserrat', sans-serif; /* Para títulos y menú */
+  --font-principal: 'Inter', sans-serif; /* Para contenido */
 
   /* TAMAÑOS DE FUENTE EN REM */
   --text-xs: 1.2rem;   /* 12px */
@@ -28,6 +28,10 @@
   --text-2xl: 2.4rem;  /* 24px */
   --text-3xl: 3.0rem;  /* 30px */
   --text-4xl: 4.0rem;  /* 40px */
+
+  /* SIDEBAR */
+  --sidebar-width: 40rem; /* ANCHO NUEVO: 320px */
+  --sidebar-width-collapsed: 8rem;
 
  /* VARIABLES GLOBALES DE SGPC */
   --logo-header-url: url('https://img.icons8.com/?size=100&id=VP8eT8Cq7cQl&format=png&color=000000');
@@ -47,11 +51,18 @@ body {
   background-color: var(--color-fondo);
   color: var(--color-texto);
   line-height: 1.6;
+  font-weight: 400;
 }
 
-h1 { font-size: var(--text-4xl); font-family: var(--font-titulos); } /* 40px */
-h2 { font-size: var(--text-3xl); font-family: var(--font-titulos); } /* 30px */
-h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); } /* 24px */
+h1 { font-size: var(--text-4xl); font-family: var(--font-titulos); font-weight: 500;} /* 40px */
+h2 { font-size: var(--text-3xl); font-family: var(--font-titulos); font-weight: 500;} /* 30px */
+h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 500;} /* 24px */
+
+/* h1, h2, h3, h4 {
+  font-family: var(--font-titulos);
+  font-weight: 500;
+  letter-spacing: -0.5px; /* Más ejecutivo */
+/*} */
 
 /* COMPONENTES GLOBALES */
 .btn-primario {
@@ -116,3 +127,4 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); } /* 24px */
   width: 100%;
   max-width: 42rem; /* 420px max en desktop */
 }
+
