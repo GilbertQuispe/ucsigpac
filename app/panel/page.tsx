@@ -17,11 +17,11 @@ export default function PanelPage() {
       setLoading(true)
       try {
         const { data: p } = await supabase
-        .from('periodoacademico')
-        .select('codigo')
-        .order('codigo', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+       .from('periodoacademico')
+       .select('codigo')
+       .order('codigo', { ascending: false })
+       .limit(1)
+       .maybeSingle()
 
         const periodoActual = p?.codigo || '2026-1'
         setPeriodo(periodoActual)
@@ -61,19 +61,44 @@ export default function PanelPage() {
     { title: "Informes", value: kpis.informes, icon: FileText, color: "#6366f1" },
   ]
 
+  const pieData = {
+    labels: ['MINSA','ESSALUD','OTROS'],
+    datasets: [{
+      data: [30,20,10],
+      backgroundColor: ['var(--color-primario)','var(--color-secundario)','var(--color-acento)'],
+      borderWidth: 0
+    }]
+  }
+
+  const lineData = {
+    labels: ['Ene','Feb','Mar','Abr'],
+    datasets: [{
+      label: 'Incidencias',
+      data: [5,8,3,6],
+      borderColor: 'var(--color-primario)',
+      backgroundColor: 'rgba(48,102,190,0.1)',
+      fill: true,
+      tension: 0.4
+    }]
+  }
+
   return (
-    <div>
+    <div style={{ padding: '2.4rem' }}>
+      {/* HEADER */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'3.2rem' }}>
         <div>
-          <h2 style={{ fontSize:'var(--text-4xl)', margin:0 }}>Dashboard Ejecutivo</h2>
+          <h2 style={{ fontSize:'var(--text-4xl)', margin:0, fontFamily: 'var(--font-titulos)' }}>Dashboard Ejecutivo</h2>
           <p style={{ color:'var(--color-texto)', opacity:0.7, margin:'0.4rem 0 0', fontSize:'var(--text-base)' }}>Periodo Académico: {periodo}</p>
         </div>
       </div>
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(24rem, 1fr))', gap:'2rem', marginBottom:'3.2rem' }}>
+      {/* GRID DE KPIs - AQUI ESTA EL GAP */}
+      
+      <div className="kpi-grid">
         {kpiData.map((kpi, i) => <KpiCard key={i} {...kpi} loading={loading} />)}
       </div>
 
+      {/* ALERTA */}
       {kpis.incid > 0 && (
         <div style={{ background:'linear-gradient(90deg, #fef2f2, #fff)', borderLeft:'0.4rem solid #ef4444', padding:'1.6rem', borderRadius:'0.8rem', marginBottom:'3rem', display:'flex', gap:'1.2rem', alignItems:'center' }}>
           <AlertTriangle size={24} color="#ef4444" />
@@ -81,14 +106,23 @@ export default function PanelPage() {
         </div>
       )}
 
-      <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(40rem, 1fr))', gap:'2rem' }}>
-        <div className="card-sgpc">
-          <h3 style={{ marginBottom:'1.6rem' }}>Supervisiones por Tipo</h3>
-          <Pie data={{ labels:['MINSA','ESSALUD','OTROS'], datasets:[{data:[30,20,10], backgroundColor:['var(--color-primario)','var(--color-secundario)','var(--color-acento)'], borderWidth:0}] }} options={{ plugins:{ legend:{ position:'bottom', labels:{ font:{ size:14 }}}}}}/>
+      {/* GRID DE GRAFICOS CON ALTURA FIJA */}
+      <div style={{
+        display:'grid',
+        gridTemplateColumns:'repeat(auto-fit, minmax(30rem, 1fr))',
+        gap:'2.4rem'
+      }}>
+        <div className="card-sgpc" style={{ padding: '2.4rem' }}>
+          <h3 style={{ marginBottom:'1.6rem', fontFamily: 'var(--font-titulos)' }}>Supervisiones por Tipo</h3>
+          <div style={{ height: '30rem' }}> {/* ALTURA FIJA PARA QUE NO SE ROMPA */}
+            <Pie data={pieData} options={{ maintainAspectRatio: false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:14, family: 'var(--font-principal)' }}}}}}/>
+          </div>
         </div>
-        <div className="card-sgpc">
-          <h3 style={{ marginBottom:'1.6rem' }}>Incidencias por Mes</h3>
-          <Line data={{ labels:['Ene','Feb','Mar','Abr'], datasets:[{label:'Incidencias', data:[5,8,3,6], borderColor:'var(--color-primario)', backgroundColor:'rgba(48,102,190,0.1)', fill:true, tension:0.4}] }} />
+        <div className="card-sgpc" style={{ padding: '2.4rem' }}>
+          <h3 style={{ marginBottom:'1.6rem', fontFamily: 'var(--font-titulos)' }}>Incidencias por Mes</h3>
+          <div style={{ height: '30rem' }}> {/* ALTURA FIJA */}
+            <Line data={lineData} options={{ maintainAspectRatio: false }} />
+          </div>
         </div>
       </div>
     </div>
@@ -97,7 +131,11 @@ export default function PanelPage() {
 
 function KpiCard({ title, value, icon: Icon, color, loading }: any) {
   return (
-    <div className="card-sgpc" style={{ borderTop:`0.4rem solid ${color}`, transition:'all 0.3s' }}
+    <div className="card-sgpc" style={{
+      borderTop:`0.4rem solid ${color}`,
+      transition:'all 0.3s',
+      padding: '2rem'
+    }}
       onMouseEnter={e => { e.currentTarget.style.transform='translateY(-0.4rem)'; e.currentTarget.style.boxShadow='0 0.8rem 2rem rgba(0,0,0,0.12)' }}
       onMouseLeave={e => { e.currentTarget.style.transform='translateY(0)'; e.currentTarget.style.boxShadow='0 0.4rem 1.2rem rgba(0,0,0,0.08)' }}
     >

@@ -9,7 +9,7 @@
  /*--color-primario: #090c9b; /* Azul UCS #377de2*/
  --color-primario: #3066be; /* Azul UCS #377de2*/
   --color-secundario: #00a8e8; /* Rojo UCS */
-  --color-acento: #FDB913; /* Amarillo dorado */
+  --color-acento: #8fbfec; /* Amarillo dorado #FDB913;*/
   --color-fondo: #F5F7FA;
   --color-texto: #03045e;
   --color-blanco: #FFFFFF;
@@ -128,3 +128,80 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 
   max-width: 42rem; /* 420px max en desktop */
 }
 
+@media (max-width: 1024px) {
+ .header-responsive { padding-left: 6.4rem!important; }
+ .main-content { padding-top: 7rem!important; }
+}
+.header-responsive {
+  background-color: var(--color-blanco);
+  padding: 1.6rem 2.4rem;
+  display:flex; justify-content:space-between; align-items:center;
+  border-bottom: 1px solid var(--color-borde);
+  position:sticky; top:0; z-index:50
+}
+.header-responsive h1 { font-size: var(--text-xl); margin:0 }
+.header-responsive p { font-size:var(--text-sm); margin:0.4rem 0 0; opacity:0.7 }
+
+/* FORZAR ESTILO DE SUBMENU SIGPAC */
+.sidebar-nav a.submenu-item {
+  display: flex !important;
+  align-items: center !important;
+  gap: 1rem !important;
+  padding: 1rem 1.4rem !important;
+  font-size: var(--text-sm) !important;
+  color: var(--color-blanco) !important;
+  text-decoration: none !important;
+  border-radius: 0.6rem !important;
+  font-weight: 500 !important;
+  font-family: var(--font-principal) !important;
+  transition: 0.2s !important;
+}
+
+.sidebar-nav a.submenu-item:hover,
+.sidebar-nav a.submenu-item.active {
+  background: rgba(255,255,255,0.15) !important;
+  font-weight: 600 !important;
+  color: var(--color-blanco) !important;
+}
+
+.sidebar-nav a.submenu-item:visited {
+  color: var(--color-blanco) !important;
+}
+
+/* ARREGLO PARA CARDS DEL DASHBOARD */
+.card-sgpc {
+  background-color: var(--color-blanco);
+  border-radius: 1.2rem;
+  padding: 3.2rem;
+  box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.08);
+  width: 100%;
+  max-width: none; /* QUITAR EL 42rem */
+  box-sizing: border-box; /* IMPORTANTE */
+}
+
+/* GRID RESPONSIVE FIJO */
+.kpi-grid {
+  display: grid;
+  gap: 2.4rem;
+  margin-bottom: 3.2rem;
+}
+
+/* 1 columna: Celular */
+@media (max-width: 640px) {
+  .kpi-grid { grid-template-columns: 1fr; }
+}
+
+/* 2 columnas: Tablet vertical */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* 3 columnas: Tablet horizontal / Laptop chica */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* 4 columnas: Desktop */
+@media (min-width: 1280px) {
+  .kpi-grid { grid-template-columns: repeat(4, 1fr); }
+}

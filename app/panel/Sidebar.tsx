@@ -1,12 +1,13 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/client'
 import {
   Shield, Users, Building2, GraduationCap, ClipboardCheck,
   TrendingUp, BarChart3, Settings, FileText, MapPin,
   UserCog, UserCheck, BookOpen, Calendar, AlertTriangle,
-  LayoutDashboard, Stethoscope, HeartPulse, ChevronDown, Menu, X
+  LayoutDashboard, Stethoscope, HeartPulse, ChevronDown, Menu, X, LogOut
 } from 'lucide-react'
 
 const MENU_COMPLETO = [
@@ -21,93 +22,64 @@ const MENU_COMPLETO = [
   { title:'Configuración', icon: Settings, items:[ {name:'9.1 Periodo Académico', href:'/panel/periodo', icon: Calendar}, {name:'9.2 Parámetros del Sistema', href:'/panel/parametros', icon: Settings} ]},
 ]
 
-export default function Sidebar({ rol }: { rol: string }) {
+export default function Sidebar({ user }: { user: any }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const supabase = createClient()
   const [openMenu, setOpenMenu] = useState<string | null>('REPORTES')
   const [isMobileOpen, setIsMobileOpen] = useState(false)
 
-  // Cierra el menú mobile al cambiar de ruta
   useEffect(() => { setIsMobileOpen(false) }, [pathname])
 
   const toggleMenu = (title: string) => {
     setOpenMenu(openMenu === title? null : title)
   }
 
+  const logout = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  const iniciales = `${user.nombres?.[0] || ''}${user.apellidos?.[0] || ''}`.toUpperCase()
+
   return (
     <>
-      {/* BOTON HAMBURGUESA SOLO EN MOBILE */}
-      <button
-        onClick={() => setIsMobileOpen(!isMobileOpen)}
-        style={{
-          position:'fixed', top:'1.6rem', left:'1.6rem', zIndex:1001,
-          background:'var(--color-primario)', color:'var(--color-blanco)', border:'none',
-          padding:'1rem', borderRadius:'0.8rem', display:'none', cursor:'pointer'
-        }}
-        className="btn-mobile-menu"
-      >
+      <button onClick={() => setIsMobileOpen(!isMobileOpen)} className="btn-mobile-menu">
         {isMobileOpen? <X size={24} /> : <Menu size={24} />}
       </button>
+      {isMobileOpen && <div onClick={() => setIsMobileOpen(false)} className="sidebar-overlay" />}
 
-      {/* OVERLAY PARA CERRAR EN MOBILE */}
-      {isMobileOpen && <div onClick={() => setIsMobileOpen(false)} style={{
-        position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:999
-      }} className="sidebar-overlay" />}
-
-      <aside style={{
-        width:'var(--sidebar-width)', backgroundColor:'var(--color-primario)', color:'var(--color-blanco)',
-        padding:'2rem 0', overflowY:'auto', flexShrink:0, height:'100vh',
-        transition:'transform 0.3s ease', zIndex:1000
-      }}
-      className={isMobileOpen? 'sidebar-mobile-open' : 'sidebar-desktop'}
-      >
-        {/* Logo */}
-        <div style={{ display:'flex', alignItems:'center', gap:'1.2rem', padding:'0 2.4rem 2.4rem', borderBottom:'1px solid rgba(255,255,255,0.15)', marginBottom:'2rem' }}>
-          <div style={{ width:'4rem', height:'4rem', backgroundImage:'var(--logo-ucs-url)', backgroundSize:'contain' }} />
-          <div>
-            <h2 style={{ fontSize:'var(--text-xl)', margin:0, fontFamily:'var(--font-titulos)' }}>SIGPAC</h2>
-            <p style={{ fontSize:'var(--text-xs)', margin:0, opacity:0.8, textTransform:'uppercase', letterSpacing:'0.5px' }}>{rol}</p>
+      <aside className={isMobileOpen? 'sidebar-mobile-open' : 'sidebar-desktop'}>
+        {/* 1. PERFIL DEL USUARIO */}
+        <div className="sidebar-profile">
+          <div className="avatar-circle">
+            {user.avatar_url? <img src={user.avatar_url} alt="avatar" /> : <span>{iniciales}</span>}
           </div>
+          <h3 className="user-name">{user.nombres} {user.apellidos}</h3>
+          <p className="user-email">{user.email}</p>
+          {user.nombrerol && <span className="user-rol">{user.nombrerol}</span>} {/* AHORA SI MUESTRA EL ROL */}
         </div>
 
-        <nav style={{ padding:'0 1.6rem' }}>
+        {/* 2. NAVEGACION */}
+        <nav className="sidebar-nav">
           {MENU_COMPLETO.map(mod => {
             const ModuleIcon = mod.icon
             const isOpen = openMenu === mod.title
             const hasActiveChild = mod.items.some(item => pathname === item.href)
-
             return (
-              <div key={mod.title} style={{ marginBottom:'0.6rem' }}>
-                <button
-                  onClick={() => toggleMenu(mod.title)}
-                  style={{
-                    width:'100%', display:'flex', alignItems:'center', gap:'1.2rem',padding:'1.3rem 1.6rem', fontSize:'var(--text-base)',
-                    background: hasActiveChild? 'var(--color-borde)' : 'transparent',
-                    color:'var(--color-blanco)', textDecoration:'none', transition:'0.2s', borderRadius:'0.8rem',
-                    border:'none', cursor:'pointer', fontWeight:400, textAlign:'left', fontFamily:'var(--font-titulos)'
-                  }}
-                  onMouseEnter={e => { if(!hasActiveChild) e.currentTarget.style.backgroundColor='rgba(255,255,255,0.1)' }}
-                  onMouseLeave={e => { if(!hasActiveChild) e.currentTarget.style.backgroundColor='transparent' }}
-                >
+              <div key={mod.title} className="menu-module">
+                <button onClick={() => toggleMenu(mod.title)} className={`menu-button ${hasActiveChild? 'active':''}`}>
                   <ModuleIcon size={20} />
-                  <span style={{ flex:1 }}>{mod.title}</span>
-                  <ChevronDown size={18} style={{ transform: isOpen? 'rotate(180deg)' : 'rotate(0deg)', transition:'0.2s' }} />
+                  <span>{mod.title}</span>
+                  <ChevronDown size={18} className={`chevron ${isOpen? 'open':''}`} />
                 </button>
-
                 {isOpen && (
-                  <div style={{ paddingLeft:'3rem', marginTop:'0.6rem', display:'flex', flexDirection:'column', gap:'0.2rem' }}>
+                  <div className="submenu">
                     {mod.items.map(item => {
                       const ItemIcon = item.icon
                       const isActive = pathname === item.href
                       return (
-                        <Link key={item.href} href={item.href} style={{
-                          display:'flex', alignItems:'center', gap:'1rem', padding:'1rem 1.4rem', fontSize:'var(--text-sm)',
-                          background: isActive? 'rgba(255,255,255,0.15)' : 'transparent',
-                          color:'var(--color-blanco)', textDecoration:'none', transition:'0.2s', borderRadius:'0.6rem',
-                          fontWeight: isActive? 600 : 500, fontFamily:'var(--font-principal)'
-                        }}
-                        onMouseEnter={e => { if(!isActive) e.currentTarget.style.backgroundColor='rgba(255,255,255,0.08)' }}
-                        onMouseLeave={e => { if(!isActive) e.currentTarget.style.backgroundColor='transparent' }}
-                        >
+                        <Link key={item.href} href={item.href} className={`submenu-item ${isActive? 'active':''}`}>
                           <ItemIcon size={17} />
                           <span>{item.name}</span>
                         </Link>
@@ -119,18 +91,55 @@ export default function Sidebar({ rol }: { rol: string }) {
             )
           })}
         </nav>
+
+        {/* 3. BOTON SALIR ABAJO */}
+        <div className="sidebar-footer">
+          <button onClick={logout} className="btn-logout">
+            <LogOut size={18} /> Cerrar Sesión
+          </button>
+        </div>
       </aside>
 
-      {/* CSS RESPONSIVE INJECTADO */}
-      <style jsx global>{`
-        @media (max-width: 1024px) {
-         .btn-mobile-menu { display: block!important; }
-         .sidebar-desktop { transform: translateX(-100%); position: fixed; }
-         .sidebar-mobile-open { transform: translateX(0); position: fixed; box-shadow: 0 0 3rem rgba(0,0,0,0.3); }
-        }
-        @media (min-width: 1025px) {
-         .sidebar-overlay { display: none!important; }
-        }
+      <style jsx>{`
+        aside { width:var(--sidebar-width); background:var(--color-primario); color:var(--color-blanco); display:flex; flex-direction:column; height:100vh; transition:transform 0.3s ease; z-index:1000; }
+       .sidebar-profile { padding:2.4rem; text-align:center; border-bottom:1px solid rgba(255,255,255,0.15); }
+       .avatar-circle { width:8rem; height:8rem; border-radius:50%; background:var(--color-secundario); margin:0 auto 1.2rem; display:flex; align-items:center; justify-content:center; font-size:3rem; font-weight:700; font-family:var(--font-titulos); overflow:hidden; border:3px solid var(--color-acento); }
+       .avatar-circle img { width:100%; height:100%; object-fit:cover; }
+       .user-name { font-size:var(--text-lg); margin:0; font-family:var(--font-titulos); font-weight:700; }
+       .user-email { font-size:var(--text-xs); margin:0.4rem 0 0.8rem; opacity:0.8; }
+       .user-rol { font-size:var(--text-sm); background:var(--color-acento); color:var(--color-texto); padding:0.4rem 1.2rem; border-radius:2rem; font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+       .sidebar-nav { flex:1; overflow-y:auto; padding:1.6rem; }
+       .menu-button { width:100%; display:flex; align-items:center; gap:1.2rem; padding:1.3rem 1.6rem; font-size:var(--text-base); background:transparent; color:var(--color-blanco); border:none; cursor:pointer; font-weight:600; text-align:left; font-family:var(--font-titulos); border-radius:0.8rem; transition:0.2s; }
+       .menu-button:hover,.menu-button.active { background:var(--color-borde); }
+       .chevron { margin-left:auto; transition:0.2s; }
+       .chevron.open { transform:rotate(180deg); }
+       .submenu { padding-left:3rem; margin-top:0.6rem; display:flex; flex-direction:column; gap:0.2rem; }
+       
+       /* ESTA ES LA PARTE CLAVE: FORZAMOS EL LINK */
+       .submenu-item { 
+         display:flex; align-items:center; gap:1rem; padding:1rem 1.4rem; 
+         font-size:var(--text-sm); 
+         color:var(--color-blanco)!important; /* FORZAR BLANCO */
+         text-decoration:none!important; /* FORZAR SIN SUBRAYADO */
+         border-radius:0.6rem; 
+         font-weight:500; 
+         font-family:var(--font-principal); 
+         transition:0.2s; 
+       }
+       .submenu-item:hover,.submenu-item.active { 
+         background:rgba(255,255,255,0.15); 
+         font-weight:600; 
+         color:var(--color-blanco)!important; /* MANTENER BLANCO EN HOVER */
+       }
+       .submenu-item:visited { color:var(--color-blanco)!important; } /* QUITAR MORADO */
+
+       .sidebar-footer { padding:1.6rem; border-top:1px solid rgba(255,255,255,0.15); margin-top:auto; }
+       .btn-logout { width:100%; display:flex; align-items:center; justify-content:center; gap:0.8rem; padding:1.2rem; background:var(--color-acento); color:var(--color-texto); border:none; border-radius:0.8rem; font-weight:700; font-size:var(--text-base); cursor:pointer; transition:0.2s; }
+       .btn-logout:hover { opacity:0.9; }
+       .btn-mobile-menu { position:fixed; top:1.6rem; left:1.6rem; z-index:1001; background:var(--color-primario); color:var(--color-blanco); border:none; padding:1rem; border-radius:0.8rem; display:none; cursor:pointer; }
+       .sidebar-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; }
+        @media (max-width: 1024px) {.btn-mobile-menu { display:block!important; }.sidebar-desktop { transform:translateX(-100%); position:fixed; }.sidebar-mobile-open { transform:translateX(0); position:fixed; box-shadow:0 0 3rem rgba(0,0,0,0.3); } }
+        @media (min-width: 1025px) {.sidebar-overlay { display:none!important; } }
       `}</style>
     </>
   )
