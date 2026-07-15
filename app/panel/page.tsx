@@ -83,7 +83,7 @@ export default function PanelPage() {
   }
 
   return (
-    <div style={{ padding: '2.4rem' }}>
+    <div>
       {/* HEADER */}
       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'3.2rem' }}>
         <div>
@@ -107,11 +107,7 @@ export default function PanelPage() {
       )}
 
       {/* GRID DE GRAFICOS CON ALTURA FIJA */}
-      <div style={{
-        display:'grid',
-        gridTemplateColumns:'repeat(auto-fit, minmax(30rem, 1fr))',
-        gap:'2.4rem'
-      }}>
+      <div className="graficos-grid">
         <div className="card-sgpc" style={{ padding: '2.4rem' }}>
           <h3 style={{ marginBottom:'1.6rem', fontFamily: 'var(--font-titulos)' }}>Supervisiones por Tipo</h3>
           <div style={{ height: '30rem' }}> {/* ALTURA FIJA PARA QUE NO SE ROMPA */}

@@ -4,12 +4,12 @@
 :root {
   /* BASE PARA REM: 1rem = 10px */
   font-size: 62.5%; /* 16px * 0.625 = 10px */
+  --sidebar-width: 35rem; /* CAMBIA SOLO ESTO: 26rem, 32rem, 35rem */
 
   /* COLORES INSTITUCIONALES UCS */
- /*--color-primario: #090c9b; /* Azul UCS #377de2*/
- --color-primario: #3066be; /* Azul UCS #377de2*/
-  --color-secundario: #00a8e8; /* Rojo UCS */
-  --color-acento: #8fbfec; /* Amarillo dorado #FDB913;*/
+  --color-primario: #3066be; /* Azul UCS */
+  --color-secundario: #00a8e8; /* Celeste UCS */
+  --color-acento: #8fbfec; /* Celeste claro */
   --color-fondo: #F5F7FA;
   --color-texto: #03045e;
   --color-blanco: #FFFFFF;
@@ -29,49 +29,38 @@
   --text-3xl: 3.0rem;  /* 30px */
   --text-4xl: 4.0rem;  /* 40px */
 
-  /* SIDEBAR */
-  --sidebar-width: 40rem; /* ANCHO NUEVO: 320px */
-  --sidebar-width-collapsed: 8rem;
-
- /* VARIABLES GLOBALES DE SGPC */
+  /* VARIABLES GLOBALES DE SGPC */
   --logo-header-url: url('https://img.icons8.com/?size=100&id=VP8eT8Cq7cQl&format=png&color=000000');
   --logo-ucs-url: url('https://img.icons8.com/?size=100&id=VP8eT8Cq7cQl&format=png&color=000000');
   --footer-text: "© 2026 GAQE";
-
 }
 
-
 html {
-  font-size: 62.5%; /* Lo ponemos también aquí por si acaso */
+  font-size: 62.5%;
 }
 
 body {
   font-family: var(--font-principal);
-  font-size: var(--text-base); /* 1.6rem = 16px por defecto */
+  font-size: var(--text-base);
   background-color: var(--color-fondo);
   color: var(--color-texto);
   line-height: 1.6;
   font-weight: 400;
+  margin: 0; /* Importante */
 }
 
-h1 { font-size: var(--text-4xl); font-family: var(--font-titulos); font-weight: 500;} /* 40px */
-h2 { font-size: var(--text-3xl); font-family: var(--font-titulos); font-weight: 500;} /* 30px */
-h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 500;} /* 24px */
-
-/* h1, h2, h3, h4 {
-  font-family: var(--font-titulos);
-  font-weight: 500;
-  letter-spacing: -0.5px; /* Más ejecutivo */
-/*} */
+h1 { font-size: var(--text-4xl); font-family: var(--font-titulos); font-weight: 500;}
+h2 { font-size: var(--text-3xl); font-family: var(--font-titulos); font-weight: 500;}
+h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 500;}
 
 /* COMPONENTES GLOBALES */
 .btn-primario {
   background-color: var(--color-primario);
   color: var(--color-blanco);
   border: none;
-  border-radius: 0.8rem; /* 8px */
-  padding: 1.2rem 2.4rem; /* 12px 24px */
-  font-size: var(--text-base); /* 16px */
+  border-radius: 0.8rem;
+  padding: 1.2rem 2.4rem;
+  font-size: var(--text-base);
   font-weight: 600;
   cursor: pointer;
   transition: opacity 0.2s;
@@ -83,61 +72,61 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 
 
 .input-sgpc {
   width: 100%;
-  padding: 1rem; /* 10px */
-  font-size: var(--text-base); /* 16px */
+  padding: 1rem;
+  font-size: var(--text-base);
   border: 1px solid var(--color-borde);
-  border-radius: 0.6rem; /* 6px */ 
+  border-radius: 0.6rem; 
 }
 .input-sgpc:focus {
-  outline: 0.2rem solid var(--color-borde); /* 2px */
+  outline: 0.2rem solid var(--color-borde);
   border-color: var(--color-primario);    
-  /* outline: 'none'; */
 }
 
 .input-login {
-    width: 100%;
-    box-sizing: border-box;
-    border: 1px solid var(--color-secundario); /* Borde celeste por defecto */
-    border-radius: 0.8rem;
-    padding: 1.4rem 4rem 1.4rem 1.4rem;
-    font-size: var(--text-base);
-    outline: none;
-    transition: all 0.2s ease;
-  }
-  .input-login:focus {
-    border: 2px solid var(--color-primario); /* Solo azul cuando está activo */
-    box-shadow: none;
-  }
-
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--color-secundario);
+  border-radius: 0.8rem;
+  padding: 1.4rem 4rem 1.4rem 1.4rem;
+  font-size: var(--text-base);
+  outline: none;
+  transition: all 0.2s ease;
+}
+.input-login:focus {
+  border: 2px solid var(--color-primario);
+  box-shadow: none;
+}
 
 /* CONTENEDOR RESPONSIVE */
 .container-sgpc {
   width: 100%;
-  max-width: 120rem; /* 1200px */
+  max-width: 120rem;
   margin: 0 auto;
-  padding: 0 2rem; /* 20px a los lados en cel */
+  padding: 0 2rem;
 }
 
 /* CARD DEL LOGIN */
 .card-sgpc {
   background-color: var(--color-blanco);
-  border-radius: 1.2rem; /* 12px */
-  padding: 3.2rem; /* 32px */
+  border-radius: 1.2rem;
+  padding: 2.4rem;
   box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.08);
   width: 100%;
-  max-width: 42rem; /* 420px max en desktop */
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
-@media (max-width: 1024px) {
- .header-responsive { padding-left: 6.4rem!important; }
- .main-content { padding-top: 7rem!important; }
-}
 .header-responsive {
   background-color: var(--color-blanco);
   padding: 1.6rem 2.4rem;
-  display:flex; justify-content:space-between; align-items:center;
+  display:flex; 
+  justify-content:space-between; 
+  align-items:center;
   border-bottom: 1px solid var(--color-borde);
-  position:sticky; top:0; z-index:50
+  position:sticky; 
+  top:0; 
+  z-index:50
 }
 .header-responsive h1 { font-size: var(--text-xl); margin:0 }
 .header-responsive p { font-size:var(--text-sm); margin:0.4rem 0 0; opacity:0.7 }
@@ -168,40 +157,97 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 
   color: var(--color-blanco) !important;
 }
 
-/* ARREGLO PARA CARDS DEL DASHBOARD */
-.card-sgpc {
-  background-color: var(--color-blanco);
-  border-radius: 1.2rem;
-  padding: 3.2rem;
-  box-shadow: 0 0.4rem 1.2rem rgba(0, 0, 0, 0.08);
-  width: 100%;
-  max-width: none; /* QUITAR EL 42rem */
-  box-sizing: border-box; /* IMPORTANTE */
-}
-
 /* GRID RESPONSIVE FIJO */
 .kpi-grid {
   display: grid;
   gap: 2.4rem;
   margin-bottom: 3.2rem;
+  width: 100%;
 }
 
 /* 1 columna: Celular */
 @media (max-width: 640px) {
   .kpi-grid { grid-template-columns: 1fr; }
 }
-
 /* 2 columnas: Tablet vertical */
 @media (min-width: 641px) and (max-width: 1023px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
 }
-
 /* 3 columnas: Tablet horizontal / Laptop chica */
 @media (min-width: 1024px) and (max-width: 1279px) {
   .kpi-grid { grid-template-columns: repeat(3, 1fr); }
 }
-
 /* 4 columnas: Desktop */
 @media (min-width: 1280px) {
   .kpi-grid { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* GRID GRAFICOS */
+.graficos-grid {
+  display: grid;
+  gap: 2.4rem;
+  width: 100%;
+}
+@media (max-width: 1023px) {
+  .graficos-grid { grid-template-columns: 1fr; }
+}
+@media (min-width: 1024px) {
+  .graficos-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+/* CONTENEDOR DEL CHART RESPONSIVE */
+.chart-container {
+  position: relative;
+  width: 100%;
+  height: 30rem;
+}
+
+/* ===== LAYOUT PANEL - FIX DEFINITIVO CON GRID ===== */
+.layout-wrapper {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr; /* 2 columnas fijas */
+  min-height: 100vh;
+  width: 100%;
+}
+
+.sidebar-wrapper {
+  /* Quitamos el fixed de aqui, ahora lo controla el componente */
+}
+
+.content-area {
+  padding: 2.4rem;
+  background: var(--color-fondo);
+  min-height: 100vh;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+/* ARREGLO MARGEN CARDS */
+.content-area > * {
+  margin-bottom: 2.4rem;
+}
+
+/* Asegurar que el grid tenga aire */
+.kpi-grid, .graficos-grid {
+  padding-left: 1.4rem;
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 1023px) {
+  .header-responsive { padding-left: 6.4rem!important; }
+  
+  .layout-wrapper { 
+    grid-template-columns: 1fr; /* Solo 1 columna en mobile */
+  }
+
+  .content-area {
+    padding: 7rem 2.4rem 2.4rem 2.4rem !important;
+  }
+}
+
+/* ARREGLAR OVERFLOW DE INPUTS */
+.input-sgpc, 
+select.input-sgpc {
+  box-sizing: border-box; /* Clave para que padding no sume */
+  width: 100%; /* Que ocupe el 100% de su contenedor */
 }
