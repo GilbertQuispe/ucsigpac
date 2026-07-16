@@ -4,7 +4,7 @@
 :root {
   /* BASE PARA REM: 1rem = 10px */
   font-size: 62.5%; /* 16px * 0.625 = 10px */
-  --sidebar-width: 35rem; /* CAMBIA SOLO ESTO: 26rem, 32rem, 35rem */
+  --sidebar-width: 40rem; /* CAMBIA SOLO ESTO: 26rem, 32rem, 35rem */
 
   /* COLORES INSTITUCIONALES UCS */
   --color-primario: #3066be; /* Azul UCS */
@@ -68,6 +68,39 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 
 .btn-primario:hover {
   opacity: 0.9;
   background-color: var(--color-borde);  
+}
+
+.btn-secundario { /* NUEVO - Igual al login pero celeste */
+  background-color: var(--color-secundario); /* #00a8e8 Celeste UCS */
+  color: var(--color-blanco);
+  border: none;
+  border-radius: 0.8rem;
+  padding: 1.2rem 2.4rem;
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+}
+.btn-secundario:hover {
+  opacity: 0.9;
+  background-color: var(--color-acento); /* #8fbfec Celeste claro al hover */
+}
+
+/* RESPONSIVE PARA BOTONES */
+@media (max-width: 768px) {
+  .btn-primario, .btn-secundario {
+    flex: 1;
+    padding: 1rem 1.2rem;
+    font-size: 1.3rem;
+  }
+  .btn-primario svg, .btn-secundario svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 
 .input-sgpc {
