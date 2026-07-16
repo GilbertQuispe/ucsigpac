@@ -14,6 +14,7 @@
   --color-texto: #03045e;
   --color-blanco: #FFFFFF;
   --color-borde: #090c9b;
+  --color-placeholder:#cbd5e1; /*#94a3b8*/
 
   /* TIPOGRAFÍA */
   --font-titulos: 'Montserrat', sans-serif; /* Para títulos y menú */
@@ -71,9 +72,9 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 
 }
 
 .btn-secundario { /* NUEVO - Igual al login pero celeste */
-  background-color: var(--color-secundario); /* #00a8e8 Celeste UCS */
-  color: var(--color-blanco);
-  border: none;
+  background-color: var(--color-blanco); /* #00a8e8 Celeste UCS */
+  color: var(--color-secundario);
+  border: 1.5px solid var(--color-secundario);
   border-radius: 0.8rem;
   padding: 1.2rem 2.4rem;
   font-size: var(--text-base);
@@ -87,11 +88,14 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 
 }
 .btn-secundario:hover {
   opacity: 0.9;
-  background-color: var(--color-acento); /* #8fbfec Celeste claro al hover */
+  background-color: var(--color-borde); /* #8fbfec Celeste claro al hover */
+  border: 1.5px solid var(--color-borde);
+  color: var(--color-blanco);
+  transform: translateY(-1px);
 }
 
 /* RESPONSIVE PARA BOTONES */
-@media (max-width: 768px) {
+/* @media (max-width: 768px) {
   .btn-primario, .btn-secundario {
     flex: 1;
     padding: 1rem 1.2rem;
@@ -100,6 +104,43 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 
   .btn-primario svg, .btn-secundario svg {
     width: 16px;
     height: 16px;
+  }
+} */
+
+/* RESPONSIVE HEADER + BOTONES EJECUTIVOS */
+/* RESPONSIVE HEADER EJECUTIVO SIGPAC */
+@media (max-width: 768px) {
+  .header-responsive {
+    flex-direction: column; /* Todo en columna */
+    align-items: center; /* Centrar todo */
+    gap: 1.6rem;
+    text-align: center;
+  }
+
+  .header-responsive > div:first-child {
+    width: 100%; /* Que el título ocupe todo */
+  }
+
+  .header-responsive > div:last-child {
+    display: flex !important;
+    flex-direction: column; /* Botones uno debajo del otro */
+    width: 100%;
+    gap: 1rem;
+    align-items: center; /* Centrar botones */
+  }
+
+  .btn-primario, .btn-secundario, 
+  label.btn-secundario { /* Importante: incluir el label */
+    width: 100%; /* Mismo ancho */
+    max-width: 40rem; /* Para que no se estire tanto en tablet */
+    padding: 1.4rem;
+    font-size: var(--text-base);
+    justify-content: center; /* Icono + texto centrado */
+    box-sizing: border-box;
+  }
+
+  .header-responsive h1 {
+    font-size: 2.2rem;
   }
 }
 
@@ -267,7 +308,7 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 
 
 /* ===== MOBILE ===== */
 @media (max-width: 1023px) {
-  .header-responsive { padding-left: 6.4rem!important; }
+  .header-responsive { padding-left: 2.4rem!important; padding-right: 2.4rem!important; }
   
   .layout-wrapper { 
     grid-template-columns: 1fr; /* Solo 1 columna en mobile */
@@ -283,4 +324,48 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 
 select.input-sgpc {
   box-sizing: border-box; /* Clave para que padding no sume */
   width: 100%; /* Que ocupe el 100% de su contenedor */
+}
+
+.input-sgpc-floating::placeholder {
+  color: var(--color-placeholder); /* Gris claro. Antes estaba #64748b que es más oscuro */
+  opacity: 1; /* Por defecto Chrome le baja la opacidad */
+  font-weight: 400;
+}
+
+/* Para cuando está deshabilitado también */
+.input-sgpc-floating:disabled::placeholder {
+  color: #cbd5e1;
+  opacity: 1;
+}
+/* nuevos modal***/
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.4rem;
+  padding-bottom: 1.6rem;
+  border-bottom: 1px solid var(--color-borde);
+}
+.modal-header h2 {
+  font-size: var(--text-2xl);
+  color: var(--color-primario);
+  margin: 0;
+}
+.modal-body {
+  display: grid;
+  gap: 1.6rem;
+  flex: 1; /* Para que crezca y centre */
+}
+.modal-footer {
+  display: flex;
+  gap: 1.2rem;
+  margin-top: 2.4rem;
+  padding-top: 1.6rem;
+  border-top: 1px solid var(--color-borde);
+}
+.modal-footer .btn-primario,
+.modal-footer .btn-secundario {
+  flex: 1; /* Que ambos ocupen 50% */
+  justify-content: center;
 }

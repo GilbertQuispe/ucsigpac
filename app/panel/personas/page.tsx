@@ -48,7 +48,7 @@ export default function PersonasPage() {
     const { data: rolesData } = await supabase.from('rol').select('idrol, nombrerol')
 
     const personasConRol = (personasData || []).map(p => ({
-    ...p,
+   ...p,
       rol: rolesData?.find(r => Number(r.idrol) === Number(p.idrol))
     }))
 
@@ -93,6 +93,11 @@ export default function PersonasPage() {
       setDniInputBloqueado(false)
       setCamposBloqueados(true)
     }
+
+    if (dniLimitado.length === 8) {
+      validarDNI(dniLimitado)      
+    }
+
   }
 
   const handleDniKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -101,6 +106,11 @@ export default function PersonasPage() {
       validarDNI(form.dni || '')
     }
   }
+
+  // Validar si el botón guardar debe estar habilitado
+  const puedeGuardar = useMemo(() => {
+    return!camposBloqueados && form.dni?.length === 8 && form.nombres?.trim() && form.apellidos?.trim()
+  }, [camposBloqueados, form])
 
   const personasFiltradas = useMemo(() => {
     return personas.filter(p => {
@@ -113,7 +123,7 @@ export default function PersonasPage() {
     })
   }, [personas, search, filtroSexo])
 
-  const handleSave = async () => {
+ /*  const handleSave = async () => {
     if (!form.dni ||!form.nombres ||!form.apellidos) {
       showToast('Complete los campos obligatorios', 'error')
       return
@@ -127,7 +137,55 @@ export default function PersonasPage() {
     }
     closeModal()
     fetchPersonas()
+  } */
+
+const handleSave = async () => {
+  if (!puedeGuardar) return;
+
+  try {
+    let mensaje = '';
+
+    if (editing) {
+      // ACTUALIZAR
+      const { error } = await supabase
+       .from('persona')
+       .update({
+          dni: form.dni,
+          nombres: form.nombres,
+          apellidos: form.apellidos,
+          telefono: form.telefono,
+          sexo: form.sexo,
+          idrol: form.idrol
+        })
+       .eq('idpersona', editing.idpersona);
+
+      if (error) throw error;
+      mensaje = 'Datos actualizados correctamente';
+    } else {
+      // CREAR
+      const { error } = await supabase
+       .from('persona')
+       .insert([form]);
+
+      if (error) throw error;
+      mensaje = 'Persona registrada correctamente';
+    }
+
+    // 1. TOAST
+    setToast({ msg: mensaje, type: 'success' });
+    setTimeout(() => setToast(null), 3000);
+
+    // 2. ACTUALIZAR TABLA
+    await fetchPersonas();
+
+    // 3. CERRAR MODAL Y LIMPIAR
+    closeModal();
+
+  } catch (err: any) {
+    setToast({ msg: err.message || 'Error al guardar', type: 'error' });
+    setTimeout(() => setToast(null), 3000);
   }
+}
 
   const handleDelete = async (id: number) => {
     if (!confirm('¿Seguro de eliminar este registro?')) return
@@ -262,74 +320,8 @@ export default function PersonasPage() {
 
       {/* MODAL FORMULARIO */}
       {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.4rem' }}>
-              <h2>{editing? 'Editar Persona' : 'Nueva Persona'}</h2>
-              <button onClick={closeModal} className="btn-cerrar"><X size={20} /></button>
-            </div>
-            <div style={{ display: 'grid', gap: '1.6rem' }}>
-
-              <div className="input-wrapper">
-                <label className="input-label">DNI</label>
-                <input
-                  ref={dniInputRef}
-                  className="input-sgpc-floating"
-                  placeholder="12345678"
-                  type="text"
-                  inputMode="numeric"
-                  value={form.dni || ''}
-                  onChange={e => handleDniChange(e.target.value)}
-                  onKeyDown={handleDniKeyDown}
-                  onBlur={() => validarDNI(form.dni || '')}
-                  maxLength={8}
-                  disabled={dniInputBloqueado}
-                />
-                <div className="input-icon-wrapper"><IdCard size={18} strokeWidth={1.5} /></div>
-              </div>
-
-              <div className="input-wrapper">
-                <label className="input-label">Apellidos</label>
-                <input ref={apellidosInputRef} className="input-sgpc-floating" placeholder="Pérez García" value={form.apellidos || ''} onChange={e => setForm({...form, apellidos: e.target.value })} disabled={camposBloqueados} />
-                <div className="input-icon-wrapper"><User size={18} strokeWidth={1.5} /></div>
-              </div>
-
-              <div className="input-wrapper">
-                <label className="input-label">Nombres</label>
-                <input className="input-sgpc-floating" placeholder="Juan Carlos" value={form.nombres || ''} onChange={e => setForm({...form, nombres: e.target.value })} disabled={camposBloqueados} />
-                <div className="input-icon-wrapper"><User size={18} strokeWidth={1.5} /></div>
-              </div>
-
-              <div className="input-wrapper">
-                <label className="input-label">Teléfono</label>
-                <input className="input-sgpc-floating" placeholder="987654321" value={form.telefono || ''} onChange={e => setForm({...form, telefono: e.target.value })} disabled={camposBloqueados} />
-                <div className="input-icon-wrapper"><Phone size={18} strokeWidth={1.5} /></div>
-              </div>
-
-              <div className="input-wrapper">
-                <label className="input-label">Sexo</label>
-                <select className="input-sgpc-floating" value={form.sexo || ''} onChange={e => setForm({...form, sexo: e.target.value as 'M' | 'F' })} disabled={camposBloqueados}>
-                  <option value="">Seleccionar</option>
-                  <option value="M">Masculino</option>
-                  <option value="F">Femenino</option>
-                </select>
-                <div className="input-icon-wrapper"><Users size={18} strokeWidth={1.5} /></div>
-              </div>
-
-              <div className="input-wrapper">
-                <label className="input-label">Rol</label>
-                <select className="input-sgpc-floating" value={form.idrol || ''} onChange={e => setForm({...form, idrol: Number(e.target.value) })} disabled={camposBloqueados}>
-                  <option value="">Seleccionar Rol</option>
-                  {roles.map(r => (<option key={r.idrol} value={r.idrol}>{r.nombrerol}</option>))}
-                </select>
-                <div className="input-icon-wrapper"><Shield size={18} strokeWidth={1.5} /></div>
-              </div>
-
-              <button className="btn-primario" onClick={handleSave} disabled={camposBloqueados}>Guardar</button>
-            </div>
-          </div>
-        </div>
-      )}
+  <div className="modal-overlay">
+    <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()}>
 
       {/* TOAST ESTANDAR SIGPAC */}
       {toast && (
@@ -338,8 +330,94 @@ export default function PersonasPage() {
         </div>
       )}
 
+      {/* HEADER */}
+      <div className="modal-header">
+        <h2>{editing? 'Editar Persona' : 'Nueva Persona'}</h2>
+        <button onClick={closeModal} className="btn-cerrar"><X size={20} /></button>
+      </div>
+
+      {/* BODY */}
+      <div className="modal-body">
+        <div className="input-wrapper">
+          <label className="input-label">DNI</label>
+          <input
+            ref={dniInputRef}
+            className="input-sgpc-floating"
+            placeholder="12345678"
+            type="text"
+            inputMode="numeric"
+            value={form.dni || ''}
+            onChange={e => handleDniChange(e.target.value)}
+            onKeyDown={handleDniKeyDown}
+            onBlur={() => validarDNI(form.dni || '')}
+            maxLength={8}
+            disabled={dniInputBloqueado}
+          />
+          <div className="input-icon-wrapper"><IdCard size={18} strokeWidth={1.5} /></div>
+        </div>
+
+        <div className="input-wrapper">
+          <label className="input-label">Apellidos</label>
+          <input ref={apellidosInputRef} className="input-sgpc-floating" placeholder="Pérez García" value={form.apellidos || ''} onChange={e => setForm({...form, apellidos: e.target.value })} disabled={camposBloqueados} />
+          <div className="input-icon-wrapper"><User size={18} strokeWidth={1.5} /></div>
+        </div>
+
+        <div className="input-wrapper">
+          <label className="input-label">Nombres</label>
+          <input className="input-sgpc-floating" placeholder="Juan Carlos" value={form.nombres || ''} onChange={e => setForm({...form, nombres: e.target.value })} disabled={camposBloqueados} />
+          <div className="input-icon-wrapper"><User size={18} strokeWidth={1.5} /></div>
+        </div>
+
+        <div className="input-wrapper">
+          <label className="input-label">Teléfono</label>
+          <input className="input-sgpc-floating" placeholder="987654321" value={form.telefono || ''} onChange={e => setForm({...form, telefono: e.target.value })} disabled={camposBloqueados} />
+          <div className="input-icon-wrapper"><Phone size={18} strokeWidth={1.5} /></div>
+        </div>
+
+        <div className="input-wrapper">
+          <label className="input-label">Sexo</label>
+          <select className="input-sgpc-floating" value={form.sexo || ''} onChange={e => setForm({...form, sexo: e.target.value as 'M' | 'F' })} disabled={camposBloqueados}>
+            
+            <option value="M">Masculino</option>
+            <option value="F">Femenino</option>
+          </select>
+          <div className="input-icon-wrapper"><Users size={18} strokeWidth={1.5} /></div>
+        </div>
+
+        <div className="input-wrapper">
+          <label className="input-label">Rol</label>
+          <select className="input-sgpc-floating" value={form.idrol || ''} onChange={e => setForm({...form, idrol: Number(e.target.value) })} disabled={camposBloqueados}>
+            
+            {roles.map(r => (<option key={r.idrol} value={r.idrol}>{r.nombrerol}</option>))}
+          </select>
+          <div className="input-icon-wrapper"><Shield size={18} strokeWidth={1.5} /></div>
+        </div>
+      </div>
+
+      {/* FOOTER */}
+      <div className="modal-footer">
+        <button 
+          className="btn-secundario" 
+          onClick={() => {
+            setForm({ dni: '', nombres: '', apellidos: '', telefono: '', sexo: null, idrol: 4 });
+            setDniInputBloqueado(false);
+            setCamposBloqueados(true);
+            setTimeout(() => dniInputRef.current?.focus(), 100);
+          }}
+        >
+          Cancelar
+        </button>
+        <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>
+          Guardar
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
+
       <style jsx>{`
-      .btn-icon {
+     .btn-icon {
           background: var(--color-acento);
           border: none;
           padding: 0.8rem;
@@ -348,10 +426,14 @@ export default function PersonasPage() {
           color: var(--color-texto);
           display: flex;
         }
-      .btn-icon:hover { opacity: 0.8; }
-      .btn-danger { background: #ef4444; color: white; }
+     .btn-icon:hover { opacity: 0.8; }
+     .btn-danger { background: #ef4444; color: white; }
+     .btn-primario:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
 
-      .btn-cerrar {
+     .btn-cerrar {
           background: #f1f5f9;
           border: none;
           border-radius: 0.8rem;
@@ -363,13 +445,13 @@ export default function PersonasPage() {
           justify-content: center;
           transition: all 0.2s ease;
         }
-      .btn-cerrar:hover {
+     .btn-cerrar:hover {
           background: #fee2e2;
           color: #ef4444;
           transform: rotate(90deg);
         }
 
-      .modal-overlay {
+     .modal-overlay {
           position: fixed;
           inset: 0;
           background: rgba(0,0,0,0.3);
@@ -379,17 +461,22 @@ export default function PersonasPage() {
           z-index: 2000;
           padding: 2rem;
         }
-      .modal-content {
+     .modal-content {
           width: 100%;
           max-width: 50rem;
           background: var(--color-blanco);
           border-radius: 1.6rem;
           box-shadow: 0 20px 60px rgba(0,0,0,0.3);
           padding: 3.2rem;
+          position: relative; /* CLAVE PARA QUE EL TOAST SE CENTRE AQUI */
+          
+          display:flex;
+          flex-direction:column;
+          max-height:90vh;
         }
 
-      .input-wrapper { position: relative; width: 100%; }
-      .input-sgpc-floating {
+     .input-wrapper { position: relative; width: 100%; }
+     .input-sgpc-floating {
           width: 100%;
           box-sizing: border-box;
           padding: 1.8rem 4.2rem 0.8rem 1.6rem;
@@ -403,16 +490,16 @@ export default function PersonasPage() {
           color: var(--color-texto);
           height: 5.2rem;
         }
-      .input-sgpc-floating:focus {
+     .input-sgpc-floating:focus {
           border: 2px solid var(--color-primario);
           padding: 1.7rem 4.1rem 0.7rem 1.5rem;
         }
-      .input-sgpc-floating:disabled {
+     .input-sgpc-floating:disabled {
           background: #f3f4f6;
           cursor: not-allowed;
           opacity: 0.7;
         }
-      .input-label {
+     .input-label {
           position: absolute;
           left: 1.4rem;
           top: -0.8rem;
@@ -424,7 +511,7 @@ export default function PersonasPage() {
           pointer-events: none;
           z-index: 1;
         }
-      .input-icon-wrapper {
+     .input-icon-wrapper {
           position: absolute;
           right: 1.4rem;
           top: 0;
@@ -439,24 +526,26 @@ export default function PersonasPage() {
           z-index: 2;
         }
 
-      .toast-sgpc {
-          position: fixed;
-          top: 8rem;
+     .toast-sgpc {
+          position: absolute; /* CAMBIO: Ahora es absolute al modal */
+          top: 50%; /* Sale arriba del modal */
           left: 50%;
-          transform: translateX(-50%);
-          padding: 1.2rem 2.4rem;
+          transform: translate(-50%,-50%);
+          padding: 2rem 2rem;
           border-radius: 0.8rem;
           font-size: var(--text-sm);
-          font-weight: 600;
+          font-weight: 700;
           color: var(--color-blanco);
-          box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-          z-index: 4000;
-          animation: slideDown 0.3s ease-out;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+          z-index: 9999;
+          animation: fadeInScale 0.3s ease-out forwards;
           white-space: nowrap;
+          text-align:center;
+         
         }
-      .toast-sgpc.error { background: #ef4444; }
-      .toast-sgpc.success { background: #22c55e; }
-        @keyframes slideDown { from { opacity: 0; transform: translate(-50%, -20px); } to { opacity: 1; transform: translate(-50%, 0); } }
+        .toast-sgpc.error { background: #ef4444; }
+        .toast-sgpc.success { background: #22c55e; }
+        @keyframes fadeInScale { from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
       `}</style>
     </div>
   )
