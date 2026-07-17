@@ -4,6 +4,7 @@ import { createClient } from '@/lib/client'
 import { Plus, Edit, Trash2, X, Search, Upload, Phone, User, IdCard, Users, Shield, AlertTriangle, Check, Ban } from 'lucide-react'
 import * as XLSX from 'xlsx'
 
+
 type Persona = {
   idpersona: number
   dni: string
@@ -13,6 +14,7 @@ type Persona = {
   sexo: 'M' | 'F' | null
   created_at: string
   idrol: number | null
+  estado: string // <-- NUEVO
   rol?: { nombrerol: string }
 }
 
@@ -39,7 +41,6 @@ export default function PersonasPage() {
   const dniInputRef = useRef<HTMLInputElement>(null)
   const apellidosInputRef = useRef<HTMLInputElement>(null)
 
-  // NUEVO: PARA PREVIEW
   const [previewData, setPreviewData] = useState<any[]>([])
   const [showPreviewModal, setShowPreviewModal] = useState(false)
 
@@ -53,11 +54,15 @@ export default function PersonasPage() {
 
   const fetchPersonas = async () => {
     setLoading(true)
-    const { data: personasData } = await supabase.from('persona').select('*').order('idpersona')
+    const { data: personasData } = await supabase
+     .from('persona')
+     .select('*')
+     .eq('estado', 'ACTIVO') // <-- SOLO TRAE ACTIVOS
+     .order('idpersona')
     const { data: rolesData } = await supabase.from('rol').select('idrol, nombrerol')
 
     const personasConRol = (personasData || []).map(p => ({
-    ...p,
+   ...p,
       rol: rolesData?.find(r => Number(r.idrol) === Number(p.idrol))
     }))
 
@@ -72,11 +77,15 @@ export default function PersonasPage() {
     if (!dniValue || dniValue.length!== 8) return
 
     setLoading(true)
-    const { data } = await supabase.from('persona').select('idpersona').eq('dni', dniValue).maybeSingle()
+    const { data } = await supabase.from('persona').select('idpersona, estado').eq('dni', dniValue).maybeSingle() // <-- AGREGUE ESTADO
     setLoading(false)
 
-    if (data &&!editing) {
-      showToast('Este Nro. De DNI ya está registrado', 'error')
+    if (data) {
+      if(data.estado === 'ANULADO'){
+        showToast('Este DNI está ANULADO. Reactívelo primero', 'error')
+      } else {
+        showToast('Este Nro. De DNI ya está registrado', 'error')
+      }
       setDniInputBloqueado(false)
       setCamposBloqueados(true)
       setTimeout(() => {
@@ -142,8 +151,8 @@ export default function PersonasPage() {
 
       if (editing) {
         const { error } = await supabase
-        .from('persona')
-        .update({
+       .from('persona')
+       .update({
             dni: form.dni,
             nombres: form.nombres,
             apellidos: form.apellidos,
@@ -151,20 +160,21 @@ export default function PersonasPage() {
             sexo: form.sexo || null,
             idrol: form.idrol
           })
-        .eq('idpersona', editing.idpersona);
+       .eq('idpersona', editing.idpersona);
 
         if (error) throw error;
         mensaje = 'Datos actualizados correctamente';
       } else {
         const { error } = await supabase
-        .from('persona')
-        .insert({
+       .from('persona')
+       .insert({
             dni: form.dni,
             nombres: form.nombres,
             apellidos: form.apellidos,
             telefono: form.telefono || null,
             sexo: form.sexo || null,
-            idrol: form.idrol
+            idrol: form.idrol,
+            estado: 'ACTIVO' // <-- NUEVO
           });
 
         if (error) throw error;
@@ -180,25 +190,30 @@ export default function PersonasPage() {
     }
   }
 
-  const handleDelete = (id: number) => {
+  const handleDelete = (id: number) => { // Ahora es Anular
     setIdAEliminar(id)
     setShowConfirm(true)
   }
 
+  // CAMBIO CLAVE: YA NO BORRA, AHORA ANULA
   const confirmarEliminar = async () => {
     if (!idAEliminar) return
-    const { error } = await supabase.from('persona').delete().eq('idpersona', idAEliminar)
+    
+    const { error } = await supabase
+     .from('persona')
+     .update({ estado: 'ANULADO' }) // <-- ANULACION LOGICA
+     .eq('idpersona', idAEliminar)
+      
     if (error) {
-      showToast('Error al eliminar: ' + error.message, 'error')
+      showToast('Error al anular: ' + error.message, 'error')
     } else {
-      showToast('Registro eliminado correctamente', 'success')
+      showToast('Registro anulado correctamente', 'success')
       fetchPersonas()
     }
     setShowConfirm(false)
     setIdAEliminar(null)
   }
 
-  // CORREGIDO: ORDEN DE COLUMNAS + PREVIEW
   const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -212,15 +227,14 @@ export default function PersonasPage() {
       const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
       const filas = data.slice(1)
 
-      const { data: personasExistentes } = await supabase.from('persona').select('dni')
-      const dnisExistentes = new Set(personasExistentes?.map(p => p.dni))
+      const { data: personasExistentes } = await supabase.from('persona').select('dni, estado')
+      const dnisExistentes = new Set(personasExistentes?.filter(p=>p.estado==='ACTIVO').map(p => p.dni)) // <-- SOLO ACTIVOS
 
       const preview: any[] = []
 
       filas.forEach((row, index) => {
-        // CORRECCION: TU ORDEN REAL: [0]=DNI, [1]=APELLIDOS, [2]=NOMBRES, [3]=TELEFONO, [4]=SEXO, [5]=IDROL
         let dni = row[0]?.toString().replace(/\D/g, '') || ''
-        dni = dni.padStart(8, '0') // 123456 -> 00123456
+        dni = dni.padStart(8, '0')
 
         const apellidosRaw = row[1]?.toString().trim() || ''
         const nombresRaw = row[2]?.toString().trim() || ''
@@ -228,7 +242,6 @@ export default function PersonasPage() {
         const sexoRaw = row[4]?.toString().trim().toUpperCase() || ''
         const idrol = Number(row[5]) || 4
 
-        // FORMATO: Apellidos TODO MAYUS, Nombres Primera letra Mayus
         const apellidos = apellidosRaw.toUpperCase()
         const nombres = toTitleCase(nombresRaw)
 
@@ -254,6 +267,7 @@ export default function PersonasPage() {
           telefono,
           sexo: ['M','F'].includes(sexoRaw)? sexoRaw : '',
           idrol,
+          estadoRegistro: 'ACTIVO', // <-- NUEVO
           motivo,
           estado
         })
@@ -267,17 +281,18 @@ export default function PersonasPage() {
     e.target.value = ''
   }
 
-  // NUEVO: CONFIRMAR IMPORTACION
   const handleConfirmImport = async () => {
-    const paraGrabar = previewData.filter(p => p.estado === 'ok')
-    .map(p => ({ // <-- MAPEO: solo los campos que tiene la tabla
-      dni: p.dni,
-      apellidos: p.apellidos,
-      nombres: p.nombres,
-      telefono: p.telefono || null,
-      sexo: p.sexo || null,
-      idrol: p.idrol
-    }))
+    const paraGrabar = previewData
+     .filter(p => p.estado === 'ok')
+     .map(p => ({
+        dni: p.dni,
+        apellidos: p.apellidos,
+        nombres: p.nombres,
+        telefono: p.telefono || null,
+        sexo: p.sexo || null,
+        idrol: p.idrol,
+        estado: 'ACTIVO' // <-- NUEVO
+      }))
 
     if (paraGrabar.length === 0) {
       showToast('No hay registros válidos para importar', 'error')
@@ -290,6 +305,7 @@ export default function PersonasPage() {
 
     if (error) {
       showToast('Error al importar: ' + error.message, 'error')
+      console.error(error)
     } else {
       showToast(`Se importaron ${paraGrabar.length} personas correctamente`, 'success')
       fetchPersonas()
@@ -331,11 +347,10 @@ export default function PersonasPage() {
 
   return (
     <div>
-      {/* HEADER */}
       <div className="header-responsive">
         <div>
           <h1>Registro de Personas</h1>
-          <p>Total: {personasFiltradas.length} registros</p>
+          <p>Total: {personasFiltradas.length} registros ACTIVOS</p> {/* <-- CAMBIO */}
         </div>
         <div style={{ display: 'flex', gap: '1.2rem' }}>
           <label htmlFor="import-excel" className="btn-secundario" style={{ cursor: 'pointer' }}>
@@ -356,7 +371,6 @@ export default function PersonasPage() {
         </div>
       </div>
 
-      {/* FILTROS */}
       <div className="card-sgpc" style={{ marginBottom: '2.4rem', display: 'flex', gap: '1.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ position: 'relative', flex: 1, minWidth: '25rem' }}>
           <Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
@@ -369,12 +383,11 @@ export default function PersonasPage() {
         </select>
       </div>
 
-      {/* TABLA */}
       <div className="card-sgpc" style={{ overflowX: 'auto' }}>
         {loading? <p>Cargando...</p> : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
+          <table className='tabla-sgpc'>
             <thead>
-              <tr style={{ borderBottom: '0.2rem solid var(--color-borde)', textAlign: 'left' }}>
+              <tr >
                 <th style={{ padding: '1rem' }}>ID</th>
                 <th style={{ padding: '1rem' }}>DNI</th>
                 <th style={{ padding: '1rem' }}>Apellidos</th>
@@ -396,8 +409,8 @@ export default function PersonasPage() {
                   <td style={{ padding: '1rem' }}>{p.sexo === 'M'? 'Masculino' : p.sexo === 'F'? 'Femenino' : '-'}</td>
                   <td style={{ padding: '1rem', fontWeight: 600 }}>{p.rol?.nombrerol || 'Sin Rol'}</td>
                   <td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}>
-                    <button className="btn-icon" onClick={() => openModal(p)}><Edit size={15} /></button>
-                    <button className="btn-icon btn-danger" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button>
+                    <button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button>
+                    <button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button>
                   </td>
                 </tr>
               ))}
@@ -406,7 +419,6 @@ export default function PersonasPage() {
         )}
       </div>
 
-      {/* MODAL FORMULARIO */}
       {showModal && (
         <div className="modal-overlay">
           <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()}>
@@ -470,33 +482,32 @@ export default function PersonasPage() {
         </div>
       )}
 
-      {/* MODAL CONFIRMAR ELIMINAR */}
+      {/* MODAL CONFIRMAR ANULACION */}
       {showConfirm && (
         <div className="modal-overlay">
           <div className="modal-content card-sgpc" style={{ maxWidth: '40rem' }}>
             <div className="modal-header">
-              <h2><AlertTriangle size={20} style={{ marginRight: '0.8rem', color: '#ef4444' }} />Confirmar Eliminación</h2>
+              <h2><AlertTriangle size={20} style={{ marginRight: '0.8rem', color: '#f59e0b' }} />Confirmar Anulación</h2> {/* <-- CAMBIO COLOR */}
               <button onClick={() => setShowConfirm(false)} className="btn-cerrar"><X size={20} /></button>
             </div>
             <div className="modal-body">
               <p style={{ textAlign: 'center', fontSize: 'var(--text-base)', color: 'var(--color-texto)' }}>
-                ¿Está seguro de eliminar este registro? <br />
-                <span style={{ fontWeight: 600, color: '#ef4444' }}>Esta acción no se puede deshacer.</span>
+                ¿Está seguro de ANULAR este registro? <br />
+                <span style={{ fontWeight: 600 }}>El registro no se borrará, solo se ocultará de la lista.</span>
               </p>
             </div>
             <div className="modal-footer">
               <button className="btn-secundario" onClick={() => setShowConfirm(false)}>
                 Cancelar
               </button>
-              <button className="btn-primario" style={{ background: '#ef4444' }} onClick={confirmarEliminar}>
-                Eliminar
+              <button className="btn-primario" style={{ background: '#f59e0b' }} onClick={confirmarEliminar}> {/* <-- BOTON NARANJA */}
+                Anular
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* NUEVO MODAL PREVIEW IMPORTACION */}
       {showPreviewModal && (
         <div className="modal-overlay">
           <div className="modal-content card-sgpc" style={{ maxWidth: '95rem' }}>
@@ -554,22 +565,13 @@ export default function PersonasPage() {
       )}
 
       <style jsx>{`
-   .btn-icon {
-          background: var(--color-acento);
-          border: none;
-          padding: 0.8rem;
-          border-radius: 0.6rem;
-          cursor: pointer;
-          color: var(--color-texto);
-          display: flex;
-        }
-   .btn-icon:hover { opacity: 0.8; }
-   .btn-danger { background: #ef4444; color: white; }
-   .btn-primario:disabled {
+ 
+  .btn-danger { background: #ef4444; color: white; }
+  .btn-primario:disabled {
         opacity: 0.5;
         cursor: not-allowed;
       }
-   .btn-cerrar {
+  .btn-cerrar {
           background: #f1f5f9;
           border: none;
           border-radius: 0.8rem;
@@ -581,12 +583,12 @@ export default function PersonasPage() {
           justify-content: center;
           transition: all 0.2s ease;
         }
-   .btn-cerrar:hover {
+  .btn-cerrar:hover {
           background: #fee2e2;
           color: #ef4444;
           transform: rotate(90deg);
         }
-   .modal-overlay {
+  .modal-overlay {
           position: fixed;
           inset: 0;
           background: rgba(0,0,0,0.3);
@@ -596,7 +598,7 @@ export default function PersonasPage() {
           z-index: 2000;
           padding: 2rem;
         }
-   .modal-content {
+  .modal-content {
           width: 100%;
           max-width: 50rem;
           background: var(--color-blanco);
@@ -608,8 +610,8 @@ export default function PersonasPage() {
           flex-direction:column;
           max-height:90vh;
         }
-   .input-wrapper { position: relative; width: 100%; }
-   .input-sgpc-floating {
+  .input-wrapper { position: relative; width: 100%; }
+  .input-sgpc-floating {
           width: 100%;
           box-sizing: border-box;
           padding: 1.8rem 4.2rem 0.8rem 1.6rem;
@@ -623,16 +625,16 @@ export default function PersonasPage() {
           color: var(--color-texto);
           height: 5.2rem;
         }
-   .input-sgpc-floating:focus {
+  .input-sgpc-floating:focus {
           border: 2px solid var(--color-primario);
           padding: 1.7rem 4.1rem 0.7rem 1.5rem;
         }
-   .input-sgpc-floating:disabled {
+  .input-sgpc-floating:disabled {
           background: #f3f4f6;
           cursor: not-allowed;
           opacity: 0.7;
         }
-   .input-label {
+  .input-label {
           position: absolute;
           left: 1.4rem;
           top: -0.8rem;
@@ -644,7 +646,7 @@ export default function PersonasPage() {
           pointer-events: none;
           z-index: 1;
         }
-   .input-icon-wrapper {
+  .input-icon-wrapper {
           position: absolute;
           right: 1.4rem;
           top: 0;
@@ -658,7 +660,7 @@ export default function PersonasPage() {
           pointer-events: none;
           z-index: 2;
         }
-   .toast-sgpc {
+  .toast-sgpc {
           position: absolute;
           top: 50%;
           left: 50%;
@@ -674,8 +676,8 @@ export default function PersonasPage() {
           white-space: nowrap;
           text-align:center;
         }
-      .toast-sgpc.error { background: #ef4444; }
-      .toast-sgpc.success { background: #22c55e; }
+     .toast-sgpc.error { background: #ef4444; }
+     .toast-sgpc.success { background: #22c55e; }
         @keyframes fadeInScale { from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
       `}</style>
     </div>

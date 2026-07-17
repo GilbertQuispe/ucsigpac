@@ -21,14 +21,15 @@
   --font-principal: 'Inter', sans-serif; /* Para contenido */
 
   /* TAMAÑOS DE FUENTE EN REM */
-  --text-xs: 1.2rem;   /* 12px */
-  --text-sm: 1.4rem;   /* 14px */
-  --text-base: 1.6rem; /* 16px */
-  --text-lg: 1.8rem;   /* 18px */
-  --text-xl: 2.0rem;   /* 20px */
-  --text-2xl: 2.4rem;  /* 24px */
-  --text-3xl: 3.0rem;  /* 30px */
-  --text-4xl: 4.0rem;  /* 40px */
+   /* TAMAÑOS DE FUENTE EN REM - VERSION LIGERAMENTE MAS COMPACTA */
+  --text-xs: 1.1rem;   /* 11px */
+  --text-sm: 1.2rem;   /* 12px */
+  --text-base: 1.4rem; /* 14px <- Antes 1.6. Bajamos 2px a toda la app */
+  --text-lg: 1.6rem;   /* 16px */
+  --text-xl: 1.8rem;   /* 18px */
+  --text-2xl: 2.0rem;  /* 20px */
+  --text-3xl: 2.4rem;  /* 24px */
+  --text-4xl: 3.0rem;  /* 30px */
 
   /* VARIABLES GLOBALES DE SGPC */
   --logo-header-url: url('https://img.icons8.com/?size=100&id=VP8eT8Cq7cQl&format=png&color=000000');
@@ -368,4 +369,150 @@ select.input-sgpc {
 .modal-footer .btn-secundario {
   flex: 1; /* Que ambos ocupen 50% */
   justify-content: center;
+}
+
+/* ===== BOTÓN NUEVO: ANULAR - NARANJA ===== */
+.btn-terciario {
+  background-color: #f59e0b; /* Naranja Amber 500 */
+  color: var(--color-blanco);
+  border: none;
+  border-radius: 0.8rem;
+  padding: 1.2rem 2.4rem;
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+}
+.btn-terciario:hover {
+  background-color: #d97706; /* Naranja más oscuro */
+  transform: translateY(-1px);
+  opacity: 0.9;
+}
+
+/* RESPONSIVE PARA EL NUEVO BOTÓN */
+@media (max-width: 768px) {
+  .btn-terciario {
+    width: 100%;
+    max-width: 40rem;
+    padding: 1.4rem;
+    font-size: var(--text-base);
+    justify-content: center;
+  }
+}
+
+/* BOTONES PARA ACTUALIZAR Y ELIMINAR*/
+
+.btn-icon {
+  border: none;
+  padding: 0.7rem;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.btn-icon-editar {
+  /* background: #dbeafe; */
+  /* color: #1d4ed8; */
+  color:var(--color-borde);
+  background: var(--color-acento);
+}
+.btn-icon-editar:hover {
+  background: #bfdbfe;
+}
+
+.btn-icon-eliminar {
+  background:#dc2626; 
+  color: #fee2e2;
+}
+.btn-icon-eliminar:hover {
+  background: #fecaca;
+}
+
+/* ===== FIX SOLO PARA TABLAS SGPC - NO AFECTA SIDEBAR ===== */
+:root {
+  /* Variables nuevas solo para tablas compactas */
+  --tabla-font-size: 1.2rem; /* 12px */
+  --tabla-padding-y: 0.6rem;
+  --tabla-padding-x: 1rem;
+  --tabla-header-bg: #F8FAFC;
+  --tabla-borde: #E2E8F0;
+}
+
+/* Solo afecta a tablas que tengan esta clase */
+.tabla-sgpc {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--tabla-font-size);
+}
+
+.tabla-sgpc thead th {
+  padding: var(--tabla-padding-y) var(--tabla-padding-x);
+  font-size: 1.1rem; /* 11px */
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  background: var(--tabla-header-bg);
+  color: #475569;
+  border-bottom: 1px solid var(--tabla-borde);
+  text-align: left;
+}
+
+.tabla-sgpc tbody td {
+  padding: var(--tabla-padding-y) var(--tabla-padding-x);
+  border-bottom: 1px solid var(--tabla-borde);
+}
+
+.tabla-sgpc tbody tr:hover {
+  background: #F1F5F9;
+}
+
+/* Botones de acción más pequeños solo para tablas */
+.tabla-sgpc .btn-icon {
+  padding: 0.5rem !important;
+  width: 2.8rem !important;
+  height: 2.8rem !important;
+}
+.tabla-sgpc .btn-icon svg {
+  width: 1.6rem !important;
+  height: 1.6rem !important;
+}
+
+/* ===== TABLAS FORZADAS ===== */
+.tabla-sgpc {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  font-size: var(--tabla-font-size) !important;
+}
+
+.tabla-sgpc thead th {
+  padding: var(--tabla-padding-y) var(--tabla-padding-x) !important;
+  font-size: 1.1rem !important;
+  font-weight: 600 !important;
+  background: var(--tabla-header-bg) !important;
+  border-bottom: 2px solid var(--tabla-borde) !important;
+}
+
+.tabla-sgpc tbody td {
+  padding: var(--tabla-padding-y) var(--tabla-padding-x) !important;
+  border-bottom: 1px solid var(--tabla-borde) !important;
+}
+
+/* FIX PARA QUE LA ULTIMA COLUMNA TENGA LA MISMA LINEA */
+.tabla-sgpc tbody td:last-child {
+  border-bottom: 1px solid var(--tabla-borde) !important;
+}
+
+/* Y centramos los botones sin romper el borde */
+.tabla-sgpc tbody td:last-child {
+  display: flex !important;
+  gap: 0.8rem;
+  justify-content: center; /* o flex-start si quieres a la izquierda */
+  align-items: center;
 }
