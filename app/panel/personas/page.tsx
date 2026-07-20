@@ -387,7 +387,7 @@ export default function PersonasPage() {
         {loading? <p>Cargando...</p> : (
           <table className='tabla-sgpc'>
             <thead>
-              <tr >
+              <tr style={{ borderBottom: '0.2rem solid var(--color-borde)', textAlign: 'left' }}>
                 <th style={{ padding: '1rem' }}>ID</th>
                 <th style={{ padding: '1rem' }}>DNI</th>
                 <th style={{ padding: '1rem' }}>Apellidos</th>
@@ -401,7 +401,7 @@ export default function PersonasPage() {
             <tbody>
               {personasFiltradas.map(p => (
                 <tr key={p.idpersona} style={{ borderBottom: '1px solid var(--color-borde)' }}>
-                  <td style={{ padding: '1rem', fontWeight: 600 }}>{p.idpersona}</td>
+                  <td className=''>{p.idpersona}</td>
                   <td style={{ padding: '1rem' }}>{p.dni}</td>
                   <td style={{ padding: '1rem' }}>{p.apellidos}</td>
                   <td style={{ padding: '1rem' }}>{p.nombres}</td>

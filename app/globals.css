@@ -465,8 +465,12 @@ select.input-sgpc {
 }
 
 .tabla-sgpc tbody td {
-  padding: var(--tabla-padding-y) var(--tabla-padding-x);
-  border-bottom: 1px solid var(--tabla-borde);
+  padding: var(--tabla-padding-y) var(--tabla-padding-x) !important;
+  border-bottom: none !important;
+}
+
+.tabla-sgpc tbody tr {
+  border-bottom: 1px solid var(--tabla-borde) !important; /* <- EL BORDE VA EN LA FILA */
 }
 
 .tabla-sgpc tbody tr:hover {
@@ -499,10 +503,10 @@ select.input-sgpc {
   border-bottom: 2px solid var(--tabla-borde) !important;
 }
 
-.tabla-sgpc tbody td {
+/* .tabla-sgpc tbody td {
   padding: var(--tabla-padding-y) var(--tabla-padding-x) !important;
   border-bottom: 1px solid var(--tabla-borde) !important;
-}
+} */
 
 /* FIX PARA QUE LA ULTIMA COLUMNA TENGA LA MISMA LINEA */
 .tabla-sgpc tbody td:last-child {
@@ -515,4 +519,5 @@ select.input-sgpc {
   gap: 0.8rem;
   justify-content: center; /* o flex-start si quieres a la izquierda */
   align-items: center;
+  border-bottom: none !important;
 }

@@ -1,0 +1,71 @@
+[33mcommit 805a1ecbdfc7efeabaac68f8438c04f938ca6505[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m)[m
+Author: GquispeEscobar <atquis@hotmail.com>
+Date:   Fri Jul 17 18:54:01 2026 -0500
+
+    Ahora se cuenta con la pagina de ubigeo que falta solucionar algunos detalles de lines de las acciones
+
+[33mcommit 080d13728956942c5f26bf77cf3136735ccb145a[m
+Author: Gilbert Quispe <atquis@hotmail.com>
+Date:   Thu Jul 16 23:52:32 2026 -0500
+
+    El login de registro de personas esta ok, tambienla importacion desde excel
+
+[33mcommit 82dfd684555ceda2d115653e4d6ad0585c0cd035[m
+Author: GquispeEscobar <atquis@hotmail.com>
+Date:   Thu Jul 16 18:48:55 2026 -0500
+
+    Funcionando el registro de personas, ya actualiza falta probar para grabar un nuevo registro
+
+[33mcommit 90301ab29e905e417f243e8cd2265ce1fa53df42[m
+Author: Gilbert Quispe <atquis@hotmail.com>
+Date:   Wed Jul 15 23:22:56 2026 -0500
+
+    se mejoró el registro de personas, existe elproblema en los mensajes no estan centrados
+
+[33mcommit d45536ab6a7472ca5e2498e1d962d9c1e93c1ff3[m
+Author: GquispeEscobar <atquis@hotmail.com>
+Date:   Wed Jul 15 18:25:30 2026 -0500
+
+    Se tiene completo el sidebar ahora se tiene listo el registro de personas
+
+[33mcommit 7f2453dde36c983df7eee0f09f2344c95348ed29[m
+Author: GquispeEscobar <atquis@hotmail.com>
+Date:   Tue Jul 14 14:55:58 2026 -0500
+
+    Panel finalizado y ok Version preliminar
+
+[33mcommit f5a8673bf899ef64d36afbf2de136b52fb3078cf[m
+Author: GquispeEscobar <atquis@hotmail.com>
+Date:   Tue Jul 14 12:52:58 2026 -0500
+
+    Funcionando el panel principal un poco mas ejecutivo
+
+[33mcommit ed0b5450c6c1d80ae14f3c827a718b5d74aa7943[m
+Author: GquispeEscobar <atquis@hotmail.com>
+Date:   Mon Jul 13 18:53:28 2026 -0500
+
+    Se cuenta con el Panel Principal 1ra Version
+
+[33mcommit a1c80d5b5fd836acba2e877bdb45de5861af7b84[m
+Author: GquispeEscobar <atquis@hotmail.com>
+Date:   Wed Jul 8 17:26:26 2026 -0500
+
+    Funcionando el registro, falta probar en produccion, es decir la confirmación del correo
+
+[33mcommit 7c2cac760f3bac123a295b1e09ad93f89341cb70[m
+Author: GquispeEscobar <atquis@hotmail.com>
+Date:   Tue Jul 7 18:12:39 2026 -0500
+
+    Login funcionando pero tiene dos marcos cuando se selecciona los input
+
+[33mcommit e5eba13a2753701c4ba77f1403ad49427575793c[m
+Author: Gilbert Quispe <atquis@hotmail.com>
+Date:   Tue Jul 7 06:46:29 2026 -0500
+
+    Se agrego el login del SIGPAC para que, falta el @supabase/ssr
+
+[33mcommit 16a79969ca477ae6580916a6b201393a35019a53[m
+Author: Gilbert Quispe <atquis@hotmail.com>
+Date:   Mon Jul 6 19:49:21 2026 -0500
+
+    Initial commit from Create Next App
