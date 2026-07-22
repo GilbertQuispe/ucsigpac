@@ -1,9 +1,8 @@
 'use client'
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, Upload, Phone, User, IdCard, Users, Shield, AlertTriangle, Check, Ban } from 'lucide-react'
+import { Plus, Edit, Trash2, X, Search, Upload, Phone, User, IdCard, Users, Shield, AlertTriangle, Check, Ban, ChevronLeft, ChevronRight } from 'lucide-react' // <- Agregue 2 iconos
 import * as XLSX from 'xlsx'
-
 
 type Persona = {
   idpersona: number
@@ -14,7 +13,7 @@ type Persona = {
   sexo: 'M' | 'F' | null
   created_at: string
   idrol: number | null
-  estado: string // <-- NUEVO
+  estado: string
   rol?: { nombrerol: string }
 }
 
@@ -44,6 +43,10 @@ export default function PersonasPage() {
   const [previewData, setPreviewData] = useState<any[]>([])
   const [showPreviewModal, setShowPreviewModal] = useState(false)
 
+  // 1. NUEVOS ESTADOS PARA PAGINACION
+  const [paginaActual, setPaginaActual] = useState(1)
+  const registrosPorPagina = 10
+
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
@@ -55,20 +58,21 @@ export default function PersonasPage() {
   const fetchPersonas = async () => {
     setLoading(true)
     const { data: personasData } = await supabase
-     .from('persona')
-     .select('*')
-     .eq('estado', 'ACTIVO') // <-- SOLO TRAE ACTIVOS
-     .order('idpersona')
+    .from('persona')
+    .select('*')
+    .eq('estado', 'ACTIVO')
+    .order('idpersona')
     const { data: rolesData } = await supabase.from('rol').select('idrol, nombrerol')
 
     const personasConRol = (personasData || []).map(p => ({
-   ...p,
+  ...p,
       rol: rolesData?.find(r => Number(r.idrol) === Number(p.idrol))
     }))
 
     setPersonas(personasConRol)
     setRoles(rolesData || [])
     setLoading(false)
+    setPaginaActual(1) // <- Reinicia a pag 1 al recargar
   }
 
   useEffect(() => { fetchPersonas() }, [])
@@ -77,7 +81,7 @@ export default function PersonasPage() {
     if (!dniValue || dniValue.length!== 8) return
 
     setLoading(true)
-    const { data } = await supabase.from('persona').select('idpersona, estado').eq('dni', dniValue).maybeSingle() // <-- AGREGUE ESTADO
+    const { data } = await supabase.from('persona').select('idpersona, estado').eq('dni', dniValue).maybeSingle()
     setLoading(false)
 
     if (data) {
@@ -143,6 +147,16 @@ export default function PersonasPage() {
     })
   }, [personas, search, filtroSexo])
 
+  // 2. LOGICA DE PAGINACION
+  const totalPaginas = Math.ceil(personasFiltradas.length / registrosPorPagina)
+  const indiceInicio = (paginaActual - 1) * registrosPorPagina
+  const indiceFin = indiceInicio + registrosPorPagina
+  const personasPaginadas = personasFiltradas.slice(indiceInicio, indiceFin)
+
+  useEffect(() => { // Reinicia pag al buscar/filtrar
+    setPaginaActual(1)
+  }, [search, filtroSexo])
+
   const handleSave = async () => {
     if (!puedeGuardar) return;
 
@@ -151,8 +165,8 @@ export default function PersonasPage() {
 
       if (editing) {
         const { error } = await supabase
-       .from('persona')
-       .update({
+      .from('persona')
+      .update({
             dni: form.dni,
             nombres: form.nombres,
             apellidos: form.apellidos,
@@ -160,21 +174,21 @@ export default function PersonasPage() {
             sexo: form.sexo || null,
             idrol: form.idrol
           })
-       .eq('idpersona', editing.idpersona);
+      .eq('idpersona', editing.idpersona);
 
         if (error) throw error;
         mensaje = 'Datos actualizados correctamente';
       } else {
         const { error } = await supabase
-       .from('persona')
-       .insert({
+      .from('persona')
+      .insert({
             dni: form.dni,
             nombres: form.nombres,
             apellidos: form.apellidos,
             telefono: form.telefono || null,
             sexo: form.sexo || null,
             idrol: form.idrol,
-            estado: 'ACTIVO' // <-- NUEVO
+            estado: 'ACTIVO'
           });
 
         if (error) throw error;
@@ -190,20 +204,19 @@ export default function PersonasPage() {
     }
   }
 
-  const handleDelete = (id: number) => { // Ahora es Anular
+  const handleDelete = (id: number) => {
     setIdAEliminar(id)
     setShowConfirm(true)
   }
 
-  // CAMBIO CLAVE: YA NO BORRA, AHORA ANULA
   const confirmarEliminar = async () => {
     if (!idAEliminar) return
-    
+
     const { error } = await supabase
-     .from('persona')
-     .update({ estado: 'ANULADO' }) // <-- ANULACION LOGICA
-     .eq('idpersona', idAEliminar)
-      
+    .from('persona')
+    .update({ estado: 'ANULADO' })
+    .eq('idpersona', idAEliminar)
+
     if (error) {
       showToast('Error al anular: ' + error.message, 'error')
     } else {
@@ -228,7 +241,7 @@ export default function PersonasPage() {
       const filas = data.slice(1)
 
       const { data: personasExistentes } = await supabase.from('persona').select('dni, estado')
-      const dnisExistentes = new Set(personasExistentes?.filter(p=>p.estado==='ACTIVO').map(p => p.dni)) // <-- SOLO ACTIVOS
+      const dnisExistentes = new Set(personasExistentes?.filter(p=>p.estado==='ACTIVO').map(p => p.dni))
 
       const preview: any[] = []
 
@@ -267,7 +280,7 @@ export default function PersonasPage() {
           telefono,
           sexo: ['M','F'].includes(sexoRaw)? sexoRaw : '',
           idrol,
-          estadoRegistro: 'ACTIVO', // <-- NUEVO
+          estadoRegistro: 'ACTIVO',
           motivo,
           estado
         })
@@ -283,15 +296,15 @@ export default function PersonasPage() {
 
   const handleConfirmImport = async () => {
     const paraGrabar = previewData
-     .filter(p => p.estado === 'ok')
-     .map(p => ({
+    .filter(p => p.estado === 'ok')
+    .map(p => ({
         dni: p.dni,
         apellidos: p.apellidos,
         nombres: p.nombres,
         telefono: p.telefono || null,
         sexo: p.sexo || null,
         idrol: p.idrol,
-        estado: 'ACTIVO' // <-- NUEVO
+        estado: 'ACTIVO'
       }))
 
     if (paraGrabar.length === 0) {
@@ -350,7 +363,7 @@ export default function PersonasPage() {
       <div className="header-responsive">
         <div>
           <h1>Registro de Personas</h1>
-          <p>Total: {personasFiltradas.length} registros ACTIVOS</p> {/* <-- CAMBIO */}
+          <p>Total: {personasFiltradas.length} registros ACTIVOS</p>
         </div>
         <div style={{ display: 'flex', gap: '1.2rem' }}>
           <label htmlFor="import-excel" className="btn-secundario" style={{ cursor: 'pointer' }}>
@@ -387,8 +400,8 @@ export default function PersonasPage() {
         {loading? <p>Cargando...</p> : (
           <table className='tabla-sgpc'>
             <thead>
-              <tr style={{ borderBottom: '0.2rem solid var(--color-borde)', textAlign: 'left' }}>
-                <th style={{ padding: '1rem' }}>ID</th>
+              <><tr style={{ borderBottom: '0.2rem solid var(--color-borde)', textAlign: 'left' }}>
+                <th style={{ padding: '1rem', width: '6rem' }}>Nro.</th> {/* <- CAMBIO: ID por Nro */}
                 <th style={{ padding: '1rem' }}>DNI</th>
                 <th style={{ padding: '1rem' }}>Apellidos</th>
                 <th style={{ padding: '1rem' }}>Nombres</th>
@@ -396,28 +409,42 @@ export default function PersonasPage() {
                 <th style={{ padding: '1rem' }}>Sexo</th>
                 <th style={{ padding: '1rem' }}>Rol</th>
                 <th style={{ padding: '1rem' }}>Acciones</th>
-              </tr>
+              </tr></>
             </thead>
             <tbody>
-              {personasFiltradas.map(p => (
-                <tr key={p.idpersona} style={{ borderBottom: '1px solid var(--color-borde)' }}>
-                  <td className=''>{p.idpersona}</td>
-                  <td style={{ padding: '1rem' }}>{p.dni}</td>
-                  <td style={{ padding: '1rem' }}>{p.apellidos}</td>
-                  <td style={{ padding: '1rem' }}>{p.nombres}</td>
-                  <td style={{ padding: '1rem' }}>{p.telefono || '-'}</td>
-                  <td style={{ padding: '1rem' }}>{p.sexo === 'M'? 'Masculino' : p.sexo === 'F'? 'Femenino' : '-'}</td>
-                  <td style={{ padding: '1rem', fontWeight: 600 }}>{p.rol?.nombrerol || 'Sin Rol'}</td>
-                  <td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}>
-                    <button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button>
-                    <button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button>
-                  </td>
-                </tr>
-              ))}
+              <>{personasPaginadas.map((p, index) => (<tr key={p.idpersona} style={{ borderBottom: '1px solid var(--color-borde)' }}><td style={{ padding: '1rem', fontWeight: 600 }}>{indiceInicio + index + 1}</td><td style={{ padding: '1rem' }}>{p.dni}</td><td style={{ padding: '1rem' }}>{p.apellidos}</td><td style={{ padding: '1rem' }}>{p.nombres}</td><td style={{ padding: '1rem' }}>{p.telefono || '-'}</td><td style={{ padding: '1rem' }}>{p.sexo === 'M'? 'Masculino' : p.sexo === 'F'? 'Femenino' : '-'}</td><td style={{ padding: '1rem', fontWeight: 600 }}>{p.rol?.nombrerol || 'Sin Rol'}</td><td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}><button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button><button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button></td></tr>))}</>
             </tbody>
           </table>
         )}
       </div>
+
+      {/* 3. FOOTER DE PAGINACION NUEVO */}
+      {totalPaginas > 1 && (
+        <div className="paginacion-footer">
+          <p className="paginacion-info">
+            Mostrando {indiceInicio + 1} al {Math.min(indiceFin, personasFiltradas.length)} de {personasFiltradas.length} registros
+          </p>
+          <div className="paginacion-controles">
+            <button
+              className="btn-pag"
+              onClick={() => setPaginaActual(p => Math.max(1, p - 1))}
+              disabled={paginaActual === 1}
+            >
+              <ChevronLeft size={16} /> Anterior
+            </button>
+            <span className="paginacion-pagina">
+              Pág {paginaActual} de {totalPaginas}
+            </span>
+            <button
+              className="btn-pag btn-pag-primario"
+              onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))}
+              disabled={paginaActual === totalPaginas}
+            >
+              Siguiente <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {showModal && (
         <div className="modal-overlay">
@@ -482,12 +509,11 @@ export default function PersonasPage() {
         </div>
       )}
 
-      {/* MODAL CONFIRMAR ANULACION */}
       {showConfirm && (
         <div className="modal-overlay">
           <div className="modal-content card-sgpc" style={{ maxWidth: '40rem' }}>
             <div className="modal-header">
-              <h2><AlertTriangle size={20} style={{ marginRight: '0.8rem', color: '#f59e0b' }} />Confirmar Anulación</h2> {/* <-- CAMBIO COLOR */}
+              <h2><AlertTriangle size={20} style={{ marginRight: '0.8rem', color: '#f59e0b' }} />Confirmar Anulación</h2>
               <button onClick={() => setShowConfirm(false)} className="btn-cerrar"><X size={20} /></button>
             </div>
             <div className="modal-body">
@@ -500,7 +526,7 @@ export default function PersonasPage() {
               <button className="btn-secundario" onClick={() => setShowConfirm(false)}>
                 Cancelar
               </button>
-              <button className="btn-primario" style={{ background: '#f59e0b' }} onClick={confirmarEliminar}> {/* <-- BOTON NARANJA */}
+              <button className="btn-primario" style={{ background: '#f59e0b' }} onClick={confirmarEliminar}>
                 Anular
               </button>
             </div>
@@ -524,16 +550,7 @@ export default function PersonasPage() {
               <div style={{ maxHeight: '40rem', overflow: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
                   <thead>
-                    <tr style={{ borderBottom: '0.2rem solid var(--color-borde)' }}>
-                      <th style={{ padding: '0.8rem' }}>Estado</th>
-                      <th style={{ padding: '0.8rem' }}>Fila</th>
-                      <th style={{ padding: '0.8rem' }}>DNI</th>
-                      <th style={{ padding: '0.8rem' }}>Apellidos</th>
-                      <th style={{ padding: '0.8rem' }}>Nombres</th>
-                      <th style={{ padding: '0.8rem' }}>Teléfono</th>
-                      <th style={{ padding: '0.8rem' }}>Sexo</th>
-                      <th style={{ padding: '0.8rem' }}>Motivo</th>
-                    </tr>
+                    <><tr style={{ borderBottom: '0.2rem solid var(--color-borde)', textAlign: 'left' }}><th style={{ padding: '1rem', width: '6rem' }}>Nro.</th><th style={{ padding: '1rem' }}>DNI</th><th style={{ padding: '1rem' }}>Apellidos</th><th style={{ padding: '1rem' }}>Nombres</th><th style={{ padding: '1rem' }}>Teléfono</th><th style={{ padding: '1rem' }}>Sexo</th><th style={{ padding: '1rem' }}>Rol</th><th style={{ padding: '1rem' }}>Acciones</th></tr></>
                   </thead>
                   <tbody>
                     {previewData.map((p, i) => (
@@ -565,13 +582,13 @@ export default function PersonasPage() {
       )}
 
       <style jsx>{`
- 
-  .btn-danger { background: #ef4444; color: white; }
-  .btn-primario:disabled {
+
+ .btn-danger { background: #ef4444; color: white; }
+ .btn-primario:disabled {
         opacity: 0.5;
         cursor: not-allowed;
       }
-  .btn-cerrar {
+ .btn-cerrar {
           background: #f1f5f9;
           border: none;
           border-radius: 0.8rem;
@@ -583,12 +600,12 @@ export default function PersonasPage() {
           justify-content: center;
           transition: all 0.2s ease;
         }
-  .btn-cerrar:hover {
+ .btn-cerrar:hover {
           background: #fee2e2;
           color: #ef4444;
           transform: rotate(90deg);
         }
-  .modal-overlay {
+ .modal-overlay {
           position: fixed;
           inset: 0;
           background: rgba(0,0,0,0.3);
@@ -598,7 +615,7 @@ export default function PersonasPage() {
           z-index: 2000;
           padding: 2rem;
         }
-  .modal-content {
+ .modal-content {
           width: 100%;
           max-width: 50rem;
           background: var(--color-blanco);
@@ -610,8 +627,8 @@ export default function PersonasPage() {
           flex-direction:column;
           max-height:90vh;
         }
-  .input-wrapper { position: relative; width: 100%; }
-  .input-sgpc-floating {
+ .input-wrapper { position: relative; width: 100%; }
+ .input-sgpc-floating {
           width: 100%;
           box-sizing: border-box;
           padding: 1.8rem 4.2rem 0.8rem 1.6rem;
@@ -625,16 +642,16 @@ export default function PersonasPage() {
           color: var(--color-texto);
           height: 5.2rem;
         }
-  .input-sgpc-floating:focus {
+ .input-sgpc-floating:focus {
           border: 2px solid var(--color-primario);
           padding: 1.7rem 4.1rem 0.7rem 1.5rem;
         }
-  .input-sgpc-floating:disabled {
+ .input-sgpc-floating:disabled {
           background: #f3f4f6;
           cursor: not-allowed;
           opacity: 0.7;
         }
-  .input-label {
+ .input-label {
           position: absolute;
           left: 1.4rem;
           top: -0.8rem;
@@ -646,7 +663,7 @@ export default function PersonasPage() {
           pointer-events: none;
           z-index: 1;
         }
-  .input-icon-wrapper {
+ .input-icon-wrapper {
           position: absolute;
           right: 1.4rem;
           top: 0;
@@ -660,7 +677,7 @@ export default function PersonasPage() {
           pointer-events: none;
           z-index: 2;
         }
-  .toast-sgpc {
+ .toast-sgpc {
           position: absolute;
           top: 50%;
           left: 50%;
@@ -676,9 +693,91 @@ export default function PersonasPage() {
           white-space: nowrap;
           text-align:center;
         }
-     .toast-sgpc.error { background: #ef4444; }
-     .toast-sgpc.success { background: #22c55e; }
+    .toast-sgpc.error { background: #ef4444; }
+    .toast-sgpc.success { background: #22c55e; }
         @keyframes fadeInScale { from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+
+        /* ESTILOS NUEVOS DE PAGINACION */
+       .paginacion-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-top: 1.6rem;
+          padding: 1.6rem;
+          background: var(--color-blanco);
+          border-radius: 1.2rem;
+          gap: 1.6rem;
+        }
+       .paginacion-info {
+          font-size: var(--text-sm);
+          color: var(--color-texto-sec);
+        }
+       .paginacion-controles {
+          display: flex;
+          gap: 0.8rem;
+          align-items: center;
+        }
+       .btn-pag {
+          display: flex;
+          align-items: center;
+          gap: 0.4rem;
+          padding: 0.8rem 1.2rem;
+          border-radius: 0.8rem;
+          font-size: var(--text-sm);
+          font-weight: 600;
+          border: 1px solid var(--color-borde);
+          background: var(--color-blanco);
+          color: var(--color-primario);
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+       .btn-pag:hover:not(:disabled) {
+          background: #f8fafc;
+        }
+       .btn-pag:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+       .btn-pag-primario {
+          background: var(--color-primario);
+          color: var(--color-blanco);
+          border: 1px solid var(--color-primario);
+        }
+       .btn-pag-primario:hover:not(:disabled) {
+          opacity: 0.9;
+        }
+       .paginacion-pagina {
+          padding: 0.8rem 1.2rem;
+          font-weight: 600;
+          font-size: var(--text-sm);
+          white-space: nowrap;
+        }
+
+        /* RESPONSIVE PARA CELULAR */
+        @media (max-width: 768px) {
+         .paginacion-footer {
+            flex-direction: column;
+            padding: 1.2rem;
+          }
+         .paginacion-controles {
+            width: 100%;
+            justify-content: space-between;
+          }
+         .btn-pag {
+            padding: 0.6rem 1rem;
+            font-size: 1.2rem;
+            flex: 1;
+            justify-content: center;
+          }
+         .paginacion-pagina {
+            padding: 0.6rem 0.8rem;
+            font-size: 1.2rem;
+          }
+         .paginacion-info {
+            text-align: center;
+            width: 100%;
+          }
+        }
       `}</style>
     </div>
   )
