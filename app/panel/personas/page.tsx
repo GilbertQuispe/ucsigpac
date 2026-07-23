@@ -400,7 +400,7 @@ export default function PersonasPage() {
         {loading? <p>Cargando...</p> : (
           <table className='tabla-sgpc'>
             <thead>
-              <><tr style={{ borderBottom: '0.2rem solid var(--color-borde)', textAlign: 'left' }}>
+              <tr style={{ borderBottom: '0.2rem solid var(--color-borde)', textAlign: 'left' }}>
                 <th style={{ padding: '1rem', width: '6rem' }}>Nro.</th> {/* <- CAMBIO: ID por Nro */}
                 <th style={{ padding: '1rem' }}>DNI</th>
                 <th style={{ padding: '1rem' }}>Apellidos</th>
@@ -409,7 +409,7 @@ export default function PersonasPage() {
                 <th style={{ padding: '1rem' }}>Sexo</th>
                 <th style={{ padding: '1rem' }}>Rol</th>
                 <th style={{ padding: '1rem' }}>Acciones</th>
-              </tr></>
+              </tr>
             </thead>
             <tbody>
               <>{personasPaginadas.map((p, index) => (<tr key={p.idpersona} style={{ borderBottom: '1px solid var(--color-borde)' }}><td style={{ padding: '1rem', fontWeight: 600 }}>{indiceInicio + index + 1}</td><td style={{ padding: '1rem' }}>{p.dni}</td><td style={{ padding: '1rem' }}>{p.apellidos}</td><td style={{ padding: '1rem' }}>{p.nombres}</td><td style={{ padding: '1rem' }}>{p.telefono || '-'}</td><td style={{ padding: '1rem' }}>{p.sexo === 'M'? 'Masculino' : p.sexo === 'F'? 'Femenino' : '-'}</td><td style={{ padding: '1rem', fontWeight: 600 }}>{p.rol?.nombrerol || 'Sin Rol'}</td><td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}><button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button><button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button></td></tr>))}</>
