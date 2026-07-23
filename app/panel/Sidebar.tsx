@@ -12,14 +12,37 @@ import {
 
 const MENU_COMPLETO = [
   { title:'Administración y Seguridad', icon: Shield, items:[ {name:'1.1 Roles', href:'/panel/roles', icon: UserCog}, {name:'1.2 Permisos', href:'/panel/permisos', icon: Shield}, {name:'1.3 Usuarios', href:'/panel/usuarios', icon: Users}, {name:'1.4 Asignación de Roles', href:'/panel/asignacion', icon: UserCheck}, {name:'1.5 Gestión de Personas', href:'/panel/personas', icon: Users} ]},
-  { title:'Personas', icon: Users, items:[ {name:'2.1 Personas', href:'/panel/personas', icon: Users}, {name:'2.2 Estudiantes', href:'/panel/estudiantes', icon: GraduationCap}, {name:'2.3 Docentes', href:'/panel/docentes', icon: BookOpen}, {name:'2.4 Supervisores', href:'/panel/supervisores', icon: UserCheck} ]},
+  
+  { title:'Gestión de miembros', icon: Users, items:[ 
+    {name:'2.1 Personas', href:'/panel/personas', icon: Users}, 
+    {name:'2.2 Estudiantes', href:'/panel/estudiantes', icon: GraduationCap}, 
+    {name:'2.3 Docentes', href:'/panel/docentes', icon: BookOpen}, 
+    {name:'2.4 Supervisores', href:'/panel/supervisores', icon: UserCheck},
+    {name:'2.5 Perfiles', href:'#', icon: UserCog},
+    {name:'2.5.1 Profesión', href:'/panel/profesion', icon: BookOpen},
+    {name:'2.5.2 Especialidad', href:'/panel/especialidad', icon: Stethoscope}
+  ]},
+  
   { title:'Gestión de Instituciones de Salud', icon: Building2, items:[ {name:'3.1 Ubigeo', href:'/panel/ubigeo', icon: MapPin}, {name:'3.2 Niveles de Atención', href:'/panel/niveles', icon: Stethoscope}, {name:'3.3 Servicios de Salud', href:'/panel/servicios', icon: HeartPulse}, {name:'3.4 EPS', href:'/panel/eps', icon: Building2}, {name:'3.5 Campos Clínicos', href:'/panel/campos', icon: Building2}, {name:'3.6 Asignación Docente', href:'/panel/asignacion-docente', icon: UserCheck} ]},
-  { title:'Gestión Académica', icon: GraduationCap, items:[ {name:'4.1 Matrículas', href:'/panel/matriculas', icon: FileText}, {name:'4.2 Carga Académica', href:'/panel/carga', icon: BookOpen}, {name:'4.3 Grupos de Práctica', href:'/panel/grupos', icon: Users}, {name:'4.4 Horarios Académicos', href:'/panel/horarios', icon: Calendar} ]},
+  
+  { title:'Gestión Académica', icon: GraduationCap, items:[ 
+    {name:'4.1 Filiales', href:'/panel/filiales', icon: Building2}, 
+    {name:'4.2 Periodo Académico', href:'/panel/periodo', icon: Calendar}, 
+    {name:'4.3 Matrículas', href:'/panel/matriculas', icon: FileText}, 
+    {name:'4.4 Carga Académica', href:'/panel/carga', icon: BookOpen}, 
+    {name:'4.5 Grupos de Práctica', href:'/panel/grupos', icon: Users}, 
+    {name:'4.6 Horarios Académicos', href:'/panel/horarios', icon: Calendar} 
+  ]},
+  
   { title:'Supervisión Clínica', icon: ClipboardCheck, items:[ {name:'5.1 Asignación Supervisores', href:'/panel/asig-supervisores', icon: UserCheck}, {name:'5.2 Programación Visitas', href:'/panel/programacion', icon: Calendar}, {name:'5.3 Registro Supervisiones', href:'/panel/supervisiones', icon: ClipboardCheck}, {name:'5.4 Evaluaciones', href:'/panel/evaluaciones', icon: TrendingUp}, {name:'5.5 Incidencias', href:'/panel/incidencias', icon: AlertTriangle}, {name:'5.6 Informe de Supervisión', href:'/panel/informes', icon: FileText} ]},
+  
   { title:'Planes de Mejora', icon: TrendingUp, items:[ {name:'6.1 Plan de Mejora', href:'/panel/planes', icon: TrendingUp}, {name:'6.2 Seguimiento', href:'/panel/seguimiento', icon: BarChart3} ]},
+  
   { title:'Gestión de Indicadores', icon: BarChart3, items:[ {name:'7.1 Indicadores de Calidad', href:'/panel/indicadores', icon: BarChart3} ]},
+  
   { title:'Reportes', icon: BarChart3, items:[ {name:'8.1 Dashboard Ejecutivo', href:'/panel', icon: LayoutDashboard}, {name:'8.2 Reportes', href:'/panel/reportes', icon: FileText} ]},
-  { title:'Configuración', icon: Settings, items:[ {name:'9.1 Periodo Académico', href:'/panel/periodo', icon: Calendar}, {name:'9.2 Parámetros del Sistema', href:'/panel/parametros', icon: Settings} ]},
+  
+  { title:'Configuración', icon: Settings, items:[ {name:'9.1 Parámetros del Sistema', href:'/panel/parametros', icon: Settings} ]},
 ]
 
 export default function Sidebar({ user }: { user: any }) {
@@ -72,7 +95,7 @@ export default function Sidebar({ user }: { user: any }) {
             const hasActiveChild = mod.items.some(item => pathname.startsWith(item.href))
             return (
               <div key={mod.title} className="menu-module">
-                <button onClick={() => toggleMenu(mod.title)} className={`menu-button ${hasActiveChild? 'active':''}`}>
+                <button onClick={() => toggleMenu(mod.title)} className={`menu-button ${isOpen? 'active':''}`}>
                   <ModuleIcon size={20} /><span>{mod.title}</span>
                   {/* <ChevronDown size={18} className={`chevron ${isOpen? 'open':''}`} /> */}
                   <ChevronDown 

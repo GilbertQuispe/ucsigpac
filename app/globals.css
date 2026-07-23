@@ -521,3 +521,20 @@ select.input-sgpc {
   align-items: center;
   border-bottom: none !important;
 }
+
+/* ===== FIX ALTURA BOTON LIMPIAR ===== */
+.btn-secundario, .btn-primario {
+  height: 4.4rem; /* Misma altura que input-sgpc-floating */
+  padding: 0 2.4rem; /* Quitamos padding vertical y dejamos solo horizontal */
+  display: inline-flex; /* Para centrar icono + texto */
+  align-items: center; /* Centrado vertical */
+  justify-content: center; /* Centrado horizontal */
+  gap: 0.8rem;
+  box-sizing: border-box;
+}
+
+.input-sgpc {
+  height: 4.4rem; /* Forzamos altura igual al botón */
+  padding: 0 1.2rem 0 4rem; /* padding vertical 0 para que lo controle height */
+  box-sizing: border-box;
+}
