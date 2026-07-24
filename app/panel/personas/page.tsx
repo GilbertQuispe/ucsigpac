@@ -1,8 +1,9 @@
 'use client'
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, Upload, Phone, User, IdCard, Users, Shield, AlertTriangle, Check, Ban, ChevronLeft, ChevronRight } from 'lucide-react' // <- Agregue 2 iconos
+import { Plus, Edit, Trash2, X, Search, Upload, Phone, User, IdCard, Users, Shield, AlertTriangle, Check, Ban, ChevronLeft, ChevronRight, Eraser } from 'lucide-react' // <- Agregue 2 iconos
 import * as XLSX from 'xlsx'
+import Select from 'react-select'
 
 type Persona = {
   idpersona: number
@@ -33,7 +34,9 @@ export default function PersonasPage() {
   const [editing, setEditing] = useState<Persona | null>(null)
   const [form, setForm] = useState<Partial<Persona>>({})
   const [search, setSearch] = useState('')
-  const [filtroSexo, setFiltroSexo] = useState('')
+  const [filtroRol, setFiltroRol] = useState<number | null>(null) // NUEVO
+const [filtroSexo, setFiltroSexo] = useState('')
+ 
   const [dniInputBloqueado, setDniInputBloqueado] = useState(true)
   const [camposBloqueados, setCamposBloqueados] = useState(true)
   const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
@@ -51,6 +54,53 @@ export default function PersonasPage() {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
   }
+
+const SelectSGPC = ({label, value, onChange, options, placeholder, isDisabled = false}:any) => {
+  const selectedOption = options.find((o:any) => o.value === value) || null
+  
+  return (
+    <div className="input-wrapper">
+      <label className="input-label">{label}</label>
+      <Select
+        options={options}
+        value={selectedOption}
+        onChange={(opt:any) => onChange(opt?.value || null)}
+        placeholder=""
+        isDisabled={isDisabled}
+        isSearchable={true}
+        menuPortalTarget={typeof document!== 'undefined'? document.body : null}
+        classNamePrefix="react-select"
+        noOptionsMessage={() => "No se encontraron resultados"}
+        styles={{
+          control: (base, state) => ({
+            ...base,
+            minHeight: '5.2rem',
+            height: '5.2rem',
+            borderRadius: '0.8rem',
+            border: state.isFocused ? '2px solid var(--color-primario)' : '1px solid #cbd5e1',
+            boxShadow: 'none',
+            fontSize: '1.4rem',
+            fontFamily: 'var(--font-principal)',
+            background: isDisabled ? '#f3f4f6' : 'white',
+            marginTop: '0.8rem', // CLAVE: MISMO MARGEN QUE EL INPUT
+          }),
+          valueContainer: (base) => ({
+            ...base,
+            padding: '0.8rem 1.4rem 1rem 1.4rem', // SIN ESPACIO ARRIBA
+          }),
+          singleValue: (base) => ({
+            ...base, 
+            color: 'var(--color-texto)',
+            margin: 0,
+          }),
+          placeholder: (base) => ({ display: 'none' }),
+          menuPortal: (base) => ({...base, zIndex: 99999 }),
+          indicatorsContainer: (base) => ({ height: '5.2rem' })
+        }}
+      />
+    </div>
+  )
+}
 
   const toTitleCase = (str: string) =>
     str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
@@ -136,16 +186,17 @@ export default function PersonasPage() {
       && (form.sexo === 'M' || form.sexo === 'F')
   }, [camposBloqueados, form])
 
-  const personasFiltradas = useMemo(() => {
-    return personas.filter(p => {
-      const matchSearch =
-        p.dni.toLowerCase().includes(search.toLowerCase()) ||
-        p.nombres.toLowerCase().includes(search.toLowerCase()) ||
-        p.apellidos.toLowerCase().includes(search.toLowerCase())
-      const matchSexo = filtroSexo? p.sexo === filtroSexo : true
-      return matchSearch && matchSexo
-    })
-  }, [personas, search, filtroSexo])
+const personasFiltradas = useMemo(() => {
+  return personas.filter(p => {
+    const matchSearch =
+      p.dni.toLowerCase().includes(search.toLowerCase()) ||
+      p.nombres.toLowerCase().includes(search.toLowerCase()) ||
+      p.apellidos.toLowerCase().includes(search.toLowerCase())
+    const matchSexo = filtroSexo? p.sexo === filtroSexo : true
+    const matchRol = filtroRol? p.idrol === filtroRol : true // NUEVO
+    return matchSearch && matchSexo && matchRol // ACTUALIZADO
+  })
+}, [personas, search, filtroSexo, filtroRol]) // ACTUALIZADO
 
   // 2. LOGICA DE PAGINACION
   const totalPaginas = Math.ceil(personasFiltradas.length / registrosPorPagina)
@@ -153,9 +204,9 @@ export default function PersonasPage() {
   const indiceFin = indiceInicio + registrosPorPagina
   const personasPaginadas = personasFiltradas.slice(indiceInicio, indiceFin)
 
-  useEffect(() => { // Reinicia pag al buscar/filtrar
-    setPaginaActual(1)
-  }, [search, filtroSexo])
+ useEffect(() => { // Reinicia pag al buscar/filtrar
+  setPaginaActual(1)
+}, [search, filtroSexo, filtroRol]) // AGREGUE filtroRol
 
   const handleSave = async () => {
     if (!puedeGuardar) return;
@@ -384,24 +435,54 @@ export default function PersonasPage() {
         </div>
       </div>
 
-      <div className="card-sgpc" style={{ marginBottom: '2.4rem', display: 'flex', gap: '1.6rem', flexWrap: 'wrap', alignItems: 'center' }}>
-        <div style={{ position: 'relative', flex: 1, minWidth: '25rem' }}>
-          <Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
-          <input className="input-sgpc" placeholder="Buscar por DNI, Nombres, Apellidos..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: '4rem' }} />
-        </div>
-        <select className="input-sgpc" value={filtroSexo} onChange={e => setFiltroSexo(e.target.value)} style={{ width: '20rem', minWidth: '20rem', flexShrink: 0 }}>
-          <option value="">Todos los Sexos</option>
-          <option value="M">Masculino</option>
-          <option value="F">Femenino</option>
-        </select>
-      </div>
+    <div className="card-sgpc" style={{ marginBottom: '2.4rem', padding: '2rem' }}>
+  <div className="grid-filtros-personas">
+    
+    <SelectSGPC 
+      label="Sexo"
+      value={filtroSexo || ""}
+      onChange={(val:any) => setFiltroSexo(val)}
+      placeholder="Todos"
+      options={[
+        {value: "M", label: "Masculino"},
+        {value: "F", label: "Femenino"}
+      ]}
+    />
+
+    <SelectSGPC 
+      label="Rol"
+      value={filtroRol || ""}
+      onChange={(val:any) => setFiltroRol(val)}
+      placeholder="Todos"
+      options={roles.map(r => ({value: r.idrol, label: r.nombrerol}))}
+    />
+
+    <div style={{ position: 'relative', width: "100%" }}>
+      <Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5, zIndex: 1 }} />
+      <input 
+        className="input-sgpc" 
+        placeholder="Buscar por DNI, Nombres, Apellidos..." 
+        value={search} 
+        onChange={e => setSearch(e.target.value)} 
+        style={{ paddingLeft: '4rem', height: "4.4rem", width: "100%" }} 
+      />
+    </div>
+
+    <button 
+      className="btn-secundario btn-limpiar" 
+      onClick={() => {setSearch(""); setFiltroSexo(null); setFiltroRol(null)}}
+    >
+      <Eraser size={16} />Limpiar
+    </button>
+  </div>
+</div>
 
       <div className="card-sgpc" style={{ overflowX: 'auto' }}>
         {loading? <p>Cargando...</p> : (
           <table className='tabla-sgpc'>
             <thead>
               <tr style={{ borderBottom: '0.2rem solid var(--color-borde)', textAlign: 'left' }}>
-                <th style={{ padding: '1rem', width: '6rem' }}>Nro.</th> {/* <- CAMBIO: ID por Nro */}
+                <th style={{ padding: '1rem', width: '6rem' }}>Nro.</th> 
                 <th style={{ padding: '1rem' }}>DNI</th>
                 <th style={{ padding: '1rem' }}>Apellidos</th>
                 <th style={{ padding: '1rem' }}>Nombres</th>
@@ -450,61 +531,105 @@ export default function PersonasPage() {
         <div className="modal-overlay">
           <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()}>
             {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
-            <div className="modal-header">
-              <h2>{editing? 'Editar Persona' : 'Nueva Persona'}</h2>
-              <button onClick={closeModal} className="btn-cerrar"><X size={20} /></button>
-            </div>
+           <div className="modal-header">
+  <h2><User size={20} style={{marginRight: "0.8rem"}}/>{editing? 'Editar Persona' : 'Nueva Persona'}</h2>
+  <button onClick={closeModal} className="btn-cerrar"><X size={20} /></button>
+</div>
             <div className="modal-body">
-              <div className="input-wrapper">
-                <label className="input-label">DNI</label>
-                <input ref={dniInputRef} className="input-sgpc-floating" placeholder="12345678" type="text" inputMode="numeric" value={form.dni || ''} onChange={e => handleDniChange(e.target.value)} onKeyDown={handleDniKeyDown} onBlur={() => validarDNI(form.dni || '')} maxLength={8} disabled={dniInputBloqueado} />
-                <div className="input-icon-wrapper"><IdCard size={18} strokeWidth={1.5} /></div>
-              </div>
-              <div className="input-wrapper">
-                <label className="input-label">Apellidos</label>
-                <input ref={apellidosInputRef} className="input-sgpc-floating" placeholder="Pérez García" value={form.apellidos || ''} onChange={e => setForm({...form, apellidos: e.target.value })} disabled={camposBloqueados} />
-                <div className="input-icon-wrapper"><User size={18} strokeWidth={1.5} /></div>
-              </div>
-              <div className="input-wrapper">
-                <label className="input-label">Nombres</label>
-                <input className="input-sgpc-floating" placeholder="Juan Carlos" value={form.nombres || ''} onChange={e => setForm({...form, nombres: e.target.value })} disabled={camposBloqueados} />
-                <div className="input-icon-wrapper"><User size={18} strokeWidth={1.5} /></div>
-              </div>
-              <div className="input-wrapper">
-                <label className="input-label">Teléfono</label>
-                <input className="input-sgpc-floating" placeholder="987654321" value={form.telefono || ''} onChange={e => setForm({...form, telefono: e.target.value })} disabled={camposBloqueados} />
-                <div className="input-icon-wrapper"><Phone size={18} strokeWidth={1.5} /></div>
-              </div>
-              <div className="input-wrapper">
-                <label className="input-label">Sexo *</label>
-                <select className="input-sgpc-floating" value={form.sexo || ''} onChange={e => setForm({...form, sexo: e.target.value as 'M' | 'F' | '' })} disabled={camposBloqueados}>
-                  <option value="">Seleccione</option>
-                  <option value="M">Masculino</option>
-                  <option value="F">Femenino</option>
-                </select>
-                <div className="input-icon-wrapper"><Users size={18} strokeWidth={1.5} /></div>
-              </div>
-              <div className="input-wrapper">
-                <label className="input-label">Rol</label>
-                <select className="input-sgpc-floating" value={form.idrol || ''} onChange={e => setForm({...form, idrol: Number(e.target.value) })} disabled={camposBloqueados}>
-                  {roles.map(r => (<option key={r.idrol} value={r.idrol}>{r.nombrerol}</option>))}
-                </select>
-                <div className="input-icon-wrapper"><Shield size={18} strokeWidth={1.5} /></div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secundario" onClick={() => {
-                setForm({ dni: '', nombres: '', apellidos: '', telefono: '', sexo: '', idrol: 4 });
-                setDniInputBloqueado(false);
-                setCamposBloqueados(true);
-                setTimeout(() => dniInputRef.current?.focus(), 100);
-              }}>
-                Cancelar
-              </button>
-              <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>
-                Guardar
-              </button>
-            </div>
+  <div className="grid-2">
+    <div className="input-wrapper">
+      <label className="input-label">DNI *</label>
+      <input 
+        ref={dniInputRef} 
+        className="input-sgpc-floating" 
+        placeholder="12345678" 
+        type="text" 
+        inputMode="numeric" 
+        value={form.dni || ''} 
+        onChange={e => handleDniChange(e.target.value)} 
+        onKeyDown={handleDniKeyDown} 
+        onBlur={() => validarDNI(form.dni || '')} 
+        maxLength={8} 
+        disabled={dniInputBloqueado} 
+      />
+    </div>
+    <div className="input-wrapper">
+      <label className="input-label">Apellidos *</label>
+      <input 
+        ref={apellidosInputRef} 
+        className="input-sgpc-floating" 
+        placeholder="Pérez García" 
+        value={form.apellidos || ''} 
+        onChange={e => setForm({...form, apellidos: e.target.value })} 
+        disabled={camposBloqueados} 
+        maxLength={200}
+      />
+    </div>
+    <div className="input-wrapper">
+      <label className="input-label">Nombres *</label>
+      <input 
+        className="input-sgpc-floating" 
+        placeholder="Juan Carlos" 
+        value={form.nombres || ''} 
+        onChange={e => setForm({...form, nombres: e.target.value })} 
+        disabled={camposBloqueados}
+        maxLength={200}
+      />
+    </div>
+
+    <SelectSGPC
+      label="Sexo *"
+      value={form.sexo || ""}
+      onChange={(val:any) => setForm({...form, sexo: val })}
+      placeholder="Seleccione"
+      options={[
+        {value: "M", label: "Masculino"},
+        {value: "F", label: "Femenino"}
+      ]}
+      isDisabled={camposBloqueados}
+    />
+  </div>
+
+<fieldset className="fieldset-sgpc">
+  <legend>Rol y contacto</legend>
+  
+  <div className="grid-2">
+    <SelectSGPC
+      label="Rol"
+      value={form.idrol || ""}
+      onChange={(val:any) => setForm({...form, idrol: val })}
+      placeholder="Seleccione Rol"
+      options={roles.map(r => ({value: r.idrol, label: r.nombrerol}))}
+      isDisabled={camposBloqueados}
+    />
+    <div className="input-wrapper">
+      <label className="input-label">Teléfono</label>
+      <input 
+        className="input-sgpc-floating" 
+        placeholder="987654321" 
+        value={form.telefono || ''} 
+        onChange={e => setForm({...form, telefono: e.target.value })} 
+        disabled={camposBloqueados}
+        maxLength={20}
+      />
+    </div>
+  </div>
+</fieldset>
+</div>
+
+<div className="modal-footer">
+  <button className="btn-secundario" onClick={() => {
+    setForm({ dni: '', nombres: '', apellidos: '', telefono: '', sexo: '', idrol: 4 });
+    setDniInputBloqueado(false);
+    setCamposBloqueados(true);
+    setTimeout(() => dniInputRef.current?.focus(), 100);
+  }}>
+    <Eraser size={16} style={{marginRight: "0.5rem"}} />Limpiar
+  </button>
+  <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>
+    Guardar
+  </button>
+</div>
           </div>
         </div>
       )}
@@ -542,35 +667,84 @@ export default function PersonasPage() {
               <button onClick={() => setShowPreviewModal(false)} className="btn-cerrar"><X size={20} /></button>
             </div>
             <div className="modal-body">
-              <p style={{ marginBottom: '1rem' }}>
-                Total: {previewData.length} |
-                Válidos: <span style={{color:'#22c55e', fontWeight: 600}}>{previewData.filter(p=>p.estado==='ok').length}</span> |
-                Rechazados: <span style={{color:'#ef4444', fontWeight: 600}}>{previewData.filter(p=>p.estado==='error').length}</span>
-              </p>
-              <div style={{ maxHeight: '40rem', overflow: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
-                  <thead>
-                    <><tr style={{ borderBottom: '0.2rem solid var(--color-borde)', textAlign: 'left' }}><th style={{ padding: '1rem', width: '6rem' }}>Nro.</th><th style={{ padding: '1rem' }}>DNI</th><th style={{ padding: '1rem' }}>Apellidos</th><th style={{ padding: '1rem' }}>Nombres</th><th style={{ padding: '1rem' }}>Teléfono</th><th style={{ padding: '1rem' }}>Sexo</th><th style={{ padding: '1rem' }}>Rol</th><th style={{ padding: '1rem' }}>Acciones</th></tr></>
-                  </thead>
-                  <tbody>
-                    {previewData.map((p, i) => (
-                      <tr key={i} style={{ borderBottom: '1px solid var(--color-borde)', background: p.estado==='error'? '#fef2f2' : '#f0fdf4' }}>
-                        <td style={{ padding: '0.8rem', textAlign: 'center' }}>
-                          {p.estado==='ok'? <Check size={18} color="#22c55e" /> : <Ban size={18} color="#ef4444" />}
-                        </td>
-                        <td style={{ padding: '0.8rem' }}>{p.fila}</td>
-                        <td style={{ padding: '0.8rem' }}>{p.dni}</td>
-                        <td style={{ padding: '0.8rem' }}>{p.apellidos}</td>
-                        <td style={{ padding: '0.8rem' }}>{p.nombres}</td>
-                        <td style={{ padding: '0.8rem' }}>{p.telefono}</td>
-                        <td style={{ padding: '0.8rem' }}>{p.sexo}</td>
-                        <td style={{ padding: '0.8rem', color: '#ef4444', fontSize: '1.2rem' }}>{p.motivo}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+  <div className="input-wrapper">
+    <label className="input-label">DNI</label>
+    <input 
+      ref={dniInputRef} 
+      className="input-sgpc-floating" 
+      placeholder="12345678" 
+      type="text" 
+      inputMode="numeric" 
+      value={form.dni || ''} 
+      onChange={e => handleDniChange(e.target.value)} 
+      onKeyDown={handleDniKeyDown} 
+      onBlur={() => validarDNI(form.dni || '')} 
+      maxLength={8} 
+      disabled={dniInputBloqueado} 
+    />
+    <div className="input-icon-wrapper"><IdCard size={18} strokeWidth={1.5} /></div>
+  </div>
+
+  <div className="input-wrapper">
+    <label className="input-label">Apellidos</label>
+    <input 
+      ref={apellidosInputRef} 
+      className="input-sgpc-floating" 
+      placeholder="Pérez García" 
+      value={form.apellidos || ''} 
+      onChange={e => setForm({...form, apellidos: e.target.value })} 
+      disabled={camposBloqueados} 
+    />
+    <div className="input-icon-wrapper"><User size={18} strokeWidth={1.5} /></div>
+  </div>
+
+  <div className="input-wrapper">
+    <label className="input-label">Nombres</label>
+    <input 
+      className="input-sgpc-floating" 
+      placeholder="Juan Carlos" 
+      value={form.nombres || ''} 
+      onChange={e => setForm({...form, nombres: e.target.value })} 
+      disabled={camposBloqueados} 
+    />
+    <div className="input-icon-wrapper"><User size={18} strokeWidth={1.5} /></div>
+  </div>
+
+  <div className="input-wrapper">
+    <label className="input-label">Teléfono</label>
+    <input 
+      className="input-sgpc-floating" 
+      placeholder="987654321" 
+      value={form.telefono || ''} 
+      onChange={e => setForm({...form, telefono: e.target.value })} 
+      disabled={camposBloqueados} 
+    />
+    <div className="input-icon-wrapper"><Phone size={18} strokeWidth={1.5} /></div>
+  </div>
+
+  {/* SEXO CON REACT-SELECT */}
+  <SelectSGPC
+    label="Sexo *"
+    value={form.sexo || ""}
+    onChange={(val:any) => setForm({...form, sexo: val })}
+    placeholder="Seleccione"
+    options={[
+      {value: "M", label: "Masculino"},
+      {value: "F", label: "Femenino"}
+    ]}
+    isDisabled={camposBloqueados}
+  />
+
+  {/* ROL CON REACT-SELECT */}
+  <SelectSGPC
+    label="Rol"
+    value={form.idrol || ""}
+    onChange={(val:any) => setForm({...form, idrol: val })}
+    placeholder="Seleccione Rol"
+    options={roles.map(r => ({value: r.idrol, label: r.nombrerol}))}
+    isDisabled={camposBloqueados}
+  />
+</div>
             <div className="modal-footer">
               <button className="btn-secundario" onClick={() => setShowPreviewModal(false)}>Cancelar</button>
               <button className="btn-primario" onClick={handleConfirmImport}>
@@ -621,17 +795,27 @@ export default function PersonasPage() {
           background: var(--color-blanco);
           border-radius: 1.6rem;
           box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-          padding: 3.2rem;
+          padding: 4rem 3.2rem 3.2rem 3.2rem;
           position: relative;
           display:flex;
           flex-direction:column;
           max-height:90vh;
         }
- .input-wrapper { position: relative; width: 100%; }
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem; /* <-- Separación entre secciones */
+  overflow-y: auto; /* <-- CLAVE PARA SCROLL EN CELULAR */
+  padding-right: 0.4rem; /* para que no tape la barra */
+}
+
+ .input-wrapper { position: relative; width: 100%; display: flex; /* <-- fuerza que label+input ocupen todo */
+  flex-direction: column;}
  .input-sgpc-floating {
           width: 100%;
           box-sizing: border-box;
-          padding: 1.8rem 4.2rem 0.8rem 1.6rem;
+          padding: 1.6rem 1.4rem 1rem 1.4rem;
           border: 1px solid var(--color-secundario);
           border-radius: 0.8rem;
           font-size: var(--text-base);
@@ -641,10 +825,11 @@ export default function PersonasPage() {
           transition: all 0.2s ease;
           color: var(--color-texto);
           height: 5.2rem;
+          margin-top:0.8rem;
         }
  .input-sgpc-floating:focus {
           border: 2px solid var(--color-primario);
-          padding: 1.7rem 4.1rem 0.7rem 1.5rem;
+          padding: 1.5rem 1.3rem 0.9rem 1.3rem;
         }
  .input-sgpc-floating:disabled {
           background: #f3f4f6;
@@ -653,16 +838,17 @@ export default function PersonasPage() {
         }
  .input-label {
           position: absolute;
-          left: 1.4rem;
-          top: -0.8rem;
+          left: 1rem;
+          top: 0rem;
           font-size: 1.2rem;
           color: var(--color-primario);
           font-weight: 600;
           background: var(--color-blanco);
           padding: 0 0.6rem;
           pointer-events: none;
-          z-index: 1;
+          z-index: 10;
         }
+          
  .input-icon-wrapper {
           position: absolute;
           right: 1.4rem;
@@ -778,6 +964,96 @@ export default function PersonasPage() {
             width: 100%;
           }
         }
+
+
+.grid-filtros-personas {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 columnas iguales */
+  gap: 1.6rem;
+  align-items: end;
+}
+
+.btn-limpiar {
+  height: 4.4rem;
+  white-space: nowrap;
+  justify-content: center;
+}
+.card-section {
+  padding: 2rem;
+  margin-top: 1.6rem;
+  background: #f8fafc;
+  border: 1px solid var(--color-borde);
+  border-radius: 1.2rem;
+}
+.card-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  gap: 0.8rem;
+  margin-bottom: 1.2rem;
+  color: var(--color-primario);
+  font-weight: 600;
+  font-size: 1.6rem;
+}
+  
+.modal-header {
+  margin-bottom: 2.4rem; /* MAS ESPACIO DESPUES DEL TITULO */
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.6rem; /* <-- ESTA ES LA CLAVE. Separa todos los inputs */
+  align-items: end;
+}
+
+/* Para que en celular sea 1 columna */
+@media (max-width: 768px) {
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+
+.fieldset-sgpc {
+  border: 2px solid var(--color-primario);
+  border-radius: 1.2rem;
+  padding: 2.4rem 1.6rem 1.6rem 1.6rem;
+  margin-top: 2.4rem;
+  position: relative;
+}
+
+.fieldset-sgpc legend {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--color-primario);
+  padding: 0 0.8rem;
+  margin-left: 0.8rem; /* para que no esté pegado al borde */
+}
+
+/* Para que el grid de adentro no tenga margin-top extra */
+.fieldset-sgpc .grid-2 {
+  margin-top: 0;
+  gap: 1.6rem;
+}
+
+@media (max-width: 1024px) {
+  .grid-filtros-personas {
+    grid-template-columns: repeat(2, 1fr); /* 2x2 en tablet */
+  }
+}
+
+/* FORZAR QUE REACT-SELECT SE VEA IGUAL QUE EL INPUT */
+.react-select__control--is-disabled {
+  background: #f3f4f6 !important;
+  cursor: not-allowed !important;
+}
+
+@media (max-width: 640px) {
+  .grid-filtros-personas {
+    grid-template-columns: 1fr; /* 1 columna en cel */
+  }
+}
       `}</style>
     </div>
   )

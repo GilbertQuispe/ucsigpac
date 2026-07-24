@@ -56,6 +56,7 @@ export default function EpsPage() {
 
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
+  const [totalRegistros, setTotalRegistros] = useState(0)
   const [idDeptoSel, setIdDeptoSel] = useState<number | undefined>(undefined)
   const [idProvSel, setIdProvSel] = useState<number | undefined>(undefined)
 
@@ -71,57 +72,66 @@ export default function EpsPage() {
 
   const toTitleCase = (str: string) => str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
 
-  const fetchData = async () => {
+const fetchData = async () => {
   setLoading(true)
   
-  let allEps: Eps[] = []
-  let from = 0
-  const pageSize = 1000
-  let hasMore = true
+  const from = (paginaActual - 1) * registrosPorPagina
+  const to = from + registrosPorPagina - 1
 
-  while (hasMore) {
-    const { data, error } = await supabase
-      .from("eps")
-      .select(`
-        *,
-        distrito!iddistrito (
-          nombredt,
-          idprovincia,
-          provincia!idprovincia (
-            nombrep,
-            iddepartamento,
-            departamento!iddepartamento ( nombred )
-          )
-        ),
-        nivelatencion!idnivela ( codigo, nombre ),
-        tipoeps!idtipoeps ( nombretipoeps )
-      `)
-      .order("ideps")
-      .range(from, from + pageSize - 1)
-
-    if (error) {
-      console.error("ERROR SUPABASE EPS:", error) // <-- MIRA LA CONSOLA AQUI
-      showToast("Error cargando EPS: " + error.message + " | Detalle: " + error.details, "error")
-      break
-    }
-
-    if (data && data.length > 0) {
-      allEps = [...allEps, ...data]
-      hasMore = data.length === pageSize
-      from += pageSize
-    } else {
-      hasMore = false
+  // 1. Primero armamos los ids de distrito si hay filtro depto/prov
+  let idsDistritosFiltro: number[] = []
+  if(filtroProv || filtroDepto){
+    let idsProv = filtroProv 
+     ? [filtroProv] 
+      : provincias.filter(p => p.iddepartamento === filtroDepto).map(p => p.idprovincia)
+    
+    if(idsProv.length > 0){
+      const {data: distData} = await supabase.from("distrito").select("iddistrito").in("idprovincia", idsProv)
+      idsDistritosFiltro = distData?.map(d => d.iddistrito) || []
     }
   }
 
-  const { data: distData } = await supabase.from("distrito").select("iddistrito, nombredt, idprovincia").eq("estado", "ACTIVO").order("nombredt").range(0, 9999)
-  const { data: provData } = await supabase.from("provincia").select("idprovincia, nombrep, iddepartamento").eq("estado", "ACTIVO").order("nombrep").range(0, 9999)
-  const { data: deptoData } = await supabase.from("departamento").select("iddepartamento, nombred").eq("estado", "ACTIVO").order("nombred").range(0, 9999)
-  const { data: nivData } = await supabase.from("nivelatencion").select("idnivela, codigo, nombre").order("idnivela").range(0, 9999) // Cambié a order por id
-  const { data: tipoData } = await supabase.from("tipoeps").select("*").order("nombretipoeps").range(0, 9999)
+  let query = supabase
+  .from("eps")
+  .select(`
+      ideps, ruc, razonsocial, estado, iddistrito, idnivela, idtipoeps,
+      distrito!inner(nombredt,idprovincia,provincia!inner(nombrep,iddepartamento,departamento!inner(nombred))),
+      nivelatencion!inner(codigo,nombre),
+      tipoeps!inner(nombretipoeps)
+    `, { count: 'exact' })
+  .eq('estado', 'ACTIVO')
 
-  setEps(allEps || []); setDistritos(distData || []); setProvincias(provData || []); setDepartamentos(deptoData || []); setNiveles(nivData || []); setTipos(tipoData || [])
-  setLoading(false); setPaginaActual(1)
+  if(search) query = query.or(`razonsocial.ilike.%${search}%,ruc.ilike.%${search}%`)
+  if(filtroTipo) query = query.eq('idtipoeps', filtroTipo)
+  if(filtroDist) query = query.eq('iddistrito', filtroDist)
+  if(idsDistritosFiltro.length > 0) query = query.in('iddistrito', idsDistritosFiltro)
+
+  const { data: epsData, error, count } = await query.order("razonsocial").range(from, to)
+
+  if (error) {
+    console.error("ERROR SUPABASE EPS:", error)
+    showToast("Error cargando EPS: " + error.message, "error")
+  }
+
+  // Maestras solo 1 vez
+  if(distritos.length === 0){
+    const [{data: distData}, {data: provData}, {data: deptoData}, {data: nivData}, {data: tipoData}] = await Promise.all([
+      supabase.from("distrito").select("iddistrito, nombredt, idprovincia").eq("estado", "ACTIVO").order("nombredt"),
+      supabase.from("provincia").select("idprovincia, nombrep, iddepartamento").eq("estado", "ACTIVO").order("nombrep"),
+      supabase.from("departamento").select("iddepartamento, nombred").eq("estado", "ACTIVO").order("nombred"),
+      supabase.from("nivelatencion").select("idnivela, codigo, nombre").order("idnivela"),
+      supabase.from("tipoeps").select("*").order("nombretipoeps")
+    ])
+    setDistritos(distData || []); 
+    setProvincias(provData || []); 
+    setDepartamentos(deptoData || []); 
+    setNiveles(nivData || []); 
+    setTipos(tipoData || [])
+  }
+
+  setEps((epsData as Eps[]) || []); 
+  setTotalRegistros(count || 0)
+  setLoading(false)
 }
 
   useEffect(() => { fetchData() }, [])
@@ -137,22 +147,17 @@ export default function EpsPage() {
   const provinciasFiltro = useMemo(() => filtroDepto? provincias.filter(p => p.iddepartamento === filtroDepto) : [], [filtroDepto, provincias])
   const distritosFiltro = useMemo(() => filtroProv? distritos.filter(d => d.idprovincia === filtroProv) : [], [filtroProv, distritos])
 
-  const epsFiltrados = useMemo(() => eps.filter(e => {
-    const matchSearch = e.razonsocial?.toLowerCase().includes(search.toLowerCase()) || e.ruc?.includes(search)
-    const matchDepto =!filtroDepto || e.distrito?.provincia?.iddepartamento === filtroDepto
-    const matchProv =!filtroProv || e.distrito?.idprovincia === filtroProv
-    const matchDist =!filtroDist || e.iddistrito === filtroDist
-    const matchTipo =!filtroTipo || e.idtipoeps === filtroTipo
-    return matchSearch && matchDepto && matchProv && matchDist && matchTipo
-  }), [eps, search, filtroDepto, filtroProv, filtroDist, filtroTipo])
+  
 
   const provinciasFiltradas = useMemo(() => idDeptoSel? provincias.filter(p => p.iddepartamento === idDeptoSel) : [], [idDeptoSel, provincias])
   const distritosFiltrados = useMemo(() => idProvSel? distritos.filter(d => d.idprovincia === idProvSel) : [], [idProvSel, distritos])
-  const totalPaginas = Math.ceil(epsFiltrados.length / registrosPorPagina)
-  const indiceInicio = (paginaActual - 1) * registrosPorPagina
-  const indiceFin = indiceInicio + registrosPorPagina
-  const epsPaginados = epsFiltrados.slice(indiceInicio, indiceFin)
-  useEffect(() => { setPaginaActual(1) }, [search, filtroDepto, filtroProv, filtroDist, filtroTipo])
+  const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina) // antes era epsFiltrados.length
+const indiceInicio = (paginaActual - 1) * registrosPorPagina
+const indiceFin = indiceInicio + registrosPorPagina
+  const epsPaginados = eps.slice(indiceInicio, indiceFin)
+  useEffect(() => { setPaginaActual(1) }, [search, filtroDepto, filtroProv, filtroDist, filtroTipo]) // resetea a pág 1
+
+useEffect(() => { fetchData() }, [paginaActual, search, filtroDepto, filtroProv, filtroDist, filtroTipo]) // carga data
 
   const limpiarFiltros = () => {
     setFiltroDepto(null); setFiltroProv(null); setFiltroDist(null); setFiltroTipo(null); setSearch("")
@@ -292,12 +297,12 @@ export default function EpsPage() {
   return (
     <div>
       <div className="header-responsive">
-        <div><h1>Registro de EPS</h1><p>Total: {epsFiltrados.length} registros</p></div>
+        <div><h1>Registro de EPS</h1><p>Total: {totalRegistros} registros</p></div>
         <button className="btn-primario" onClick={() => openModal()}><Plus size={18} />Nueva EPS</button>
       </div>
 
       <div className="card-sgpc" style={{ marginBottom: "2.4rem", padding: "2rem" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.8rem", marginBottom: "1.6rem" }}><Filter size={18} /><h3 style={{margin: 0, fontSize: "1.6rem"}}>Filtros</h3></div>
+        
         <div className="grid-4" style={{ gap: "1.6rem" }}>
           <SelectSGPC label="Departamento" value={filtroDepto || ""} onChange={(val:any) => {setFiltroDepto(val); setFiltroProv(null); setFiltroDist(null)}} placeholder="Todos" options={departamentos.map(d => ({value: d.iddepartamento, label: d.nombred}))} />
           <SelectSGPC label="Provincia" value={filtroProv || ""} onChange={(val:any) => {setFiltroProv(val); setFiltroDist(null)}} placeholder="Todos" options={provinciasFiltro.map(p => ({value: p.idprovincia, label: p.nombrep}))} isDisabled={!filtroDepto} />
@@ -348,7 +353,7 @@ export default function EpsPage() {
       </div>
       {totalPaginas > 1 && (
         <div className="paginacion-footer">
-          <p className="paginacion-info">Mostrando {indiceInicio + 1} al {Math.min(indiceFin, epsFiltrados.length)} de {epsFiltrados.length} registros</p>
+          <p className="paginacion-info">Mostrando {indiceInicio + 1} al {Math.min(indiceFin, totalRegistros)} de {totalRegistros} registros</p>
           <div className="paginacion-controles">
             <button className="btn-pag" onClick={() => setPaginaActual(p => Math.max(1, p - 1))} disabled={paginaActual === 1}><ChevronLeft size={16} /> Anterior</button>
             <span className="paginacion-pagina">Pág {paginaActual} de {totalPaginas}</span>

@@ -1,7 +1,8 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, MapPin, Building, Globe, ChevronLeft, ChevronRight } from 'lucide-react' // <-- 1. Agregue iconos
+import { Plus, Edit, Trash2, X, Search, MapPin, Building, Globe, ChevronLeft, ChevronRight, Eraser } from 'lucide-react' // <-- 1. Agregue iconos
+import Select from 'react-select'
 
 type Departamento = { iddepartamento: number, nombred: string }
 type Provincia = { idprovincia: number, iddepartamento: number, nombrep: string }
@@ -41,6 +42,42 @@ export default function UbigeoPage() {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3000)
   }
+
+
+  const SelectSGPC = ({label, value, onChange, options, placeholder, isDisabled = false}:any) => {
+  const selectedOption = options.find((o:any) => o.value === value) || null
+  return (
+    <div className="input-wrapper">
+      <label className="input-label">{label}</label>
+      <Select
+        options={options}
+        value={selectedOption}
+        onChange={(opt:any) => onChange(opt?.value || null)}
+        placeholder={placeholder}
+        isDisabled={isDisabled}
+        isSearchable={true}
+        menuPortalTarget={typeof document!== 'undefined'? document.body : null}
+        classNamePrefix="react-select"
+        noOptionsMessage={() => "No se encontraron resultados"}
+        styles={{
+          control: (base) => ({
+            ...base, minHeight: '4.4rem', height: '4.4rem', borderRadius: '0.8rem',
+            borderColor: '#e2e8f0', boxShadow: 'none', fontSize: '1.4rem', fontFamily: 'var(--font-principal)',
+            '&:hover': { borderColor: 'var(--color-primario)' }
+          }),
+          menuPortal: (base) => ({...base, zIndex: 99999 }),
+          menu: (base) => ({...base, fontSize: '1.4rem' }),
+          singleValue: (base) => ({...base, color: 'var(--color-texto)' }),
+          option: (base, state) => ({
+            ...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? '#f1f5f9' : 'white',
+            color: state.isSelected? 'white' : '#1e293b'
+          }),
+          input: (base) => ({...base, color: 'var(--color-texto)'})
+        }}
+      />
+    </div>
+  )
+}
 
   useEffect(() => { fetchTodo() }, [])
 
@@ -199,20 +236,42 @@ export default function UbigeoPage() {
       </div>
 
       <div className="content-area">
-        <div className="card-sgpc" style={{marginBottom: '2.4rem', display: 'flex', gap: '1.6rem', flexWrap: 'wrap', alignItems: 'center'}}>
-          <div style={{ position: 'relative', flex: 1, minWidth: '25rem' }}>
-            <Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
-            <input type="text" placeholder="Buscar por Departamento, Provincia o Distrito..." className="input-sgpc" value={filtro} onChange={e => setFiltro(e.target.value)} style={{ paddingLeft: '4rem' }} />
-          </div>
-          <select className="input-sgpc" value={filtroDptoId} onChange={e => handleFiltroDptoChange(e.target.value)} style={{ width: '20rem' }}>
-            <option value="">Todos los Departamentos</option>
-            {dptosFiltro.map(d => <option key={d.id} value={d.id}>{d.nombre}</option>)}
-          </select>
-          <select className="input-sgpc" value={filtroProvId} onChange={e => setFiltroProvId(e.target.value === ''? '' : Number(e.target.value))} style={{ width: '20rem' }} disabled={!filtroDptoId}>
-            <option value="">Todas las Provincias</option>
-            {provsFiltro.map(p => <option key={p.id} value={p.id}>{p.nombre}</option>)}
-          </select>
-        </div>
+        <div className="card-sgpc" style={{ marginBottom: "2.4rem", padding: "2rem" }}>
+  
+  <div className="grid-filtros-ubigeo">
+    <SelectSGPC 
+      label="Departamento" 
+      value={filtroDptoId || ""} 
+      onChange={(val:any) => handleFiltroDptoChange(val)} 
+      placeholder="Todos" 
+      options={dptosFiltro.map(d => ({value: d.id, label: d.nombre}))} 
+    />
+    <SelectSGPC 
+      label="Provincia" 
+      value={filtroProvId || ""} 
+      onChange={(val:any) => {setFiltroProvId(val); setPaginaActual(1)}} 
+      placeholder="Todos" 
+      options={provsFiltro.map(p => ({value: p.id, label: p.nombre}))} 
+      isDisabled={!filtroDptoId} 
+    />
+    
+    <div style={{ position: "relative", width: "100%" }}>
+      <Search size={18} style={{ position: "absolute", left: "1.2rem", top: "50%", transform: "translateY(-50%)", opacity: 0.5, zIndex: 1 }} />
+      <input 
+        className="input-sgpc" 
+        placeholder="Buscar por Departamento, Provincia o Distrito..." 
+        value={filtro} 
+        onChange={e => setFiltro(e.target.value)} 
+        style={{ paddingLeft: "4rem", height: "4.4rem", width: "100%" }} 
+      />
+    </div>
+
+    <button className="btn-secundario btn-limpiar" onClick={() => {setFiltro(""); setFiltroDptoId(""); setFiltroProvId(""); setProvsFiltro([])}}>
+      <Eraser size={16} />Limpiar
+    </button>
+  </div>
+
+</div>
 
         <div className="card-sgpc" style={{overflowX: 'auto'}}>
           <table className='tabla-sgpc'>
@@ -227,19 +286,19 @@ export default function UbigeoPage() {
             </thead>
             <tbody>
               {ubigeosPaginados.map((u, index) => (
-  <tr key={u.iddistrito} style={{borderBottom: '1px solid var(--color-borde)'}}>
-    <td style={{padding: '1rem', fontWeight: 600}}>
-      {indiceInicio + index + 1} 
-    </td>
-    <td style={{padding: '1rem'}}>{u.provincia.departamento.nombred}</td>
-    <td style={{padding: '1rem'}}>{u.provincia.nombrep}</td>
-    <td style={{padding: '1rem'}}>{u.nombredt}</td>
-    <td style={{padding: '1rem', display: 'flex', gap: '0.8rem'}}>
-      <button className="btn-icon btn-icon-editar" onClick={() => openModal(u)}><Edit size={15} /></button>
-      <button className="btn-icon btn-icon-eliminar" onClick={() => handleAnular(u.iddistrito)}><Trash2 size={15} /></button>
-    </td>
-  </tr>
-))}
+                  <tr key={u.iddistrito} style={{borderBottom: '1px solid var(--color-borde)'}}>
+                    <td style={{padding: '1rem', fontWeight: 600}}>
+                      {indiceInicio + index + 1} 
+                    </td>
+                    <td style={{padding: '1rem'}}>{u.provincia.departamento.nombred}</td>
+                    <td style={{padding: '1rem'}}>{u.provincia.nombrep}</td>
+                    <td style={{padding: '1rem'}}>{u.nombredt}</td>
+                    <td style={{padding: '1rem', display: 'flex', gap: '0.8rem'}}>
+                      <button className="btn-icon btn-icon-editar" onClick={() => openModal(u)}><Edit size={15} /></button>
+                      <button className="btn-icon btn-icon-eliminar" onClick={() => handleAnular(u.iddistrito)}><Trash2 size={15} /></button>
+                    </td>
+                  </tr>
+                ))}
             </tbody>
           </table>
         </div>
@@ -278,40 +337,59 @@ export default function UbigeoPage() {
           <div className="modal-content card-sgpc" style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
             {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
             <div className="modal-header">
-              <h2>{isEditing? 'Editar Distrito' : 'Nuevo Distrito'}</h2>
+              <h2 style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}>
+    <MapPin size={22} strokeWidth={2} /> 
+    {isEditing? 'Editar Distrito' : 'Nuevo Distrito'}
+  </h2>
               <button onClick={closeModal} className="btn-cerrar"><X size={20} /></button>
             </div>
-            <div className="modal-body">
+   <div className="modal-body">
 
-              <div className="input-wrapper">
-                <label className="input-label">Departamento *</label>
-                <select className="input-sgpc-floating" value={idDeptoSel} onChange={e => setIdDeptoSel(Number(e.target.value))} disabled={isEditing}>
-                  <option value="">Seleccione Departamento</option>
-                  {departamentos.map(d => <option key={d.iddepartamento} value={d.iddepartamento}>{d.nombred}</option>)}
-                </select>
-                <div className="input-icon-wrapper"><Globe size={18} strokeWidth={1.5} /></div>
-              </div>
+  <div className="grid-2">
+    <div className="input-wrapper">
+      <SelectSGPC
+        label="Departamento *"
+        value={idDeptoSel || ""}
+        onChange={(val:any) => setIdDeptoSel(val)}
+        options={departamentos.map(d => ({value: d.iddepartamento, label: d.nombred}))}
+        isDisabled={isEditing}
+      />
+      
+    </div>
 
-              <div className="input-wrapper">
-                <label className="input-label">Provincia *</label>
-                <select className="input-sgpc-floating" value={idProvSel} onChange={e => setIdProvSel(Number(e.target.value))} disabled={!idDeptoSel || isEditing}>
-                  <option value="">Seleccione Provincia</option>
-                  {provincias.map(p => <option key={p.idprovincia} value={p.idprovincia}>{p.nombrep}</option>)}
-                </select>
-                <div className="input-icon-wrapper"><Building size={18} strokeWidth={1.5} /></div>
-              </div>
+    <div className="input-wrapper">
+      <SelectSGPC
+        label="Provincia *"
+        value={idProvSel || ""}
+        onChange={(val:any) => setIdProvSel(val)}
+        options={provincias.map(p => ({value: p.idprovincia, label: p.nombrep}))}
+        isDisabled={!idDeptoSel || isEditing}
+      />
+      
+    </div>
+  </div>
 
-              <div className="input-wrapper">
-                <label className="input-label">Nombre del Distrito *</label>
-                <input className="input-sgpc-floating" placeholder="Ej: Huancayo" value={nombreDist} onChange={e => setNombreDist(e.target.value)} />
-                <div className="input-icon-wrapper"><MapPin size={18} strokeWidth={1.5} /></div>
-              </div>
+  <div className="input-wrapper">
+    <label className="input-label">Nombre del Distrito *</label>
+    <input 
+      className="input-sgpc-floating" 
+      placeholder="Ej: Huancayo" 
+      value={nombreDist} 
+      onChange={e => setNombreDist(e.target.value)} 
+    />
+    <div className="input-icon-wrapper"><MapPin size={18} strokeWidth={1.5} /></div>
+  </div>
 
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secundario" onClick={handleCancelar}>Cancelar</button>
-              <button className="btn-primario" onClick={handleGuardar} disabled={!puedeGuardar}>Guardar</button>
-            </div>
+</div>
+
+<div className="modal-footer">
+  <button className="btn-secundario" onClick={handleCancelar}>
+    <Eraser size={16} /> Limpiar
+  </button>
+  <button className="btn-primario" onClick={handleGuardar} disabled={!puedeGuardar}>
+    Guardar
+  </button>
+</div>         
           </div>
         </div>
       )}
@@ -375,56 +453,51 @@ export default function UbigeoPage() {
           gap: 2rem;
           margin-bottom: 2.4rem;
         }
+
+        .grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.6rem;
+  align-items: end; /* para que select e input queden a la misma altura */
+}
+
     .input-wrapper { position: relative; width: 100%; }
     .input-sgpc-floating {
-          width: 100%;
-          box-sizing: border-box;
-          padding: 1.8rem 4.2rem 0.8rem 1.6rem;
-          border: 1px solid var(--color-secundario);
-          border-radius: 0.8rem;
-          font-size: var(--text-base);
-          font-family: var(--font-principal);
-          background: var(--color-blanco);
-          outline: none;
-          transition: all 0.2s ease;
-          color: var(--color-texto);
-          height: 5.2rem;
-        }
-    .input-sgpc-floating:focus {
-          border: 2px solid var(--color-primario);
-          padding: 1.7rem 4.1rem 0.7rem 1.5rem;
-        }
-    .input-sgpc-floating:disabled {
-          background: #f3f4f6;
-          cursor: not-allowed;
-          opacity: 0.7;
-        }
-    .input-label {
-          position: absolute;
-          left: 1.4rem;
-          top: -0.8rem;
-          font-size: 1.2rem;
-          color: var(--color-primario);
-          font-weight: 600;
-          background: var(--color-blanco);
-          padding: 0 0.6rem;
-          pointer-events: none;
-          z-index: 1;
-        }
-    .input-icon-wrapper {
-          position: absolute;
-          right: 1.4rem;
-          top: 0;
-          bottom: 0;
-          margin: auto;
-          height: 18px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: #64748b;
-          pointer-events: none;
-          z-index: 2;
-        }
+  width: 100%;
+  box-sizing: border-box;
+  padding: 1.6rem 4.2rem 1rem 1.4rem; /* padding-right para el icono */
+  border: 1px solid #cbd5e1;
+  border-radius: 0.8rem;
+  font-size: 1.4rem;
+  height: 5.2rem;
+  margin-top: 0.8rem;
+  background: var(--color-blanco);
+}
+.input-sgpc-floating:focus {
+  border: 2px solid var(--color-primario);
+  padding: 1.5rem 4.1rem 0.9rem 1.3rem;
+}
+
+.input-label {
+  position: absolute;
+  left: 1rem;
+  top: 0rem;
+  font-size: 1.2rem;
+  color: var(--color-primario);
+  font-weight: 600;
+  background: var(--color-blanco);
+  padding: 0 0.6rem;
+  z-index: 10;
+}
+
+.input-icon-wrapper {
+  position: absolute;
+  right: 1.4rem;
+  top: 2.6rem; /* centrado con el height 5.2rem */
+  color: #64748b;
+  pointer-events: none;
+  z-index: 2;
+}
     .modal-footer {
           display: flex;
           justify-content: flex-end;
@@ -534,6 +607,30 @@ export default function UbigeoPage() {
   .paginacion-info {
     text-align: center;
     width: 100%;
+  }
+}
+  .grid-filtros-ubigeo {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.6rem;
+  align-items: end;
+}
+
+.btn-limpiar {
+  height: 4.4rem;
+  white-space: nowrap;
+}
+
+/* RESPONSIVE: Tablet y Celular */
+@media (max-width: 1024px) {
+  .grid-filtros-ubigeo {
+    grid-template-columns: repeat(2, 1fr); /* 2 columnas */
+  }
+}
+
+@media (max-width: 640px) {
+  .grid-filtros-ubigeo {
+    grid-template-columns: 1fr; /* 1 columna en cel muy chico */
   }
 }
       `}</style>

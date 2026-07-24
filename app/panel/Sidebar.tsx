@@ -10,38 +10,43 @@ import {
   LayoutDashboard, Stethoscope, HeartPulse, ChevronDown, Menu, X, LogOut
 } from 'lucide-react'
 
-const MENU_COMPLETO = [
-  { title:'Administración y Seguridad', icon: Shield, items:[ {name:'1.1 Roles', href:'/panel/roles', icon: UserCog}, {name:'1.2 Permisos', href:'/panel/permisos', icon: Shield}, {name:'1.3 Usuarios', href:'/panel/usuarios', icon: Users}, {name:'1.4 Asignación de Roles', href:'/panel/asignacion', icon: UserCheck}, {name:'1.5 Gestión de Personas', href:'/panel/personas', icon: Users} ]},
-  
-  { title:'Gestión de miembros', icon: Users, items:[ 
-    {name:'2.1 Personas', href:'/panel/personas', icon: Users}, 
-    {name:'2.2 Estudiantes', href:'/panel/estudiantes', icon: GraduationCap}, 
-    {name:'2.3 Docentes', href:'/panel/docentes', icon: BookOpen}, 
+type SubItem = { name: string; href: string; icon: any }
+type MenuItem = { name: string; href: string; icon: any; children?: SubItem[] }
+type MenuModule = { title: string; icon: any; items: MenuItem[] }
+
+const MENU_COMPLETO: MenuModule[] = [
+  { title:'Administración y Seguridad', icon: Shield, items:[ {name:'1.1 Roles', href:'/panel/roles', icon: UserCog}, {name:'1.2 Permisos', href:'/panel/permisos', icon: Shield}, {name:'1.3 Usuarios', href:'/panel/usuarios', icon: Users}, {name:'1.4 Asignación de Roles', href:'/panel/asignacion', icon: UserCheck} ]},
+
+  { title:'Gestión de miembros', icon: Users, items:[
+    {name:'2.1 Personas', href:'/panel/personas', icon: Users},
+    {name:'2.2 Estudiantes', href:'/panel/estudiantes', icon: GraduationCap},
+    {name:'2.3 Docentes', href:'/panel/docentes', icon: BookOpen},
     {name:'2.4 Supervisores', href:'/panel/supervisores', icon: UserCheck},
-    {name:'2.5 Perfiles', href:'#', icon: UserCog},
-    {name:'2.5.1 Profesión', href:'/panel/profesion', icon: BookOpen},
-    {name:'2.5.2 Especialidad', href:'/panel/especialidad', icon: Stethoscope}
+    {name:'2.5 Perfiles', href:'#', icon: UserCog, children: [
+      {name:'2.5.1 Profesión', href:'/panel/profesion', icon: BookOpen},
+      {name:'2.5.2 Especialidad', href:'/panel/especialidad', icon: Stethoscope}
+    ]}
   ]},
-  
+
   { title:'Gestión de Instituciones de Salud', icon: Building2, items:[ {name:'3.1 Ubigeo', href:'/panel/ubigeo', icon: MapPin}, {name:'3.2 Niveles de Atención', href:'/panel/niveles', icon: Stethoscope}, {name:'3.3 Servicios de Salud', href:'/panel/servicios', icon: HeartPulse}, {name:'3.4 EPS', href:'/panel/eps', icon: Building2}, {name:'3.5 Campos Clínicos', href:'/panel/campos', icon: Building2}, {name:'3.6 Asignación Docente', href:'/panel/asignacion-docente', icon: UserCheck} ]},
-  
-  { title:'Gestión Académica', icon: GraduationCap, items:[ 
-    {name:'4.1 Filiales', href:'/panel/filiales', icon: Building2}, 
-    {name:'4.2 Periodo Académico', href:'/panel/periodo', icon: Calendar}, 
-    {name:'4.3 Matrículas', href:'/panel/matriculas', icon: FileText}, 
-    {name:'4.4 Carga Académica', href:'/panel/carga', icon: BookOpen}, 
-    {name:'4.5 Grupos de Práctica', href:'/panel/grupos', icon: Users}, 
-    {name:'4.6 Horarios Académicos', href:'/panel/horarios', icon: Calendar} 
+
+  { title:'Gestión Académica', icon: GraduationCap, items:[
+    {name:'4.1 Filiales', href:'/panel/filiales', icon: Building2},
+    {name:'4.2 Periodo Académico', href:'/panel/periodo', icon: Calendar},
+    {name:'4.3 Matrículas', href:'/panel/matriculas', icon: FileText},
+    {name:'4.4 Carga Académica', href:'/panel/carga', icon: BookOpen},
+    {name:'4.5 Grupos de Práctica', href:'/panel/grupos', icon: Users},
+    {name:'4.6 Horarios Académicos', href:'/panel/horarios', icon: Calendar}
   ]},
-  
+
   { title:'Supervisión Clínica', icon: ClipboardCheck, items:[ {name:'5.1 Asignación Supervisores', href:'/panel/asig-supervisores', icon: UserCheck}, {name:'5.2 Programación Visitas', href:'/panel/programacion', icon: Calendar}, {name:'5.3 Registro Supervisiones', href:'/panel/supervisiones', icon: ClipboardCheck}, {name:'5.4 Evaluaciones', href:'/panel/evaluaciones', icon: TrendingUp}, {name:'5.5 Incidencias', href:'/panel/incidencias', icon: AlertTriangle}, {name:'5.6 Informe de Supervisión', href:'/panel/informes', icon: FileText} ]},
-  
+
   { title:'Planes de Mejora', icon: TrendingUp, items:[ {name:'6.1 Plan de Mejora', href:'/panel/planes', icon: TrendingUp}, {name:'6.2 Seguimiento', href:'/panel/seguimiento', icon: BarChart3} ]},
-  
+
   { title:'Gestión de Indicadores', icon: BarChart3, items:[ {name:'7.1 Indicadores de Calidad', href:'/panel/indicadores', icon: BarChart3} ]},
-  
+
   { title:'Reportes', icon: BarChart3, items:[ {name:'8.1 Dashboard Ejecutivo', href:'/panel', icon: LayoutDashboard}, {name:'8.2 Reportes', href:'/panel/reportes', icon: FileText} ]},
-  
+
   { title:'Configuración', icon: Settings, items:[ {name:'9.1 Parámetros del Sistema', href:'/panel/parametros', icon: Settings} ]},
 ]
 
@@ -50,24 +55,42 @@ export default function Sidebar({ user }: { user: any }) {
   const router = useRouter()
   const supabase = createClient()
   const [openMenu, setOpenMenu] = useState<string | null>(null)
+  const [openSubMenu, setOpenSubMenu] = useState<string | null>(null) // NUEVO
   const [isMobileOpen, setIsMobileOpen] = useState(false)
 
-  /* useEffect(() => {
-    const activeModule = MENU_COMPLETO.find(mod => mod.items.some(item => pathname.startsWith(item.href)))
-    if(activeModule) setOpenMenu(activeModule.title)
-    setIsMobileOpen(false)
-  }, [pathname]) */
-  useEffect(() => {
-  const activeModule = MENU_COMPLETO.find(mod => mod.items.some(item => pathname.startsWith(item.href)))
+ useEffect(() => {
+  // 1. Busca coincidencia EXACTA primero
+  let activeModule = MENU_COMPLETO.find(mod => 
+    mod.items.some(item => item.href === pathname || item.children?.some(c => c.href === pathname))
+  )
+  
+  // 2. Si no hay exacta, busca con startsWith
+  if(!activeModule) {
+    activeModule = MENU_COMPLETO.find(mod =>
+      mod.items.some(item => pathname.startsWith(item.href) || item.children?.some(c => pathname.startsWith(c.href)))
+    )
+  }
+
   if(activeModule) setOpenMenu(activeModule.title)
 
-  // SOLO cerrar el menu hamburguesa en mobile
+  // 3. Busca submenú activo. Si no encuentra, lo limpia
+  const activeSub = activeModule?.items.find(item => 
+    item.children?.some(c => pathname === c.href)
+  )
+  
+  if(activeSub) {
+    setOpenSubMenu(activeSub.name) // Si hay submenú, lo abre
+  } else {
+    setOpenSubMenu(null) // Si NO hay submenú, lo cierra <-- ESTA ERA LA CLAVE
+  }
+
   if (typeof window!== 'undefined' && window.innerWidth < 1024) {
     setIsMobileOpen(false)
   }
 }, [pathname])
 
   const toggleMenu = (title: string) => setOpenMenu(openMenu === title? null : title)
+  const toggleSubMenu = (name: string) => setOpenSubMenu(openSubMenu === name? null : name) // NUEVO
   const logout = async () => { await supabase.auth.signOut(); router.push('/login') }
   const iniciales = `${user.nombres?.[0] || ''}${user.apellidos?.[0] || ''}`.toUpperCase()
 
@@ -92,31 +115,59 @@ export default function Sidebar({ user }: { user: any }) {
           {MENU_COMPLETO.map(mod => {
             const ModuleIcon = mod.icon
             const isOpen = openMenu === mod.title
-            const hasActiveChild = mod.items.some(item => pathname.startsWith(item.href))
             return (
               <div key={mod.title} className="menu-module">
                 <button onClick={() => toggleMenu(mod.title)} className={`menu-button ${isOpen? 'active':''}`}>
                   <ModuleIcon size={20} /><span>{mod.title}</span>
-                  {/* <ChevronDown size={18} className={`chevron ${isOpen? 'open':''}`} /> */}
-                  <ChevronDown 
-  size={18} 
-  className="chevron" 
-  style={{ 
-    marginLeft: 'auto',
-    transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-    transition: 'transform 0.3s ease'
-  }} 
-/>
+                  <ChevronDown
+                    size={18}
+                    style={{
+                      marginLeft: 'auto',
+                      transform: isOpen? 'rotate(180deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.3s ease'
+                    }}
+                  />
                 </button>
                 <div className={`submenu-wrapper ${isOpen? 'open' : ''}`}>
                   <div className="submenu">
                     {mod.items.map(item => {
                       const ItemIcon = item.icon
                       const isActive = pathname === item.href
+                      const hasChildren =!!item.children
+                      const isSubOpen = openSubMenu === item.name
+
                       return (
-                        <Link key={item.href} href={item.href} className={`submenu-item ${isActive? 'active':''}`}>
-                          <ItemIcon size={17} /><span>{item.name}</span>
-                        </Link>
+                        <div key={item.name}>
+                          {hasChildren? (
+                            // ITEM CON SUBMENU
+                            <button onClick={() => toggleSubMenu(item.name)} className={`submenu-item ${isSubOpen? 'active':''}`} style={{width: '100%', background: 'transparent', border: 'none'}}>
+                              <ItemIcon size={17} /><span>{item.name}</span>
+                              <ChevronDown size={15} style={{ marginLeft: 'auto', transform: isSubOpen? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.3s' }} />
+                            </button>
+                          ) : (
+                            // ITEM NORMAL
+                            <Link href={item.href} className={`submenu-item ${isActive? 'active':''}`}>
+                              <ItemIcon size={17} /><span>{item.name}</span>
+                            </Link>
+                          )}
+
+                          {/* SUBMENU NIVEL 3 */}
+                          {hasChildren && (
+                            <div className={`submenu-wrapper ${isSubOpen? 'open' : ''}`} style={{paddingLeft: '1.5rem'}}>
+                              <div className="submenu">
+                                {item.children?.map(child => {
+                                  const ChildIcon = child.icon
+                                  const isChildActive = pathname === child.href
+                                  return (
+                                    <Link key={child.href} href={child.href} className={`submenu-item ${isChildActive? 'active':''}`}>
+                                      <ChildIcon size={15} /><span>{child.name}</span>
+                                    </Link>
+                                  )
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       )
                     })}
                   </div>
@@ -134,7 +185,6 @@ export default function Sidebar({ user }: { user: any }) {
       <style jsx>{`
 .sidebar-wrapper {
     width: var(--sidebar-width);
-    
     background:var(--color-primario);
     color:var(--color-blanco);
     display:flex;
@@ -155,7 +205,7 @@ export default function Sidebar({ user }: { user: any }) {
 .submenu-wrapper { max-height:0; overflow:hidden; transition:max-height 0.3s ease; }
 .submenu-wrapper.open { max-height:800px; }
 .submenu { padding-left:3rem; margin-top:0.6rem; display:flex; flex-direction:column; gap:0.2rem; }
-.submenu-item { display:flex; align-items:center; gap:1rem; padding:1rem 1.4rem; font-size:var(--text-sm); color:var(--color-blanco); text-decoration:none; border-radius:0.6rem; font-weight:500; font-family:var(--font-principal); transition:0.2s; }
+.submenu-item { display:flex; align-items:center; gap:1rem; padding:1rem 1.4rem; font-size:var(--text-sm); color:var(--color-blanco); text-decoration:none; border-radius:0.6rem; font-weight:500; font-family:var(--font-principal); transition:0.2s; cursor: pointer; }
 .submenu-item:hover,.submenu-item.active { background:rgba(255,255,255,0.15); font-weight:600; }
 .sidebar-footer { padding:1.6rem; border-top:1px solid rgba(255,255,255,0.15); flex-shrink:0; background:var(--color-primario); }
 .btn-logout { width:100%; display:flex; align-items:center; justify-content:center; gap:0.8rem; padding:1.2rem; background:var(--color-acento); color:var(--color-texto); border:none; border-radius:0.8rem; font-weight:700; font-size:var(--text-base); cursor:pointer; transition:0.2s; }
@@ -169,18 +219,30 @@ export default function Sidebar({ user }: { user: any }) {
 .sidebar-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:999; }
 
   @media (max-width: 1023px) {
- .btn-mobile-menu { display:block; }
- .sidebar-wrapper { 
+.btn-mobile-menu { display:block; }
+.sidebar-wrapper {
      position:fixed;
-     left:0; top:0; z-index:1001; 
+     left:0; top:0; z-index:1001;
      transform:translateX(-100%);
      height:100dvh;
    }
- .sidebar-mobile-open { transform:translateX(0); box-shadow:0 0 3rem rgba(0,0,0,0.3); }
+.sidebar-mobile-open { transform:translateX(0); box-shadow:0 0 3rem rgba(0,0,0,0.3); }
   }
+/* FIX HOVER PARA SUBMENU BUTTON */
+button.submenu-item {
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+}
+button.submenu-item:hover, 
+button.submenu-item.active { 
+  background: rgba(255,255,255,0.15) !important; 
+  font-weight: 600 !important; 
+}
   @media (min-width: 1024px) {.sidebar-overlay { display:none; }}
- .sidebar-nav::-webkit-scrollbar { width: 6px; }
- .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 10px; }
+.sidebar-nav::-webkit-scrollbar { width: 6px; }
+.sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.3); border-radius: 10px; }
 `}</style>
     </>
   )

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Stethoscope } from 'lucide-react'
+import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Stethoscope, Eraser } from 'lucide-react'
 
 type ServicioSalud = {
   idservicios: number
@@ -185,7 +185,14 @@ export default function ServiciosPage() {
           <div className="modal-body">
             <div className="input-wrapper"><label className="input-label">Nombre del Servicio *</label><input className="input-sgpc-floating" placeholder="Emergencia, Consulta Externa, Tópico" value={form.nombre || ''} onChange={e => setForm({...form, nombre: e.target.value })} maxLength={200} autoFocus /></div>
           </div>
-          <div className="modal-footer"><button className="btn-secundario" onClick={closeModal}>Cancelar</button><button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>Guardar</button></div>
+          <div className="modal-footer">
+  <button className="btn-secundario" onClick={() => {
+      setForm({ nombre: '' }) // Limpia solo el campo
+    }}>
+    <Eraser size={16} /> Limpiar
+  </button>
+  <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>Guardar</button>
+</div>
         </div></div>
       )}
 
@@ -193,7 +200,12 @@ export default function ServiciosPage() {
         <div className="modal-overlay"><div className="modal-content card-sgpc" style={{ maxWidth: '40rem' }}>
           <div className="modal-header"><h2>Confirmar Eliminación</h2><button onClick={() => setShowConfirm(false)} className="btn-cerrar"><X size={20} /></button></div>
           <div className="modal-body"><p style={{ textAlign: 'center' }}>¿Está seguro de eliminar este registro?</p></div>
-          <div className="modal-footer"><button className="btn-secundario" onClick={() => setShowConfirm(false)}>Cancelar</button><button className="btn-primario btn-danger" onClick={confirmarEliminar}>Eliminar</button></div>
+          <div className="modal-footer">
+  <button className="btn-secundario" onClick={() => setShowConfirm(false)}>
+    <Eraser size={16} /> Limpiar
+  </button>
+  <button className="btn-primario btn-danger" onClick={confirmarEliminar}>Eliminar</button>
+</div>
         </div></div>
       )}
 

@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Building2 } from 'lucide-react'
+import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Building2, Eraser } from 'lucide-react'
 
 type NivelAtencion = {
   idnivela: number
@@ -185,7 +185,14 @@ export default function NivelesPage() {
             <div className="input-wrapper"><label className="input-label">Código *</label><input className="input-sgpc-floating" placeholder="I-1" value={form.codigo || ''} onChange={e => setForm({...form, codigo: e.target.value.toUpperCase() })} maxLength={100} /></div>
             <div className="input-wrapper"><label className="input-label">Nombre *</label><input className="input-sgpc-floating" placeholder="Puesto de Salud" value={form.nombre || ''} onChange={e => setForm({...form, nombre: e.target.value })} maxLength={100} /></div>
           </div>
-          <div className="modal-footer"><button className="btn-secundario" onClick={closeModal}>Cancelar</button><button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>Guardar</button></div>
+          <div className="modal-footer">
+  <button className="btn-secundario" onClick={() => {
+      setForm({ codigo: '', nombre: '' }) // Limpia el form
+    }}>
+    <Eraser size={16} /> Limpiar
+  </button>
+  <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>Guardar</button>
+</div>
         </div></div>
       )}
 
