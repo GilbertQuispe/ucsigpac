@@ -324,7 +324,7 @@ const personasFiltradas = useMemo(() => {
         }
 
         preview.push({
-          fila: index + 2,
+          fila: index + 1,
           dni,
           apellidos,
           nombres,
@@ -659,101 +659,68 @@ const personasFiltradas = useMemo(() => {
         </div>
       )}
 
-      {showPreviewModal && (
-        <div className="modal-overlay">
-          <div className="modal-content card-sgpc" style={{ maxWidth: '95rem' }}>
-            <div className="modal-header">
-              <h2>Vista Previa de Importación</h2>
-              <button onClick={() => setShowPreviewModal(false)} className="btn-cerrar"><X size={20} /></button>
-            </div>
-            <div className="modal-body">
-  <div className="input-wrapper">
-    <label className="input-label">DNI</label>
-    <input 
-      ref={dniInputRef} 
-      className="input-sgpc-floating" 
-      placeholder="12345678" 
-      type="text" 
-      inputMode="numeric" 
-      value={form.dni || ''} 
-      onChange={e => handleDniChange(e.target.value)} 
-      onKeyDown={handleDniKeyDown} 
-      onBlur={() => validarDNI(form.dni || '')} 
-      maxLength={8} 
-      disabled={dniInputBloqueado} 
-    />
-    <div className="input-icon-wrapper"><IdCard size={18} strokeWidth={1.5} /></div>
-  </div>
-
-  <div className="input-wrapper">
-    <label className="input-label">Apellidos</label>
-    <input 
-      ref={apellidosInputRef} 
-      className="input-sgpc-floating" 
-      placeholder="Pérez García" 
-      value={form.apellidos || ''} 
-      onChange={e => setForm({...form, apellidos: e.target.value })} 
-      disabled={camposBloqueados} 
-    />
-    <div className="input-icon-wrapper"><User size={18} strokeWidth={1.5} /></div>
-  </div>
-
-  <div className="input-wrapper">
-    <label className="input-label">Nombres</label>
-    <input 
-      className="input-sgpc-floating" 
-      placeholder="Juan Carlos" 
-      value={form.nombres || ''} 
-      onChange={e => setForm({...form, nombres: e.target.value })} 
-      disabled={camposBloqueados} 
-    />
-    <div className="input-icon-wrapper"><User size={18} strokeWidth={1.5} /></div>
-  </div>
-
-  <div className="input-wrapper">
-    <label className="input-label">Teléfono</label>
-    <input 
-      className="input-sgpc-floating" 
-      placeholder="987654321" 
-      value={form.telefono || ''} 
-      onChange={e => setForm({...form, telefono: e.target.value })} 
-      disabled={camposBloqueados} 
-    />
-    <div className="input-icon-wrapper"><Phone size={18} strokeWidth={1.5} /></div>
-  </div>
-
-  {/* SEXO CON REACT-SELECT */}
-  <SelectSGPC
-    label="Sexo *"
-    value={form.sexo || ""}
-    onChange={(val:any) => setForm({...form, sexo: val })}
-    placeholder="Seleccione"
-    options={[
-      {value: "M", label: "Masculino"},
-      {value: "F", label: "Femenino"}
-    ]}
-    isDisabled={camposBloqueados}
-  />
-
-  {/* ROL CON REACT-SELECT */}
-  <SelectSGPC
-    label="Rol"
-    value={form.idrol || ""}
-    onChange={(val:any) => setForm({...form, idrol: val })}
-    placeholder="Seleccione Rol"
-    options={roles.map(r => ({value: r.idrol, label: r.nombrerol}))}
-    isDisabled={camposBloqueados}
-  />
-</div>
-            <div className="modal-footer">
-              <button className="btn-secundario" onClick={() => setShowPreviewModal(false)}>Cancelar</button>
-              <button className="btn-primario" onClick={handleConfirmImport}>
-                Grabar {previewData.filter(p=>p.estado==='ok').length} Registros
-              </button>
-            </div>
-          </div>
+     {showPreviewModal && (
+  <div className="modal-overlay">
+    <div className="modal-content card-sgpc" style={{ maxWidth: '95rem', maxHeight: '90vh' }}>
+      <div className="modal-header">
+        <h2><Upload size={20} style={{marginRight: "0.8rem"}}/>Vista Previa de Importación</h2>
+        <button onClick={() => setShowPreviewModal(false)} className="btn-cerrar-modal"><X size={20} /></button>
+      </div>
+      
+      <div className="modal-body" style={{overflowY: 'auto'}}>
+        <p style={{fontSize: 'var(--text-sm)', marginBottom: '1.2rem'}}>
+          Total: {previewData.length} registros. 
+          <span style={{color: '#22C55E', fontWeight: 600}}> {previewData.filter(p=>p.estado==='ok').length} Correctos</span> / 
+          <span style={{color: '#EF4444', fontWeight: 600}}> {previewData.filter(p=>p.estado==='error').length} Con Error</span>
+        </p>
+        
+        <div style={{overflowX: 'auto'}}>
+          <table className="tabla-preview">
+            <thead>
+              <tr>
+                <th>FILA</th>
+                <th>DNI</th>
+                <th>APELLIDOS</th>
+                <th>NOMBRES</th>
+                <th>SEXO</th>
+                <th>ROL</th>
+                <th>ESTADO</th>
+                <th>OBSERVACIÓN</th>
+              </tr>
+            </thead>
+            <tbody>
+              {previewData.map((p, i) => (
+                <tr key={i}>
+                  <td>{p.fila}</td>
+                  <td>{p.dni}</td>
+                  <td>{p.apellidos}</td>
+                  <td>{p.nombres}</td>
+                  <td>{p.sexo}</td>
+                  <td>{roles.find(r=>r.idrol===p.idrol)?.nombrerol || 'Sin Rol'}</td>
+                  <td className={p.estado}>
+                    {p.estado === 'ok' ? <Check size={16}/> : <X size={16}/>}
+                  </td>
+                  <td className={p.estado}>{p.motivo || 'Correcto'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
+
+      <div className="modal-footer">
+        <button className="btn-secundario" onClick={() => setShowPreviewModal(false)}>Cancelar</button>
+        <button 
+          className="btn-primario" 
+          onClick={handleConfirmImport}
+          disabled={previewData.filter(p=>p.estado==='ok').length === 0}
+        >
+          <Check size={18} /> Grabar {previewData.filter(p=>p.estado==='ok').length} Registros
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       <style jsx>{`
 
@@ -1053,6 +1020,18 @@ const personasFiltradas = useMemo(() => {
   .grid-filtros-personas {
     grid-template-columns: 1fr; /* 1 columna en cel */
   }
+}
+
+/* ANCHOS PARA TABLA PREVIEW */
+.tabla-preview {
+  table-layout: auto; /* CLAVE: que se adapte al contenido */
+}
+.tabla-preview th:nth-child(3) { width: 22rem; } /* APELLIDOS */
+.tabla-preview th:nth-child(4) { width: 22rem; } /* NOMBRES */
+.tabla-preview td:nth-child(3), 
+.tabla-preview td:nth-child(4) {
+  white-space: normal; /* Para que baje de línea si es muy largo */
+  word-break: break-word;
 }
       `}</style>
     </div>
