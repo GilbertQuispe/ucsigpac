@@ -28,7 +28,7 @@ export default function PanelPage() {
 
         const [est, doc, sup, campos, prog, ejec, incid, informes] = await Promise.all([
           supabase.from('estudiante').select('*', { count: 'exact', head: true }).eq('periodo', periodoActual),
-          supabase.from('docente').select('*', { count: 'exact', head: true }),
+          supabase.from('docente').select('*', { count: 'exact', head: true }).eq('estado', 'ACTIVO'),
           supabase.from('supervisor').select('*', { count: 'exact', head: true }),
           supabase.from('campoclinico').select('*', { count: 'exact', head: true }).eq('estado', 'Activo'),
           supabase.from('seleccionvisitasupervision').select('*', { count: 'exact', head: true }).eq('estado', 'Programada'),
@@ -52,7 +52,7 @@ export default function PanelPage() {
 
   const kpiData = [
     { title: "Estudiantes", value: kpis.est, icon: GraduationCap, color: "var(--color-primario)" },
-    { title: "Docentes", value: kpis.doc, icon: BookOpen, color: "var(--color-secundario)" },
+    { title: "Docentes Activos", value: kpis.doc, icon: BookOpen, color: "var(--color-secundario)" },
     { title: "Supervisores", value: kpis.sup, icon: UserCheck, color: "#10b981" },
     { title: "Campos Clínicos", value: kpis.campos, icon: Building2, color: "var(--color-acento)" },
     { title: "Sup. Programadas", value: kpis.prog, icon: ClipboardList, color: "#f59e0b" },

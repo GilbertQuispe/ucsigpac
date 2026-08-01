@@ -825,3 +825,21 @@ select.input-sgpc {
 .tabla-preview th:nth-child(2), .tabla-preview td:nth-child(2) { width: 11rem; }
 .tabla-preview th:nth-child(7), .tabla-preview td:nth-child(7) { width: 14rem; text-align: center; }
 .tabla-preview th:nth-child(8), .tabla-preview td:nth-child(8) { width: 20rem; white-space: normal; } /* OBS puede tener 2 lineas */
+
+
+/*Para el boton de inactivar docente */
+
+.btn-icon-activar {
+  background: #22C55E;
+  color: #fff;
+}
+.btn-icon-activar:hover {
+  background: #16A34A;
+}
+.btn-icon-eliminar {
+  background: #EF4444;
+  color: #fff;
+}
+.btn-icon-eliminar:hover {
+  background: #DC2626;
+}

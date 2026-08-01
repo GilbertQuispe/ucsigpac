@@ -30,13 +30,16 @@ const MENU_COMPLETO: MenuModule[] = [
 
   { title:'Gestión de Instituciones de Salud', icon: Building2, items:[ {name:'3.1 Ubigeo', href:'/panel/ubigeo', icon: MapPin}, {name:'3.2 Niveles de Atención', href:'/panel/niveles', icon: Stethoscope}, {name:'3.3 Servicios de Salud', href:'/panel/servicios', icon: HeartPulse}, {name:'3.4 EPS', href:'/panel/eps', icon: Building2}, {name:'3.5 Campos Clínicos', href:'/panel/campos', icon: Building2}, {name:'3.6 Asignación Docente', href:'/panel/asignacion-docente', icon: UserCheck} ]},
 
-  { title:'Gestión Académica', icon: GraduationCap, items:[
+ { title:'Gestión Académica', icon: GraduationCap, items:[
     {name:'4.1 Filiales', href:'/panel/filiales', icon: Building2},
-    {name:'4.2 Periodo Académico', href:'/panel/periodo', icon: Calendar},
-    {name:'4.3 Matrículas', href:'/panel/matriculas', icon: FileText},
-    {name:'4.4 Carga Académica', href:'/panel/carga', icon: BookOpen},
-    {name:'4.5 Grupos de Práctica', href:'/panel/grupos', icon: Users},
-    {name:'4.6 Horarios Académicos', href:'/panel/horarios', icon: Calendar}
+    {name:'4.2 Facultades', href:'/panel/facultades', icon: GraduationCap}, // NUEVO
+    {name:'4.3 Carreras', href:'/panel/carreras', icon: BookOpen}, // NUEVO
+    {name:'4.4 Asignaturas', href:'/panel/asignaturas', icon: FileText}, // NUEVO
+    {name:'4.5 Periodo Académico', href:'/panel/periodo', icon: Calendar},
+    {name:'4.6 Matrículas', href:'/panel/matriculas', icon: FileText},
+    {name:'4.7 Carga Académica', href:'/panel/carga', icon: BookOpen},
+    {name:'4.8 Grupos de Práctica', href:'/panel/grupos', icon: Users},
+    {name:'4.9 Horarios Académicos', href:'/panel/horarios', icon: Calendar}
   ]},
 
   { title:'Supervisión Clínica', icon: ClipboardCheck, items:[ {name:'5.1 Asignación Supervisores', href:'/panel/asig-supervisores', icon: UserCheck}, {name:'5.2 Programación Visitas', href:'/panel/programacion', icon: Calendar}, {name:'5.3 Registro Supervisiones', href:'/panel/supervisiones', icon: ClipboardCheck}, {name:'5.4 Evaluaciones', href:'/panel/evaluaciones', icon: TrendingUp}, {name:'5.5 Incidencias', href:'/panel/incidencias', icon: AlertTriangle}, {name:'5.6 Informe de Supervisión', href:'/panel/informes', icon: FileText} ]},

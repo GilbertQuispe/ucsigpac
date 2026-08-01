@@ -1,11 +1,11 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, X, Search, Upload, GraduationCap, ChevronLeft, ChevronRight, Eraser, Users, Check } from 'lucide-react'
+import { Plus, Edit, X, Search, Upload, GraduationCap, ChevronLeft, ChevronRight, Eraser, Users, Check, UserX, UserCheck } from 'lucide-react'
 import Select from 'react-select'
 
 type Persona = { idpersona: number; dni: string; apellidos: string; nombres: string; telefono: string | null; sexo: 'M' | 'F' | null }
-type Docente = { iddocente: number; idpersona: number; condicion: string | null; tipodocente: string | null; idprofesion: number | null; idespecialidad: number | null; persona?: Persona; profesion?: { profesion: string }; especialidad?: { especialidad: string } }
+type Docente = { iddocente: number; idpersona: number; condicion: string | null; tipodocente: string | null; idprofesion: number | null; idespecialidad: number | null; estado: string | null; persona?: Persona; profesion?: { profesion: string }; especialidad?: { especialidad: string } }
 type Profesion = { idprofesion: number; profesion: string }
 type Especialidad = { idespecialidad: number; especialidad: string }
 
@@ -24,22 +24,38 @@ const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
         classNamePrefix="react-select" 
         styles={{ 
           control: (base, state) => ({ 
-            ...base, 
-            minHeight: '4.2rem', 
+           ...base, 
+            height: '4.4rem', // <- 1. FORZAR ALTURA IGUAL AL INPUT
+            minHeight: '4.4rem', // <- 2. QUITAR EL minHeight de 4.2rem
             borderRadius: '0.6rem', 
-            border: 'none',
-            background: 'transparent',
-            boxShadow: 'none',
-            marginTop: '0.4rem'
+            border: '1px solid #cbd5e1', // <- 3. Ponerle borde para que se vea igual
+            background: '#fff', // <- 4. Fondo blanco
+            boxShadow: state.isFocused ? '0 0 0 1px var(--color-primario)' : 'none',
+            marginTop: '0.4rem',
+            cursor: 'pointer'
+          }),
+          valueContainer: (base) => ({ // <- 5. NUEVO: centrar el texto vertical
+            ...base,
+            padding: '0 1.2rem',
+            height: '4.4rem'
+          }),
+          input: (base) => ({ // <- 6. NUEVO
+            ...base,
+            margin: 0,
+            padding: 0
+          }),
+          indicatorsContainer: (base) => ({ // <- 7. NUEVO: centrar flechita
+            ...base,
+            height: '4.4rem'
           }),
           option: (base, state) => ({
-            ...base,
+           ...base,
             backgroundColor: state.isSelected 
-              ? 'var(--color-primario)' 
+             ? 'var(--color-primario)' 
               : state.isFocused 
-                ? 'var(--color-acento)' 
+               ? 'var(--color-acento)' 
                 : '#fff',
-            color: state.isSelected ? '#fff' : 'var(--color-texto)',
+            color: state.isSelected? '#fff' : 'var(--color-texto)',
             padding: '1rem 1.2rem'
           }),
           menu: (base) => ({...base, zIndex: 9999, marginTop: '0.4rem' })
@@ -59,6 +75,12 @@ export default function DocentesPage() {
   const [idRolDocente, setIdRolDocente] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+
+  const [filtroEstado, setFiltroEstado] = useState('')
+const [filtroCondicion, setFiltroCondicion] = useState('')
+const [filtroProfesion, setFiltroProfesion] = useState<number | ''>('')
+const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
+
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
   const [seleccionados, setSeleccionados] = useState<number[]>([])
@@ -91,7 +113,7 @@ export default function DocentesPage() {
     const {data: personasData} = await supabase.from('persona').select('*').eq('estado', 'ACTIVO').eq('idrol', rolData?.idrol)
     const {data: docentesData} = await supabase.from('docente').select('idpersona')
     const idsDocentes = docentesData?.map(d => d.idpersona) || []
-    setPersonas((personasData || []).filter(p => !idsDocentes.includes(p.idpersona)))
+    setPersonas((personasData || []).filter(p =>!idsDocentes.includes(p.idpersona)))
 
     const {data: docentesFull} = await supabase.from('docente').select(`*, persona!inner(*), profesion(*), especialidad(*)`).order('idpersona')
     setDocentes(docentesFull as Docente[] || [])
@@ -99,22 +121,32 @@ export default function DocentesPage() {
     setSeleccionados([])
   }
 
-  const datosFiltrados = useMemo(() => {
-    const data = tab === 'personas' ? personas : docentes
-    return data.filter((d:any) => 
+ const datosFiltrados = useMemo(() => {
+  const data = tab === 'personas'? personas : docentes
+  return data.filter((d:any) => {
+    const matchSearch = 
       d.dni?.toLowerCase().includes(search.toLowerCase()) ||
       d.persona?.dni.toLowerCase().includes(search.toLowerCase()) ||
       d.apellidos?.toLowerCase().includes(search.toLowerCase()) ||
       d.persona?.apellidos.toLowerCase().includes(search.toLowerCase())
-    )
-  }, [personas, docentes, search, tab])
+
+    if(tab === 'personas') return matchSearch
+
+    const matchEstado = !filtroEstado || d.estado === filtroEstado
+    const matchCondicion = !filtroCondicion || d.condicion === filtroCondicion
+    const matchProfesion = !filtroProfesion || d.idprofesion === filtroProfesion
+    const matchEspecialidad = !filtroEspecialidad || d.idespecialidad === filtroEspecialidad
+
+    return matchSearch && matchEstado && matchCondicion && matchProfesion && matchEspecialidad
+  })
+}, [personas, docentes, search, tab, filtroEstado, filtroCondicion, filtroProfesion, filtroEspecialidad])
 
   const totalPaginas = Math.ceil(datosFiltrados.length / registrosPorPagina)
   const indiceInicio = (paginaActual - 1) * registrosPorPagina
   const datosPaginados = datosFiltrados.slice(indiceInicio, indiceInicio + registrosPorPagina)
 
   const toggleCheck = (id: number) => {
-    setSeleccionados(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
+    setSeleccionados(prev => prev.includes(id)? prev.filter(i => i!== id) : [...prev, id])
   }
 
   const handleConvertirMasivo = async () => {
@@ -122,12 +154,23 @@ export default function DocentesPage() {
       showToast('Seleccione un registro', 'error')
       return
     }
-    const paraInsertar = seleccionados.map(id => ({ idpersona: id, condicion: 'CONTRATADO', tipodocente: 'P' }))
+    const paraInsertar = seleccionados.map(id => ({ idpersona: id, condicion: 'CONTRATADO', tipodocente: 'P', estado: 'ACTIVO' }))
     const {error} = await supabase.from('docente').insert(paraInsertar)
     if(error) showToast(error.message, 'error')
-    else { 
+    else {
       showToast(`${seleccionados.length} docentes registrados`, 'success')
-      fetchData() 
+      fetchData()
+    }
+  }
+
+  // NUEVO: Activar/Inactivar Docente
+  const handleCambiarEstadoDocente = async (iddocente: number, estadoActual: string) => {
+    const nuevoEstado = estadoActual === 'ACTIVO'? 'INACTIVO' : 'ACTIVO'
+    const {error} = await supabase.from('docente').update({estado: nuevoEstado}).eq('iddocente', iddocente)
+    if(error) showToast(error.message, 'error')
+    else {
+      showToast(`Docente ${nuevoEstado.toLowerCase()}`, 'success')
+      fetchData()
     }
   }
 
@@ -141,58 +184,62 @@ export default function DocentesPage() {
     if(!docenteEdit) return
     const {error} = await supabase.from('docente').update(form).eq('iddocente', docenteEdit.iddocente)
     if(error) showToast(error.message, 'error')
-    else { 
+    else {
       showToast('Docente actualizado', 'success')
-      setShowModal(false); fetchData() 
+      setShowModal(false); fetchData()
     }
   }
 
   const handleImportDocente = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setLoading(true)
-    try {
-      const XLSX = await import('xlsx') // IMPORT DINAMICO
-      const data = await file.arrayBuffer()
-      const wb = XLSX.read(data, { type: 'array' })
-      const ws = wb.Sheets[wb.SheetNames[0]]
-      const jsonData: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
-      
-      const filas = jsonData.slice(1).filter(row => row[0]?.toString().trim()!== '')
-      if(filas.length === 0){ showToast('El Excel no tiene datos válidos', 'error'); return }
+  const file = e.target.files?.[0]
+  if (!file) return
+  setLoading(true)
+  try {
+    const XLSX = await import('xlsx')
+    const data = await file.arrayBuffer()
+    const wb = XLSX.read(data, { type: 'array' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const jsonData: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
 
-      const {data: todasPersonas} = await supabase.from('persona').select('idpersona, dni, apellidos, nombres').eq('estado', 'ACTIVO')
-      const mapaPersonas = new Map(todasPersonas?.map(p => [p.dni, p]))
-      const {data: docentesExistentes} = await supabase.from('docente').select('idpersona')
-      const idsDocentes = new Set(docentesExistentes?.map(d => d.idpersona))
+    const filas = jsonData.slice(1).filter(row => row[0]?.toString().trim()!== '')
+    if(filas.length === 0){ showToast('El Excel no tiene datos válidos', 'error'); return }
 
-      const preview = filas.map((row, index) => {
-        let dni = row[0]?.toString().replace(/\D/g, '').padStart(8, '0') || ''
-        const apellidosExcel = row[1]?.toString().trim().toUpperCase() || ''
-        const nombresExcel = row[2]?.toString().trim() // <- AHORA. Respeta como viene del Excel
-   .split(' ')
-   .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
-   .join(' ') || ''
-        const personaEncontrada = mapaPersonas.get(dni)
-        let estado = 'ok', motivo = 'Correcto'
-        if (!dni || dni.length!== 8) { estado = 'error'; motivo = 'DNI inválido' }
-        else if (!personaEncontrada) { estado = 'error'; motivo = 'DNI no existe en Personas' }
-        else if (idsDocentes.has(personaEncontrada.idpersona)) { estado = 'error'; motivo = 'Ya es Docente' }
-        return { fila: index + 1, dni, apellidos: apellidosExcel || personaEncontrada?.apellidos || '', nombres: nombresExcel || personaEncontrada?.nombres || '', idpersona: personaEncontrada?.idpersona || null, estado, motivo }
-      })
+    const {data: todasPersonas} = await supabase.from('persona').select('idpersona, dni, apellidos, nombres').eq('estado', 'ACTIVO')
+    const mapaPersonas = new Map(todasPersonas?.map(p => [p.dni, p]))
+    const {data: docentesExistentes} = await supabase.from('docente').select('idpersona')
+    const idsDocentes = new Set(docentesExistentes?.map(d => d.idpersona))
 
-      setPreviewDataDoc(preview)
-      setShowPreviewModalDoc(true)
+    const idsDisponiblesParaConvertir = new Set(personas.map(p => p.idpersona))
 
-    } catch (err: any) {
-      console.error("ERROR COMPLETO:", err)
-      showToast('ERROR: ' + err.message, 'error')
-    } finally {
-      setLoading(false)
-      e.target.value = ''
-    }
+    const preview = filas.map((row, index) => {
+      let dni = row[0]?.toString().replace(/\D/g, '').padStart(8, '0') || ''
+      const apellidosExcel = row[1]?.toString().trim().toUpperCase() || ''
+      const nombresExcel = row[2]?.toString().trim()
+     .split(' ')
+     .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+     .join(' ') || ''
+      const personaEncontrada = mapaPersonas.get(dni)
+
+      let estado = 'ok', motivo = 'Correcto'
+      if (!dni || dni.length!== 8) { estado = 'error'; motivo = 'DNI inválido' }
+      else if (!personaEncontrada) { estado = 'error'; motivo = 'DNI no existe en Personas' }
+      else if (idsDocentes.has(personaEncontrada.idpersona)) { estado = 'error'; motivo = 'Ya es Docente' }
+      else if (!idsDisponiblesParaConvertir.has(personaEncontrada.idpersona)) { estado = 'error'; motivo = 'No tiene Rol Docente Activo' }
+
+      return { fila: index + 2, dni, apellidos: apellidosExcel, nombres: nombresExcel, idpersona: personaEncontrada?.idpersona || null, estado, motivo }
+    })
+
+    setPreviewDataDoc(preview)
+    setShowPreviewModalDoc(true)
+
+  } catch (err: any) {
+    console.error("ERROR COMPLETO:", err)
+    showToast('ERROR: ' + err.message, 'error')
+  } finally {
+    setLoading(false)
+    e.target.value = ''
   }
-
+}
   const handleConfirmImportDoc = async () => {
     const validos = previewDataDoc.filter(p => p.estado === 'ok')
     if(validos.length === 0) {
@@ -203,7 +250,8 @@ export default function DocentesPage() {
     const paraInsertar = validos.map(v => ({
       idpersona: v.idpersona,
       condicion: 'CONTRATADO',
-      tipodocente: 'P'
+      tipodocente: 'P',
+      estado: 'ACTIVO' // <- NUEVO
     }))
 
     const {error} = await supabase.from('docente').insert(paraInsertar)
@@ -214,6 +262,15 @@ export default function DocentesPage() {
       fetchData()
     }
   }
+
+  const limpiarFiltros = () => {
+  setSearch("")
+  setFiltroEstado("")
+  setFiltroCondicion("")
+  setFiltroProfesion("")
+  setFiltroEspecialidad("")
+  setPaginaActual(1)
+}
 
   return (
     <div className="main-content">
@@ -234,7 +291,7 @@ export default function DocentesPage() {
             onChange={handleImportDocente}
             style={{ display: 'none' }}
           />
-          
+
           <button className="btn-primario" onClick={handleConvertirMasivo}>
             <Check size={18} /> Convertir {seleccionados.length} Seleccionados
           </button>
@@ -242,27 +299,78 @@ export default function DocentesPage() {
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', margin: '2rem 0' }}>
-        <button onClick={() => {setTab('personas'); setPaginaActual(1)}} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '4.4rem', gap: '0.8rem', padding: '0 2rem', borderRadius: '0.8rem', border: tab==='personas' ? '1px solid var(--color-primario)' : '1px solid #cbd5e1', background: tab==='personas' ? 'var(--color-primario)' : '#fff', color: tab==='personas' ? '#fff' : 'var(--color-texto-secundario)', fontWeight: 600, fontSize: '1.4rem', cursor: 'pointer', transition: 'all 0.2s' }}>
+        <button onClick={() => {setTab('personas'); setPaginaActual(1)}} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '4.4rem', gap: '0.8rem', padding: '0 2rem', borderRadius: '0.8rem', border: tab==='personas'? '1px solid var(--color-primario)' : '1px solid #cbd5e1', background: tab==='personas'? 'var(--color-primario)' : '#fff', color: tab==='personas'? '#fff' : 'var(--color-texto-secundario)', fontWeight: 600, fontSize: '1.4rem', cursor: 'pointer', transition: 'all 0.2s' }}>
           <Users size={16}/> Personas con Rol Docente
         </button>
-        <button onClick={() => {setTab('docentes'); setPaginaActual(1)}} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '4.4rem', gap: '0.8rem', padding: '0 2rem', borderRadius: '0.8rem', border: tab==='docentes' ? '1px solid var(--color-primario)' : '1px solid #cbd5e1', background: tab==='docentes' ? 'var(--color-primario)' : '#fff', color: tab==='docentes' ? '#fff' : 'var(--color-texto-secundario)', fontWeight: 600, fontSize: '1.4rem', cursor: 'pointer', transition: 'all 0.2s' }}>
+        <button onClick={() => {setTab('docentes'); setPaginaActual(1)}} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '4.4rem', gap: '0.8rem', padding: '0 2rem', borderRadius: '0.8rem', border: tab==='docentes'? '1px solid var(--color-primario)' : '1px solid #cbd5e1', background: tab==='docentes'? 'var(--color-primario)' : '#fff', color: tab==='docentes'? '#fff' : 'var(--color-texto-secundario)', fontWeight: 600, fontSize: '1.4rem', cursor: 'pointer', transition: 'all 0.2s' }}>
           <GraduationCap size={16}/> Docentes Registrados
         </button>
       </div>
 
-      <div className="card-sgpc" style={{ marginBottom: '2.4rem', padding: '2rem' }}>
-        <div style={{display: 'flex', gap: '1rem', alignItems: 'flex-end'}}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
-            <input className="input-sgpc" placeholder="Buscar por DNI, Nombres, Apellidos..." value={search} onChange={e => {setSearch(e.target.value); setPaginaActual(1)}} style={{ paddingLeft: '4rem', height: "4.4rem", width: '100%' }} />
-          </div>
-          <button className="btn-secundario btn-limpiar" onClick={() => setSearch("")} style={{height: '4.4rem'}}><Eraser size={16} />Limpiar</button>
-        </div>
-      </div>
+      <div className="card-sgpc" style={{ marginBottom: '2.4rem', padding: '2rem', overflow: 'visible' }}>
+  {/* FILTROS */}
+  <div style={{ 
+    display: 'grid', 
+    gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', 
+    gap: '1.2rem', 
+    marginBottom: '1.6rem'
+  }}>
+    
+    {/* FILTRO ESTADO */}
+    <SelectSGPCFieldset 
+      label="Estado" 
+      value={filtroEstado} 
+      onChange={(val:any) => {setFiltroEstado(val); setPaginaActual(1)}} 
+      options={[
+        {value: "", label: "Todos"},
+        {value: "ACTIVO", label: "ACTIVO"},        
+        {value: "INACTIVO", label: "INACTIVO"}
+      ]}
+    />
+
+    {/* FILTRO CONDICION */}
+    <SelectSGPCFieldset 
+      label="Condición" 
+      value={filtroCondicion} 
+      onChange={(val:any) => {setFiltroCondicion(val); setPaginaActual(1)}} 
+      options={[
+        {value: "", label: "Todas"},
+        {value: "NOMBRADO", label: "NOMBRADO"},
+        {value: "CONTRATADO", label: "CONTRATADO"}
+      ]}
+    />
+
+    {/* FILTRO PROFESION */}
+    <SelectSGPCFieldset 
+      label="Profesión" 
+      value={filtroProfesion} 
+      onChange={(val:any) => {setFiltroProfesion(val); setPaginaActual(1)}} 
+      options={[{value: "", label: "Todas"}, ...profesiones.map(p=>({value:p.idprofesion, label:p.profesion}))]}
+    />
+
+    {/* FILTRO ESPECIALIDAD */}
+    <SelectSGPCFieldset 
+      label="Especialidad" 
+      value={filtroEspecialidad} 
+      onChange={(val:any) => {setFiltroEspecialidad(val); setPaginaActual(1)}} 
+      options={[{value: "", label: "Todas"}, ...especialidades.map(e=>({value:e.idespecialidad, label:e.especialidad}))]}
+    />
+
+  </div>
+
+  {/* BUSCADOR + LIMPIAR */}
+  <div style={{display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap'}}>
+    <div style={{ position: 'relative', flex: 1, minWidth: '25rem' }}>
+      <Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} />
+      <input className="input-sgpc" placeholder="Buscar por DNI, Nombres, Apellidos..." value={search} onChange={e => {setSearch(e.target.value); setPaginaActual(1)}} style={{ paddingLeft: '4rem', height: "4.4rem", width: '100%' }} />
+    </div>
+    <button className="btn-secundario btn-limpiar" onClick={limpiarFiltros} style={{height: '4.4rem'}}><Eraser size={16} />Limpiar</button>
+  </div>
+</div>
 
       <div className="card-sgpc" style={{ overflowX: 'auto', position: 'relative', minHeight: '20rem' }}>
         {toast && (
-          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10, background: toast.type === 'error' ? '#EF4444' : '#22C55E', color: '#fff', padding: '0.9rem 2rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', animation: 'fadeInOut 3s ease-in-out', whiteSpace: 'nowrap' }}>
+          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '0.9rem 2rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', animation: 'fadeInOut 3s ease-in-out', whiteSpace: 'nowrap' }}>
             {toast.msg}
           </div>
         )}
@@ -272,7 +380,7 @@ export default function DocentesPage() {
             <thead><tr>
               {tab==='personas' && <th style={{width: '5rem'}}>SEL</th>}
               <th>#</th><th>DNI</th><th>NOMBRES</th>
-              {tab==='docentes' && <><th>PROFESIÓN</th><th>ESPECIALIDAD</th><th>CONDICIÓN</th><th>TIPO</th></>}
+              {tab==='docentes' && <><th>PROFESIÓN</th><th>ESPECIALIDAD</th><th>CONDICIÓN</th><th>TIPO</th><th>ESTADO</th></>}
               <th>ACCIONES</th>
             </tr></thead>
             <tbody>
@@ -282,8 +390,36 @@ export default function DocentesPage() {
                   <td>{indiceInicio + i + 1}</td>
                   <td>{d.dni || d.persona?.dni}</td>
                   <td>{d.apellidos || d.persona?.apellidos}, {d.nombres || d.persona?.nombres}</td>
-                  {tab==='docentes' && <><td>{d.profesion?.profesion}</td><td>{d.especialidad?.especialidad}</td><td>{d.condicion}</td><td>{d.tipodocente}</td></>}
-                  <td>{tab==='docentes' && <button onClick={() => openEditModal(d)} className="btn-icon btn-icon-editar"><Edit size={15} /></button>}</td>
+                  {tab==='docentes' && <>
+                    <td>{d.profesion?.profesion}</td>
+                    <td>{d.especialidad?.especialidad}</td>
+                    <td>{d.condicion}</td>
+                    <td>{d.tipodocente}</td>
+                    <td>
+                      <span style={{
+                        padding: '0.4rem 0.8rem',
+                        borderRadius: '999px',
+                        fontSize: '1.2rem',
+                        fontWeight: 600,
+                        background: d.estado === 'ACTIVO'? '#F0FDF4' : '#FEF2F2',
+                        color: d.estado === 'ACTIVO'? '#22C55E' : '#EF4444'
+                      }}>
+                        {d.estado || 'ACTIVO'}
+                      </span>
+                    </td>
+                  </>}
+                  <td style={{display: 'flex', gap: '0.8rem'}}>
+                    {tab==='docentes' && <>
+                      <button onClick={() => openEditModal(d)} className="btn-icon btn-icon-editar" title="Editar"><Edit size={15} /></button>
+                      <button
+  onClick={() => handleCambiarEstadoDocente(d.iddocente, d.estado || 'ACTIVO')}
+  className={d.estado === 'ACTIVO'? "btn-icon btn-icon-eliminar" : "btn-icon btn-icon-activar"}
+  title={d.estado === 'ACTIVO'? 'Inactivar' : 'Activar'}
+>
+  {d.estado === 'ACTIVO'? <UserX size={15} color="#fff" /> : <UserCheck size={15} color="#fff" />}
+</button>
+                    </>}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -325,31 +461,31 @@ export default function DocentesPage() {
 
             <div className="modal-body">
               <div className="grid-2-modal">
-                <SelectSGPCFieldset 
-                  label="Profesión" 
-                  value={form.idprofesion} 
-                  onChange={(val:any) => setForm({...form, idprofesion: val})} 
+                <SelectSGPCFieldset
+                  label="Profesión"
+                  value={form.idprofesion}
+                  onChange={(val:any) => setForm({...form, idprofesion: val})}
                   options={profesiones.map(p=>({value:p.idprofesion, label:p.profesion}))}
                 />
-                <SelectSGPCFieldset 
-                  label="Especialidad" 
-                  value={form.idespecialidad} 
-                  onChange={(val:any) => setForm({...form, idespecialidad: val})} 
+                <SelectSGPCFieldset
+                  label="Especialidad"
+                  value={form.idespecialidad}
+                  onChange={(val:any) => setForm({...form, idespecialidad: val})}
                   options={especialidades.map(e=>({value:e.idespecialidad, label:e.especialidad}))}
                 />
               </div>
 
               <div className="grid-2-modal">
-                <SelectSGPCFieldset 
-                  label="Condición *" 
-                  value={form.condicion} 
-                  onChange={(val:any) => setForm({...form, condicion: val})} 
+                <SelectSGPCFieldset
+                  label="Condición *"
+                  value={form.condicion}
+                  onChange={(val:any) => setForm({...form, condicion: val})}
                   options={[{value: "NOMBRADO", label: "NOMBRADO"}, {value: "CONTRATADO", label: "CONTRATADO"}]}
                 />
-                <SelectSGPCFieldset 
-                  label="Tipo Docente *" 
-                  value={form.tipodocente} 
-                  onChange={(val:any) => setForm({...form, tipodocente: val})} 
+                <SelectSGPCFieldset
+                  label="Tipo Docente *"
+                  value={form.tipodocente}
+                  onChange={(val:any) => setForm({...form, tipodocente: val})}
                   options={[{value: "P", label: "Principal"}, {value: "A", label: "Asociado"}, {value: "X", label: "Auxiliar"}]}
                 />
               </div>
@@ -359,7 +495,7 @@ export default function DocentesPage() {
               <button className="btn-secundario-outline" onClick={() => setForm({idprofesion: null, idespecialidad: null, condicion: 'NOMBRADO', tipodocente: 'P'})}>
                 <Eraser size={18} /> Limpiar
               </button>
-              <button className="btn-primario" onClick={handleGuardarEdit} disabled={!form.idprofesion || !form.idespecialidad}>
+              <button className="btn-primario" onClick={handleGuardarEdit} disabled={!form.idprofesion ||!form.idespecialidad}>
                 <Check size={18} /> Guardar
               </button>
             </div>
@@ -371,7 +507,7 @@ export default function DocentesPage() {
       {showPreviewModalDoc && (
         <div className="modal-overlay" onClick={() => setShowPreviewModalDoc(false)}>
           <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90rem', height: '80vh', display: 'flex', flexDirection: 'column', padding: 0 }}>
-            
+
             <div className="modal-header" style={{padding: '2rem 2.4rem', borderBottom: '1px solid #e2e8f0', flexShrink: 0}}>
               <h2><Upload size={20} style={{marginRight: "0.8rem"}}/>Vista Previa Importar Docentes</h2>
               <button onClick={() => setShowPreviewModalDoc(false)} className="btn-cerrar-modal"><X size={20} /></button>
@@ -429,7 +565,7 @@ export default function DocentesPage() {
           </div>
         </div>
       )}
-      
+
     </div>
   )
 }
