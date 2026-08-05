@@ -226,7 +226,7 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
       else if (idsDocentes.has(personaEncontrada.idpersona)) { estado = 'error'; motivo = 'Ya es Docente' }
       else if (!idsDisponiblesParaConvertir.has(personaEncontrada.idpersona)) { estado = 'error'; motivo = 'No tiene Rol Docente Activo' }
 
-      return { fila: index + 2, dni, apellidos: apellidosExcel, nombres: nombresExcel, idpersona: personaEncontrada?.idpersona || null, estado, motivo }
+      return { fila: index + 1, dni, apellidos: apellidosExcel, nombres: nombresExcel, idpersona: personaEncontrada?.idpersona || null, estado, motivo }
     })
 
     setPreviewDataDoc(preview)

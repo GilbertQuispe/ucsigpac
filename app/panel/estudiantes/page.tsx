@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, X, Search, Upload, Users, ChevronLeft, ChevronRight, Eraser, Check, UserX, UserCheck, GraduationCap, Save } from 'lucide-react'
 import Select from 'react-select'
+import * as XLSX from 'xlsx' // <-- AGREGADO
 
 type Persona = { idpersona: number; dni: string; apellidos: string; nombres: string; telefono: string | null; sexo: 'M' | 'F' | null }
 type Estudiante = { idestudiante: number; idpersona: number; idcarrera: number | null; idfilial: number | null; estado: string | null; persona?: Persona; carrera?: { idcarrera: number; nombrecarrera: string; idfacultad: number | null; facultad?: {nombrefacultad: string} }; filial?: { idfilial: number; nombrefilial: string } }
@@ -128,8 +129,122 @@ export default function EstudiantesPage() {
     else { showToast('Estudiante actualizado', 'success'); setShowModal(false); fetchData() }
   }
 
-  const handleImportEstudiante = async (e: React.ChangeEvent<HTMLInputElement>) => { /*... igual que antes... */ }
-  const handleConfirmImportEst = async () => { /*... igual que antes... */ }
+  // ===== INICIO: CODIGO IMPORTAR EXCEL ACTUALIZADO =====
+  const handleImportEstudiante = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = async (evt) => {
+      setLoading(true)
+      const bstr = evt.target?.result
+      const wb = XLSX.read(bstr, { type: 'binary' })
+      const ws = wb.Sheets[wb.SheetNames[0]]
+      const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+
+      const headerIndex = data.findIndex(row => row.includes('CODIGOALUM'))
+      if(headerIndex === -1){ showToast('El Excel debe tener la cabecera CODIGOALUM', 'error'); setLoading(false); return }
+      const filas = data.slice(headerIndex + 1)
+
+      const { data: personasRolEst } = await supabase
+     .from('persona')
+     .select('idpersona, dni, apellidos, nombres')
+     .eq('estado', 'ACTIVO')
+     .eq('idrol', idRolEstudiante)
+
+      const mapPersonas = new Map(personasRolEst?.map(p => [p.dni, p]))
+      const dnisYaEstudiantes = new Set(estudiantes.map(e => e.persona?.dni))
+
+      const preview: any[] = []
+
+      filas.forEach((row, index) => {
+        if(!row[0]) return // fila vacia
+        let dni = row[0]?.toString().replace(/\D/g, '') || ''
+        dni = dni.padStart(8, '0')
+
+        const alumnoCompleto = row[1]?.toString().trim() || ''
+        const [apellidosRaw, nombresRaw] = alumnoCompleto.split(',')
+        const apellidos = apellidosRaw?.trim().toUpperCase() || ''
+        const nombres = toTitleCase(nombresRaw?.trim() || '')
+
+        const idcarrera = Number(row[2]) || null
+        const idfilial = Number(row[3]) || null
+
+        const persona = mapPersonas.get(dni)
+        let motivo = ''
+        let estado: 'ok' | 'error' = 'ok'
+
+        if (!dni || dni.length!== 8) {
+          motivo = 'DNI inválido'
+          estado = 'error'
+        } else if (!persona) {
+          motivo = 'No existe como Persona con Rol Estudiante'
+          estado = 'error'
+        } else if (dnisYaEstudiantes.has(dni)) {
+          motivo = 'Ya está registrado como Estudiante'
+          estado = 'error'
+        } else if (!idcarrera) {
+          motivo = 'Falta ID Carrera'
+          estado = 'error'
+        } else if (!idfilial) {
+          motivo = 'Falta ID Filial'
+          estado = 'error'
+        }
+
+        preview.push({
+          fila: headerIndex + index + 1,
+          dni, apellidos, nombres,
+          idcarrera, idfilial,
+          nombrecarrera: carreras.find(c=>c.idcarrera===idcarrera)?.nombrecarrera || `ID:${idcarrera}`,
+          nombrefilial: filiales.find(f=>f.idfilial===idfilial)?.nombrefilial || `ID:${idfilial}`,
+          estadoRegistro: 'ACTIVO',
+          motivo, estado
+        })
+      })
+
+      setPreviewDataEst(preview)
+      setShowPreviewModalEst(true)
+      setLoading(false)
+    }
+    reader.readAsBinaryString(file)
+    e.target.value = ''
+  }
+
+  const handleConfirmImportEst = async () => {
+    const paraGrabar = previewDataEst
+   .filter(p => p.estado === 'ok')
+   .map(p => ({
+        idpersona: personas.find(per => per.dni === p.dni)?.idpersona,
+        idcarrera: p.idcarrera,
+        idfilial: p.idfilial,
+        estado: 'ACTIVO'
+      })).filter(p => p.idpersona)
+
+    if (paraGrabar.length === 0) {
+      showToast('No hay registros válidos para importar', 'error')
+      return
+    }
+
+    setLoading(true)
+    const { error } = await supabase.from('estudiante').insert(paraGrabar)
+    setLoading(false)
+
+    if (error) {
+      showToast('Error al importar: ' + error.message, 'error')
+      console.error(error)
+    } else {
+      const rechazados = previewDataEst.filter(p => p.estado === 'error').length
+      showToast(`Se importaron ${paraGrabar.length} estudiantes. ${rechazados} fueron rechazados`, 'success')
+      fetchData()
+    }
+    setShowPreviewModalEst(false)
+    setPreviewDataEst([])
+  }
+
+  const toTitleCase = (str: string) =>
+    str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
+  // ===== FIN: CODIGO IMPORTAR EXCEL ACTUALIZADO =====
+
   const limpiarFiltros = () => { setSearch(""); setFiltroEstado(""); setFiltroCarrera(""); setFiltroFacultad(""); setFiltroFilial(""); setPaginaActual(1) }
 
   return (
@@ -175,7 +290,6 @@ export default function EstudiantesPage() {
           <tbody>{datosPaginados.map((d:any, i) => (<tr key={i}>{tab==='personas' && <td><input type="checkbox" checked={seleccionados.includes(d.idpersona)} onChange={() => toggleCheck(d.idpersona)} /></td>}<td>{indiceInicio + i + 1}</td><td>{d.dni || d.persona?.dni}</td><td>{d.apellidos || d.persona?.apellidos}, {d.nombres || d.persona?.nombres}</td>{tab==='estudiantes' && <><td>{d.carrera?.nombrecarrera}</td><td>{d.carrera?.facultad?.nombrefacultad}</td><td>{d.filial?.nombrefilial}</td><td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: d.estado === 'ACTIVO'? '#F0FDF4' : '#FEF2F2', color: d.estado === 'ACTIVO'? '#22C55E' : '#EF4444'}}>{d.estado || 'ACTIVO'}</span></td></>}<td style={{display: 'flex', gap: '0.8rem'}}>{tab==='estudiantes' && <><button onClick={() => openEditModal(d)} className="btn-icon btn-icon-editar" title="Editar"><Edit size={15} /></button><button onClick={() => handleCambiarEstadoEstudiante(d.idestudiante, d.estado || 'ACTIVO')} className={d.estado === 'ACTIVO'? "btn-icon btn-icon-eliminar" : "btn-icon btn-icon-activar"} title={d.estado === 'ACTIVO'? 'Inactivar' : 'Activar'}>{d.estado === 'ACTIVO'? <UserX size={15} color="#fff" /> : <UserCheck size={15} color="#fff" />}</button></>}</td></tr>))}</tbody>
         </table>
 
-        {/* PAGINACION CON ESTILOS DE PERSONAS */}
         {totalPaginas > 1 && (
           <div className="paginacion-footer">
             <p className="paginacion-info">Mostrando {indiceInicio + 1} al {Math.min(indiceFin, datosFiltrados.length)} de {datosFiltrados.length} registros</p>
@@ -246,6 +360,78 @@ export default function EstudiantesPage() {
           </div>
         </div>
       )}
+
+      {/* ===== INICIO: MODAL VISTA PREVIA IMPORTAR EXCEL ===== */}
+      {showPreviewModalEst && (
+        <div className="modal-overlay" onClick={() => setShowPreviewModalEst(false)}>
+          <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '95rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+            <div className="modal-header" style={{padding: '2rem 2.4rem', borderBottom: '1px solid #e2e8f0', flexShrink: 0}}>
+              <h2><Upload size={20} style={{marginRight: "0.8rem"}}/>Vista Previa Importación Estudiantes</h2>
+              <button onClick={() => setShowPreviewModalEst(false)} className="btn-cerrar-modal"><X size={20} /></button>
+            </div>
+
+            <div className="modal-body" style={{overflowY: 'auto', flex: 1, padding: '1.6rem 2.4rem'}}>
+              <p style={{fontSize: 'var(--text-sm)', marginBottom: '1.2rem', fontWeight: 500}}>
+                Total: {previewDataEst.length} |
+                <span style={{color: '#22C55E'}}> Se grabarán: {previewDataEst.filter(p=>p.estado==='ok').length}</span> |
+                <span style={{color: '#EF4444'}}> Rechazados: {previewDataEst.filter(p=>p.estado==='error').length}</span>
+              </p>
+
+              <div style={{overflowX: 'auto'}}>
+                <table className="tabla-sgpc">
+                  <thead>
+                    <tr>
+                      <th>FILA</th><th>DNI</th><th>APELLIDOS</th><th>NOMBRES</th>
+                      <th>CARRERA</th><th>FILIAL</th><th>ESTADO</th><th>OBSERVACIÓN</th>
+                    </tr>
+                  </thead>
+                 <tbody>
+  {previewDataEst.map((p, i) => {
+    const esOk = p.estado === 'ok'
+    return (
+      <tr key={i}>
+        <td>{p.fila}</td>
+        <td>{p.dni}</td>
+        <td>{p.apellidos}</td>
+        <td>{p.nombres}</td>
+        <td>{p.nombrecarrera}</td>
+        <td>{p.nombrefilial}</td>
+        
+        {/* ESTADO: solo el icono en color */}
+        <td style={{textAlign: 'center'}}>
+          {esOk 
+            ? <Check size={18} color="#22C55E" strokeWidth={3}/> 
+            : <X size={18} color="#EF4444" strokeWidth={3}/>
+          }
+        </td>
+
+        {/* OBSERVACION: solo el texto en color */}
+        <td style={{fontWeight: 600, color: esOk ? '#22C55E' : '#EF4444'}}>
+          {p.motivo || 'Correcto'}
+        </td>
+      </tr>
+    )
+  })}
+</tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{padding: '1.6rem 2.4rem', borderTop: '1px solid #e2e8f0', flexShrink: 0, justifyContent: 'center'}}>
+              <button className="btn-secundario" onClick={() => setShowPreviewModalEst(false)} style={{minWidth: '15rem'}}>Cancelar</button>
+              <button
+                className="btn-primario"
+                onClick={handleConfirmImportEst}
+                disabled={previewDataEst.filter(p=>p.estado==='ok').length === 0}
+                style={{minWidth: '15rem'}}
+              >
+                <Check size={18} /> Grabar {previewDataEst.filter(p=>p.estado==='ok').length} Registros
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ===== FIN: MODAL VISTA PREVIA IMPORTAR EXCEL ===== */}
 
       <style jsx>{`
    .paginacion-footer {
