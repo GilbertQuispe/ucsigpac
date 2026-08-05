@@ -85,15 +85,13 @@ export default function EstudiantesPage() {
 
   const totalPaginas = Math.ceil(datosFiltrados.length / registrosPorPagina)
   const indiceInicio = (paginaActual - 1) * registrosPorPagina
-  const datosPaginados = datosFiltrados.slice(indiceInicio, indiceInicio + registrosPorPagina)
+  const indiceFin = indiceInicio + registrosPorPagina
+  const datosPaginados = datosFiltrados.slice(indiceInicio, indiceFin)
 
   const toggleCheck = (id: number) => { setSeleccionados(prev => prev.includes(id)? prev.filter(i => i!== id) : [...prev, id]) }
 
   const handleAbrirModalConvertir = () => {
-    if(seleccionados.length === 0) {
-      showToast('Seleccione por lo menos un registro', 'error'); // MENSAJE NUEVO
-      return
-    }
+    if(seleccionados.length === 0) { showToast('Seleccione por lo menos un registro de personas con rol de estudiante', 'error'); return }
     const personasSeleccionadas = personas.filter(p => seleccionados.includes(p.idpersona))
     const formInicial = personasSeleccionadas.map(p => ({...p, idcarrera: null, idfilial: null, estado: 'ACTIVO' }))
     setFormConvertirMasivo(formInicial)
@@ -108,7 +106,7 @@ export default function EstudiantesPage() {
     const {error} = await supabase.from('estudiante').insert(paraInsertar)
     if(error) showToast(error.message, 'error')
     else {
-      showToast(`Se convirtió ${paraInsertar.length} seleccionado a estudiantes`, 'success') // MENSAJE NUEVO
+      showToast(`Se convirtió ${paraInsertar.length} seleccionado a estudiantes`, 'success')
       setShowModalConvertir(false)
       setSeleccionados([])
       fetchData()
@@ -136,23 +134,12 @@ export default function EstudiantesPage() {
 
   return (
     <div className="main-content">
-      {/* TOAST GLOBAL - FIX ZINDEX */}
       {toast && (
         <div style={{
-          position: 'fixed', // CAMBIO: fixed para que flote sobre todo
-          top: '50%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          zIndex: 99999, // CAMBIO: zIndex altisimo
-          background: toast.type === 'error'? '#EF4444' : '#22C55E',
-          color: '#fff',
-          padding: '1.2rem 2.4rem',
-          borderRadius: '0.8rem',
-          fontWeight: 600,
-          fontSize: '1.4rem',
-          boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.2)',
-          animation: 'fadeInOut 3s ease-in-out',
-          whiteSpace: 'nowrap'
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999,
+          background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem',
+          borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.2)',
+          animation: 'fadeInOut 3s ease-in-out', whiteSpace: 'nowrap'
         }}>
           {toast.msg}
         </div>
@@ -188,13 +175,14 @@ export default function EstudiantesPage() {
           <tbody>{datosPaginados.map((d:any, i) => (<tr key={i}>{tab==='personas' && <td><input type="checkbox" checked={seleccionados.includes(d.idpersona)} onChange={() => toggleCheck(d.idpersona)} /></td>}<td>{indiceInicio + i + 1}</td><td>{d.dni || d.persona?.dni}</td><td>{d.apellidos || d.persona?.apellidos}, {d.nombres || d.persona?.nombres}</td>{tab==='estudiantes' && <><td>{d.carrera?.nombrecarrera}</td><td>{d.carrera?.facultad?.nombrefacultad}</td><td>{d.filial?.nombrefilial}</td><td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: d.estado === 'ACTIVO'? '#F0FDF4' : '#FEF2F2', color: d.estado === 'ACTIVO'? '#22C55E' : '#EF4444'}}>{d.estado || 'ACTIVO'}</span></td></>}<td style={{display: 'flex', gap: '0.8rem'}}>{tab==='estudiantes' && <><button onClick={() => openEditModal(d)} className="btn-icon btn-icon-editar" title="Editar"><Edit size={15} /></button><button onClick={() => handleCambiarEstadoEstudiante(d.idestudiante, d.estado || 'ACTIVO')} className={d.estado === 'ACTIVO'? "btn-icon btn-icon-eliminar" : "btn-icon btn-icon-activar"} title={d.estado === 'ACTIVO'? 'Inactivar' : 'Activar'}>{d.estado === 'ACTIVO'? <UserX size={15} color="#fff" /> : <UserCheck size={15} color="#fff" />}</button></>}</td></tr>))}</tbody>
         </table>
 
+        {/* PAGINACION CON ESTILOS DE PERSONAS */}
         {totalPaginas > 1 && (
           <div className="paginacion-footer">
-            <p className="paginacion-info">Mostrando {indiceInicio + 1} al {Math.min(indiceInicio + registrosPorPagina, datosFiltrados.length)} de {datosFiltrados.length}</p>
+            <p className="paginacion-info">Mostrando {indiceInicio + 1} al {Math.min(indiceFin, datosFiltrados.length)} de {datosFiltrados.length} registros</p>
             <div className="paginacion-controles">
               <button className="btn-pag" onClick={() => setPaginaActual(p => Math.max(1, p - 1))} disabled={paginaActual === 1}><ChevronLeft size={16} /> Anterior</button>
               <span className="paginacion-pagina">Pág {paginaActual} de {totalPaginas}</span>
-              <button className="btn-pag" onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))} disabled={paginaActual === totalPaginas}>Siguiente <ChevronRight size={16} /></button>
+              <button className="btn-pag btn-pag-primario" onClick={() => setPaginaActual(p => Math.min(totalPaginas, p + 1))} disabled={paginaActual === totalPaginas}>Siguiente <ChevronRight size={16} /></button>
             </div>
           </div>
         )}
@@ -258,6 +246,71 @@ export default function EstudiantesPage() {
           </div>
         </div>
       )}
+
+      <style jsx>{`
+   .paginacion-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 1.6rem;
+      padding: 1.6rem;
+      background: var(--color-blanco);
+      border-radius: 1.2rem;
+      gap: 1.6rem;
+    }
+   .paginacion-info {
+      font-size: var(--text-sm);
+      color: var(--color-texto-sec);
+    }
+   .paginacion-controles {
+      display: flex;
+      gap: 0.8rem;
+      align-items: center;
+    }
+   .btn-pag {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.8rem 1.2rem;
+      border-radius: 0.8rem;
+      font-size: var(--text-sm);
+      font-weight: 600;
+      border: 1px solid var(--color-borde);
+      background: var(--color-blanco);
+      color: var(--color-primario);
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+   .btn-pag:hover:not(:disabled) { 
+      background: #eff6ff; /* celeste clarito como en personas */
+      border-color: var(--color-primario);
+    }
+   .btn-pag:disabled { opacity: 0.5; cursor: not-allowed; }
+   
+   .btn-pag-primario {
+      background: var(--color-primario);
+      color: var(--color-blanco);
+      border: 1px solid var(--color-primario);
+    }
+   .btn-pag-primario:hover:not(:disabled) { 
+      background: #1e40af; /* azul más oscuro */
+      border-color: #1e40af;
+    }
+   .paginacion-pagina {
+      padding: 0.8rem 1.2rem;
+      font-weight: 600;
+      font-size: var(--text-sm);
+      white-space: nowrap;
+      color: var(--color-texto);
+    }
+    @media (max-width: 768px) {
+     .paginacion-footer { flex-direction: column; padding: 1.2rem; }
+     .paginacion-controles { width: 100%; justify-content: space-between; }
+     .btn-pag { padding: 0.6rem 1rem; font-size: 1.2rem; flex: 1; justify-content: center; }
+     .paginacion-pagina { padding: 0.6rem 0.8rem; font-size: 1.2rem; }
+     .paginacion-info { text-align: center; width: 100%; }
+    }
+  `}</style>
     </div>
   )
 }
