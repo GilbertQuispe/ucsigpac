@@ -856,3 +856,54 @@ select.input-sgpc {
 @media (max-width: 1024px) {
   .grid-4, .grid-3, .grid-2-1 { grid-template-columns: 1fr; } /* En tablet/cel se pone 1 columna */
 }
+
+/* =================================== */
+/* SOLO PARA CAMPOS CLINICOS - INVERSION DE COLORES */
+/* =================================== */
+
+.campos-clinicos-page .fieldset-sgpc-section {
+  border: 1px solid var(--color-primario);
+  border-radius: 0.8rem;
+  padding: 1.6rem;
+  background: #ffffff; /* AHORA BLANCO */
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.08); /* le da un toque ejecutivo */
+}
+
+.campos-clinicos-page .fieldset-sgpc-section legend {
+  font-weight: 600;
+  color: var(--color-primario);
+  padding: 0 0.8rem;
+  font-size: 1.4rem;
+}
+
+/* RECUADROS INTERNOS - AHORA CON FONDO */
+.campos-clinicos-page .fieldset-sgpc {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.6rem;
+  padding: 0.8rem 1.2rem 1.2rem 1.2rem;
+  background: #f8fafc; /* AHORA GRIS CLARITO */
+  margin: 0;
+}
+
+.campos-clinicos-page .fieldset-sgpc legend {
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #64748b;
+  padding: 0 0.4rem;
+}
+
+/* INPUTS Y SELECTS DENTRO TAMBIEN EN GRIS */
+.campos-clinicos-page .input-sgpc {
+  background: #f8fafc;
+}
+
+/* FUERZA A READONLY Y DISABLED A VERSE COMO EL SELECT */
+.campos-clinicos-page.input-sgpc[readonly],
+.campos-clinicos-page.input-sgpc:disabled {
+  background-color: #f8fafc!important;
+  border: 1px solid #cbd5e1!important;
+  color: #1e293b!important;
+  opacity: 1!important;
+  -webkit-text-fill-color: #1e293b; /* Para que no se ponga gris en Chrome */
+}

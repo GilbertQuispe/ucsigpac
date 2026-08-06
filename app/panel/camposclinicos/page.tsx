@@ -252,7 +252,7 @@ export default function CamposClinicosPage() {
   const datosPaginados = campos.slice((paginaActual-1)*registrosPorPagina, paginaActual*registrosPorPagina)
 
   return (
-    <div className="main-content">
+    <div className="main-content campos-clinicos-page">
       {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem' }}>{toast.msg}</div>}
 
       <div className="header-responsive">
@@ -359,8 +359,8 @@ export default function CamposClinicosPage() {
         }}
         options={docentesFiltrados.map(d=>({value:d.iddocente, label:`${d.persona?.dni} - ${d.persona?.apellidos}, ${d.persona?.nombres}`}))}
       />
-      <fieldset className="fieldset-sgpc"><legend>Profesion</legend><input className="input-sgpc" value={profesionSel} readOnly style={{marginTop: '0.4rem', background: '#f8fafc'}} /></fieldset>
-      <fieldset className="fieldset-sgpc"><legend>Especialidad</legend><input className="input-sgpc" value={especialidadSel} readOnly style={{marginTop: '0.4rem', background: '#f8fafc'}} /></fieldset>
+      <fieldset className="fieldset-sgpc"><legend>Profesion</legend><input className="input-sgpc" value={profesionSel} readOnly disabled style={{marginTop: '0.4rem'}} /></fieldset>
+      <fieldset className="fieldset-sgpc"><legend>Especialidad</legend><input className="input-sgpc" value={especialidadSel} readOnly disabled style={{marginTop: '0.4rem'}} /></fieldset>
     </div>
   </fieldset>
 
