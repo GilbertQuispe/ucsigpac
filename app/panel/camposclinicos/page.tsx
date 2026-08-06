@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, X, Search, Trash2, Hospital, BookOpen, User, Building, Calendar, Eraser, Save, ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 import Select from 'react-select'
+import AsyncSelect from 'react-select/async' // <-- NUEVO 1
 
 type Persona = { idpersona: number; dni: string; apellidos: string; nombres: string }
 type Profesion = { idprofesion: number; profesion: string }
@@ -53,7 +54,7 @@ export default function CamposClinicosPage() {
   const [filiales, setFiliales] = useState<Filial[]>([])
   const [servicios, setServicios] = useState<Servicio[]>([])
   const [docentes, setDocentes] = useState<Docente[]>([])
-  const [eps, setEps] = useState<Eps[]>([])
+  const [eps, setEps] = useState<Eps[]>([]) // <-- Se mantiene pero ya no se llena con 6000
   const [departamentos, setDepartamentos] = useState<Departamento[]>([])
   const [provincias, setProvincias] = useState<Provincia[]>([])
   const [distritos, setDistritos] = useState<Distrito[]>([])
@@ -85,6 +86,13 @@ export default function CamposClinicosPage() {
   const [profesionSel, setProfesionSel] = useState('')
   const [especialidadSel, setEspecialidadSel] = useState('')
 
+// estate para paginacion real
+const [totalRegistros, setTotalRegistros] = useState(0)
+
+// NUEVO 2: STATES PARA ASYNC EPS
+const [epsOptions, setEpsOptions] = useState<any[]>([])
+const [loadingEps, setLoadingEps] = useState(false)
+
   // 1. CASCADAS PRIMERO
   const provinciasFiltradas = useMemo(() =>
     idDeptoSel? provincias.filter(p => p.iddepartamento === idDeptoSel) : []
@@ -94,44 +102,73 @@ export default function CamposClinicosPage() {
     idProvSel? distritos.filter(d => d.idprovincia === idProvSel) : []
 , [idProvSel, distritos])
 
-  // 2. EPS FILTRADAS POR CASCADA. SI NO HAY FILTRO = TODOS
+  // 2. EPS FILTRADAS POR CASCADA. YA NO SE USA PARA EL SELECT
  const epsFiltradas = useMemo(() => {
   let data = eps
-
   if(idDeptoSel) {
     const idsProvDeDepto = provincias.filter(p => p.iddepartamento === idDeptoSel).map(p => p.idprovincia)
-    const idsDistDeDepto = distritos.filter(d => idsProvDeDepto.includes(d.idprovincia)).map(d => d.iddistrito) // <-- Nombre corregido
-    data = data.filter(e => idsDistDeDepto.includes(e.iddistrito)) // <-- Usar el mismo nombre
+    const idsDistDepto = distritos.filter(d => idsProvDeDepto.includes(d.idprovincia)).map(d => d.iddistrito)
+    data = data.filter(e => idsDistDepto.includes(e.iddistrito))
   }
-
   if(idProvSel) {
     const idsDistDeProv = distritos.filter(d => d.idprovincia === idProvSel).map(d => d.iddistrito)
     data = data.filter(e => idsDistDeProv.includes(e.iddistrito))
   }
-
   if(idDistSel) {
     data = data.filter(e => e.iddistrito === idDistSel)
   }
-
   if(idTipoEpsSel) {
     data = data.filter(e => e.idtipoeps === idTipoEpsSel)
   }
-
   return data
 }, [eps, idDeptoSel, idProvSel, idDistSel, idTipoEpsSel, distritos, provincias])
 
+  // NUEVO 3: FUNCION PARA CARGAR EPS ON DEMAND
+  const loadEpsOptions = async (inputValue: string) => {
+    setLoadingEps(true)
+    let query = supabase
+      .from('eps')
+      .select('ideps, razonsocial, ruc, iddistrito, idtipoeps')
+      .eq('estado','ACTIVO')
+      .limit(50)
+      .order('razonsocial')
+
+    if(inputValue) {
+      query = query.ilike('razonsocial', `%${inputValue}%`)
+    }
+
+    // FILTROS EN CASCADA - AHORA SI FUNCIONAN
+    if(idDeptoSel) {
+      const idsProvDepto = provincias.filter(p => p.iddepartamento === idDeptoSel).map(p => p.idprovincia)
+      const idsDistDepto = distritos.filter(d => idsProvDepto.includes(d.idprovincia)).map(d => d.iddistrito)
+      if(idsDistDepto.length > 0) query = query.in('iddistrito', idsDistDepto)
+    }
+    if(idProvSel) {
+      const idsDistDeProv = distritos.filter(d => d.idprovincia === idProvSel).map(d => d.iddistrito)
+      if(idsDistDeProv.length > 0) query = query.in('iddistrito', idsDistDeProv)
+    }
+    if(idDistSel) query = query.eq('iddistrito', idDistSel)
+    if(idTipoEpsSel) query = query.eq('idtipoeps', idTipoEpsSel)
+
+    const {data} = await query
+    const options = data?.map(e => ({value: e.ideps, label: `${e.razonsocial} - ${e.ruc || 'S/RUC'}`})) || []
+    setEpsOptions(options)
+    setLoadingEps(false)
+    return options
+  }
 
   // 3. DOCENTES SIN FILTRO
   const docentesFiltrados = docentes
 
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
-  useEffect(() => { fetchData() }, [filtroPeriodo, filtroFilialTabla, search])
+  useEffect(() => { fetchData() }, [filtroPeriodo, filtroFilialTabla, search, paginaActual])
 
   useEffect(() => {
     if(showModal){
       setIdDeptoSel(null); setIdProvSel(null); setIdDistSel(null); setIdTipoEpsSel(null);
       setProfesionSel(''); setEspecialidadSel('');
+      setEpsOptions([]) // NUEVO 4: limpiar opciones al abrir
     }
   }, [showModal])
 
@@ -145,9 +182,9 @@ export default function CamposClinicosPage() {
   const fetchData = async () => {
     setLoading(true)
     try {
-      const [{data: tipoData}, {data: camposDB}, {data: per}, {data: fil}, {data: serv}, {data: doc}, {data: deptoData}, {data: provData}, {data: distData}] = await Promise.all([
+      // 1. Primero cargamos los maestros: periodos, filiales, etc. Solo 1 vez
+      const [{data: tipoData}, {data: per}, {data: fil}, {data: serv}, {data: doc}, {data: deptoData}, {data: provData}, {data: distData}] = await Promise.all([
         supabase.from("tipoeps").select("*").order("nombretipoeps"),
-        supabase.from('campoclinico').select('*, eps(*, distrito(*, provincia(*, departamento(*)))), serviciosalud(*), docente(*, persona(*), profesion(*), especialidad(*)), periodoacademico(*), filial(*)').order('idcampocli', {ascending: false}),
         supabase.from('periodoacademico').select('*').order('fecha_inicio', {ascending: false}),
         supabase.from('filial').select('*'),
         supabase.from('serviciosalud').select('*'),
@@ -157,55 +194,51 @@ export default function CamposClinicosPage() {
         supabase.from("distrito").select("iddistrito, nombredt, idprovincia").eq("estado", "ACTIVO").order("nombredt"),
       ])
 
-      // ===== CAMBIO CLAVE: CARGAR TODOS LOS EPS CON PAGINACION =====
-      let allEps: any[] = []
-      let from = 0
-      const pageSize = 1000
-      let hasMore = true
+      // BORRADO: ya no se carga el while de 6000 EPS
 
-      while(hasMore) {
-        const {data: epsPage, error: epsError} = await supabase
-         .from('eps')
-         .select('ideps, razonsocial, iddistrito, idtipoeps, ruc, estado, distrito(*, provincia(*, departamento(*)))')
-         .eq('estado','ACTIVO')
-         .range(from, from + pageSize - 1)
-         .order('razonsocial')
+      // 3. NUEVO: CONTEO TOTAL para la paginación
+      let countQuery = supabase.from('campoclinico').select('*', { count: 'exact', head: true })
+      if(filtroPeriodo!== '') countQuery = countQuery.eq('idpa', filtroPeriodo)
+      if(filtroFilialTabla!== '') countQuery = countQuery.eq('idfilial', filtroFilialTabla)
+      if(search) countQuery = countQuery.or(`eps.razonsocial.ilike.%${search}%,serviciosalud.nombre.ilike.%${search}%,docente.persona.apellidos.ilike.%${search}%`)
+      const { count } = await countQuery
 
-        if(epsError) throw epsError
-        if(epsPage) allEps = [...allEps,...epsPage]
-        hasMore = epsPage && epsPage.length === pageSize
-        from += pageSize
-      }
-      // ===== FIN CAMBIO =====
+      // 4. NUEVO: TRAER SOLO LA PAGINA ACTUAL
+      let dataQuery = supabase.from('campoclinico')
+        .select('*, eps(*, distrito(*, provincia(*, departamento(*)))), serviciosalud(*), docente(*, persona(*), profesion(*), especialidad(*)), periodoacademico(*), filial(*)')
+        .order('idcampocli', {ascending: false})
+        .range((paginaActual-1)*registrosPorPagina, paginaActual*registrosPorPagina - 1)
 
-      let dataFiltrada = camposDB as CampoClinico[] || []
-      if(filtroPeriodo!== '') dataFiltrada = dataFiltrada.filter(c => c.idpa === filtroPeriodo)
-      if(filtroFilialTabla!== '') dataFiltrada = dataFiltrada.filter(c => c.idfilial === filtroFilialTabla)
-      if(search) {
-        const termino = search.toLowerCase()
-        dataFiltrada = dataFiltrada.filter(c =>
-          c.eps?.razonsocial.toLowerCase().includes(termino) ||
-          c.serviciosalud?.nombre.toLowerCase().includes(termino) ||
-          c.docente?.persona?.apellidos.toLowerCase().includes(termino)
-        )
-      }
+      if(filtroPeriodo!== '') dataQuery = dataQuery.eq('idpa', filtroPeriodo)
+      if(filtroFilialTabla!== '') dataQuery = dataQuery.eq('idfilial', filtroFilialTabla)
+      if(search) dataQuery = dataQuery.or(`eps.razonsocial.ilike.%${search}%,serviciosalud.nombre.ilike.%${search}%,docente.persona.apellidos.ilike.%${search}%`)
 
-      setCampos(dataFiltrada)
+      const {data: camposDB} = await dataQuery
+
+      // SETEAR ESTADOS
+      setCampos(camposDB as CampoClinico[] || [])
+      setTotalRegistros(count || 0) // NUEVO STATE
       setTiposEps(tipoData || [])
       setPeriodos(per || []); setFiliales(fil || []); setServicios(serv || [])
-      setDocentes(doc || []); setEps(allEps) // <-- AQUI USAMOS allEps
+      setDocentes(doc || []); 
       setDepartamentos(deptoData || []); setProvincias(provData || []); setDistritos(distData || [])
-      setLoading(false); setPaginaActual(1)
+      
     } catch (error: any) {
       console.error(error)
       showToast(error.message, 'error')
-      setLoading(false)
     }
+    setLoading(false)
   }
 
   const openModal = (campo: CampoClinico | null = null) => {
     setCampoEdit(campo)
     setForm(campo? {...campo} : {estado: 'ACTIVO', ideps: null, idservicios: null, iddocente: null, idpa: null, idfilial: null})
+    
+    // NUEVO 5: Si es edicion, precargar la EPS actual
+    if(campo?.eps) {
+      setEpsOptions([{value: campo.eps.ideps, label: `${campo.eps.razonsocial} - ${campo.eps.ruc || 'S/RUC'}`}])
+    }
+    
     setShowModal(true)
   }
 
@@ -248,15 +281,15 @@ export default function CamposClinicosPage() {
   }
 
   const limpiarFiltros = () => { setSearch(""); setFiltroPeriodo(""); setFiltroFilialTabla(""); setPaginaActual(1) }
-  const totalPaginas = Math.ceil(campos.length / registrosPorPagina)
-  const datosPaginados = campos.slice((paginaActual-1)*registrosPorPagina, paginaActual*registrosPorPagina)
-
+useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabla])
+  const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina) // <-- CAMBIO: usar totalRegistros
+  
   return (
     <div className="main-content campos-clinicos-page">
       {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem' }}>{toast.msg}</div>}
 
       <div className="header-responsive">
-        <div><h1><Hospital size={24} style={{marginRight: '0.8rem'}}/>Gestión de Campos Clínicos</h1><p>Total: {campos.length} registros</p></div>
+        <div><h1><Hospital size={24} style={{marginRight: '0.8rem'}}/>Gestión de Campos Clínicos</h1><p>Total: {totalRegistros} registros</p></div> {/* <-- CAMBIO: usar totalRegistros */}
         <button className="btn-primario" onClick={() => openModal()}><Plus size={18} />Nuevo Campo Clínico</button>
       </div>
 
@@ -279,7 +312,7 @@ export default function CamposClinicosPage() {
             </tr>
           </thead>
           <tbody>
-            {loading? <tr><td colSpan={8} style={{textAlign: 'center', padding: '2rem'}}>Cargando...</td></tr> : datosPaginados.map((c,i) => (
+            {loading? <tr><td colSpan={8} style={{textAlign: 'center', padding: '2rem'}}>Cargando...</td></tr> : campos.map((c,i) => (
               <tr key={c.idcampocli}>
                 <td>{(paginaActual-1)*registrosPorPagina + i + 1}</td>
                 <td>{c.eps?.razonsocial} <br/><span style={{fontSize: '1.1rem', opacity: 0.7}}>{c.eps?.distrito?.nombredt} - {c.eps?.distrito?.provincia?.nombrep}</span></td>
@@ -296,9 +329,9 @@ export default function CamposClinicosPage() {
             ))}
           </tbody>
         </table>
-        {totalPaginas > 1 && (
+        {totalPaginas >= 1 && ( // <-- CAMBIO: >= 1 para que siempre se vea
           <div className="paginacion-footer">
-            <p className="paginacion-info">Mostrando {(paginaActual-1)*registrosPorPagina + 1} al {Math.min(paginaActual*registrosPorPagina, campos.length)} de {campos.length}</p>
+            <p className="paginacion-info">Mostrando {(paginaActual-1)*registrosPorPagina + 1} al {Math.min(paginaActual*registrosPorPagina, totalRegistros)} de {totalRegistros}</p>
             <div className="paginacion-controles">
               <button className="btn-pag" onClick={() => setPaginaActual(p => Math.max(1, p - 1))} disabled={paginaActual === 1}><ChevronLeft size={16} /> Anterior</button>
               <span className="paginacion-pagina">Pág {paginaActual} de {totalPaginas}</span>
@@ -327,15 +360,55 @@ export default function CamposClinicosPage() {
 
     {/* LINEA 1: Depto + Prov + Dist */}
     <div className="grid-3" style={{marginBottom: '1.6rem'}}>
-      <SelectSGPCFieldset label="Departamento" value={idDeptoSel} onChange={(val:any) => {setIdDeptoSel(val); setIdProvSel(null); setIdDistSel(null); setIdTipoEpsSel(null); setForm({...form, ideps: null})}} options={[{value: null, label: 'Todos'},...departamentos.map(d=>({value:d.iddepartamento, label:d.nombred}))]} />
-      <SelectSGPCFieldset label="Provincia" value={idProvSel} onChange={(val:any) => {setIdProvSel(val); setIdDistSel(null); setForm({...form, ideps: null})}} options={[{value: null, label: 'Todos'},...provinciasFiltradas.map(p=>({value:p.idprovincia, label:p.nombrep}))]} isDisabled={!idDeptoSel} />
-      <SelectSGPCFieldset label="Distrito" value={idDistSel} onChange={(val:any) => {setIdDistSel(val); setForm({...form, ideps: null})}} options={[{value: null, label: 'Todos'},...distritosFiltrados.map(d=>({value:d.iddistrito, label:d.nombredt}))]} isDisabled={!idProvSel} />
+      <SelectSGPCFieldset label="Departamento" value={idDeptoSel} onChange={(val:any) => {
+  setIdDeptoSel(val); 
+  setIdProvSel(null); 
+  setIdDistSel(null); 
+  setIdTipoEpsSel(null); 
+  setForm({...form, ideps: null}); // <-- NUEVO
+  setEpsOptions([]) // <-- NUEVO
+}} options={[{value: null, label: 'Todos'},...departamentos.map(d=>({value:d.iddepartamento, label:d.nombred}))]} />
+
+<SelectSGPCFieldset label="Provincia" value={idProvSel} onChange={(val:any) => {
+  setIdProvSel(val); 
+  setIdDistSel(null); 
+  setForm({...form, ideps: null}); // <-- NUEVO
+  setEpsOptions([]) // <-- NUEVO
+}} options={[{value: null, label: 'Todos'},...provinciasFiltradas.map(p=>({value:p.idprovincia, label:p.nombrep}))]} isDisabled={!idDeptoSel} />
+
+<SelectSGPCFieldset label="Distrito" value={idDistSel} onChange={(val:any) => {
+  setIdDistSel(val); 
+  setForm({...form, ideps: null}); // <-- NUEVO
+  setEpsOptions([]) // <-- NUEVO
+}} options={[{value: null, label: 'Todos'},...distritosFiltrados.map(d=>({value:d.iddistrito, label:d.nombredt}))]} isDisabled={!idProvSel} />
     </div>
 
     {/* LINEA 2: Tipo EPS + EPS - EPS es mas ancha */}
     <div className="grid-2-1">
-      <SelectSGPCFieldset label="Tipo EPS" value={idTipoEpsSel} onChange={(val:any) => {setIdTipoEpsSel(val); setForm({...form, ideps: null})}} options={[{value: null, label: 'Todos'},...tiposEps.map(t=>({value:t.idtipoeps, label:t.nombretipoeps}))]} />
-      <SelectSGPCFieldset label="EPS/Clinica *" value={form.ideps} onChange={(val:any) => setForm({...form, ideps: val})} options={epsFiltradas.map(e=>({value:e.ideps, label:`${e.razonsocial} - ${e.ruc || 'S/RUC'}`}))} />
+      <SelectSGPCFieldset label="Tipo EPS" value={idTipoEpsSel} onChange={(val:any) => {
+  setIdTipoEpsSel(val); 
+  setForm({...form, ideps: null}); // <-- NUEVO
+  setEpsOptions([]) // <-- NUEVO
+}} options={[{value: null, label: 'Todos'},...tiposEps.map(t=>({value:t.idtipoeps, label:t.nombretipoeps}))]} />
+      
+      {/* NUEVO 6: CAMBIO SELECT NORMAL POR ASYNCSELECT */}
+      <fieldset className="fieldset-sgpc">
+        <legend>EPS/Clinica *</legend>
+        <AsyncSelect 
+        key={`${idDeptoSel}-${idProvSel}-${idDistSel}-${idTipoEpsSel}`}
+          cacheOptions
+          defaultOptions
+          loadOptions={loadEpsOptions}
+          value={epsOptions.find(o => o.value === form.ideps) || null}
+          onChange={(opt:any) => setForm({...form, ideps: opt?.value || null})}
+          placeholder="Escriba para buscar EPS..."
+          isLoading={loadingEps}
+          isSearchable
+          maxMenuHeight={200}
+          classNamePrefix="react-select"
+          styles={{ control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), input: (base) => ({...base, margin: 0, padding: 0 }), indicatorsContainer: (base) => ({...base, height: '4.4rem' }), option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }), menu: (base) => ({...base, zIndex: 9999, marginTop: '0.4rem' }) }}
+        />
+      </fieldset>
     </div>
 
     {/* LINEA 3: Servicio */}
