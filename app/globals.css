@@ -847,3 +847,12 @@ select.input-sgpc {
   padding-left: 1.6rem !important;
   display: table-cell !important; /* Anula el flex que le mete Next */
 }
+
+/* Grid para columnas de la pagina camposclinicos*/
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1.6rem; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.6rem; }
+.grid-2-1 { display: grid; grid-template-columns: 1fr 2fr; gap: 1.6rem; } /* Para Tipo + EPS */
+
+@media (max-width: 1024px) {
+  .grid-4, .grid-3, .grid-2-1 { grid-template-columns: 1fr; } /* En tablet/cel se pone 1 columna */
+}
