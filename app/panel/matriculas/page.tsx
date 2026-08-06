@@ -48,6 +48,11 @@ export default function MatriculasPage() {
   const [previewErroresMat, setPreviewErroresMat] = useState<any[]>([])
   const [showPreviewModalMat, setShowPreviewModalMat] = useState(false)
   // =====================================
+  
+  const [paraInsertarMat, setParaInsertarMat] = useState<any[]>([])
+
+  const [modalDesmatricular, setModalDesmatricular] = useState(false);
+  const [estudianteAEliminar, setEstudianteAEliminar] = useState<Matricula | null>(null);
 
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
   const toUpperCase = (str: string) => str?.toUpperCase() || ''
@@ -59,8 +64,15 @@ const toTitleCase = (str: string) =>
     setTimeout(() => { document.getElementById('import-matricula')?.click() }, 1000)
   }
 
-  useEffect(() => { fetchData() }, [])
-  useEffect(() => { fetchMatriculas() }, [filtroPeriodoTabla, search, filtroEstado, tab])
+useEffect(() => {
+  fetchData() // <-- AGREGA ESTO
+  if(tab === 'matriculados') fetchMatriculas()
+}, [filtroPeriodoTabla, search, filtroEstado, tab])
+
+useEffect(() => { 
+  if(tab === 'disponibles') fetchEstudiantesDisponibles() 
+}, [search, tab])
+
 
   const fetchData = async () => {
     setLoading(true)
@@ -72,12 +84,48 @@ const toTitleCase = (str: string) =>
     setEstudiantes(est as Estudiante[] || [])
     setLoading(false)
   }
+/* nuevos fetch agregados*/ 
 
-  const fetchMatriculas = async () => {
-    setLoading(true)
+const fetchEstudiantesDisponibles = async () => {
+  setLoading(true)
+  
+  // 1. Trae todos los estudiantes sin filtro
+  const {data, error} = await supabase
+    .from('estudiante')
+    .select('*, persona!inner(*)')
+    .order('idestudiante')
 
-    let query = supabase.from('matricula')
-   .select(`
+  if(error) {
+    showToast(error.message, 'error')
+    setEstudiantes([])
+    setLoading(false)
+    return
+  }
+
+  // 2. FILTRO DE BUSQUEDA EN MEMORIA
+  let dataFiltrada = data as Estudiante[] || []
+  
+  if(search) {
+    const termino = search.toLowerCase()
+    dataFiltrada = dataFiltrada.filter(e => 
+      e.persona?.dni.toLowerCase().includes(termino) ||
+      e.persona?.apellidos.toLowerCase().includes(termino) ||
+      e.persona?.nombres.toLowerCase().includes(termino)
+    )
+  }
+
+  setEstudiantes(dataFiltrada)
+  setLoading(false)
+  setPaginaActual(1)
+}
+
+/*fecth anulado*/
+const fetchMatriculas = async () => {
+  setLoading(true)
+
+  let query = supabase
+    .from('matricula')
+    .select(`
       idmatricula,
       idestudiante,
       idpa,
@@ -86,26 +134,43 @@ const toTitleCase = (str: string) =>
       estudiante:matricula_idestudiante_fkey(*, persona:estudiante_idpersona_fkey(*)),
       periodoacademico:matricula_idpa_fkey(*)
     `)
-   .order('idmatricula', { ascending: false })
+    .order('idmatricula', { ascending: false })
 
-    if(filtroPeriodoTabla!== '') query = query.eq('idpa', filtroPeriodoTabla)
-    if(search) query = query.or(`estudiante.persona.dni.ilike.%${search}%,estudiante.persona.apellidos.ilike.%${search}%,estudiante.persona.nombres.ilike.%${search}%`)
-    if(filtroEstado) query = query.eq('estado', filtroEstado)
+  // 1. Filtros que SI se pueden hacer en BD
+  if(filtroPeriodoTabla !== '') query = query.eq('idpa', filtroPeriodoTabla)
+  if(filtroEstado !== '') query = query.eq('estado', filtroEstado)
 
-    const {data, error} = await query
+  const {data, error} = await query
 
-    setMatriculas(data as Matricula[] || [])
+  if(error) {
+    console.error(error)
+    showToast(error.message, 'error')
+    setMatriculas([])
     setLoading(false)
-    setSeleccionados([])
+    return
   }
 
-  const estudiantesDisponibles = useMemo(() => {
-    return estudiantes.filter(e =>
-      e.persona?.dni.toLowerCase().includes(search.toLowerCase()) ||
-      e.persona?.apellidos.toLowerCase().includes(search.toLowerCase()) ||
-      e.persona?.nombres.toLowerCase().includes(search.toLowerCase())
+  // 2. FILTRO DE BUSQUEDA EN MEMORIA - AQUI ESTA EL TRUCO
+  let dataFiltrada = data as Matricula[] || []
+  
+  if(search) {
+    const termino = search.toLowerCase()
+    dataFiltrada = dataFiltrada.filter(m => 
+      m.estudiante?.persona?.dni.toLowerCase().includes(termino) ||
+      m.estudiante?.persona?.apellidos.toLowerCase().includes(termino) ||
+      m.estudiante?.persona?.nombres.toLowerCase().includes(termino)
     )
-  }, [estudiantes, search])
+  }
+
+  setMatriculas(dataFiltrada)
+  setLoading(false)
+  setSeleccionados([])
+  setPaginaActual(1)
+}
+
+const estudiantesDisponibles = useMemo(() => {
+  return estudiantes // ya viene filtrado del fetch
+}, [estudiantes])
 
   const datosFiltrados = tab === 'disponibles'? estudiantesDisponibles : matriculas
   const totalPaginas = Math.ceil(datosFiltrados.length / registrosPorPagina)
@@ -163,84 +228,101 @@ const toTitleCase = (str: string) =>
   // ===== FUNCION IMPORTAR ACTUALIZADA =====
   
 const handleImportMatricula = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if(!file) return
-    setLoading(true)
+  const file = e.target.files?.[0]
+  if(!file) return
+  setLoading(true)
 
-    const toTitleCase = (str: string) =>
-      str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
+  try {
+    const data = await file.arrayBuffer()
+    const workbook = XLSX.read(data)
+    const worksheet = workbook.Sheets[workbook.SheetNames[0]]
+    const filas: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: "" })
 
-    try {
-      const data = await file.arrayBuffer()
-      const workbook = XLSX.read(data)
-      const worksheet = workbook.Sheets[workbook.SheetNames[0]]
-      const filas: any[] = XLSX.utils.sheet_to_json(worksheet)
+    if(filas.length === 0){ showToast('El Excel está vacío', 'error'); setLoading(false); return }
 
-      const [{data: estudiantesFull}, {data: periodosDB}, {data: matriculasDB}] = await Promise.all([
-        supabase.from('estudiante').select('idestudiante, idpersona, persona!inner(dni, apellidos, nombres)'),
-        supabase.from('periodoacademico').select('idpa, codigo'),
-        supabase.from('matricula').select('idestudiante, idpa')
-      ])
+    const [{data: estudiantesFull}, {data: periodosDB}, {data: matriculasDB}] = await Promise.all([
+      supabase.from('estudiante').select('idestudiante, persona!inner(dni, apellidos, nombres)'),
+      supabase.from('periodoacademico').select('idpa, codigo'),
+      supabase.from('matricula').select('idestudiante, idpa')
+    ])
 
-      const mapaDni = new Map(estudiantesFull?.map(e => [e.persona.dni, e.idestudiante]))
-      const mapaPeriodo = new Map(periodosDB?.map(p => [p.codigo.toUpperCase().trim(), p.idpa]))
-      const matriculadosKey = new Set(matriculasDB?.map(m => `${m.idestudiante}-${m.idpa}`))
+    const mapaDni = new Map(estudiantesFull?.map(e => [String(e.persona.dni).trim(), e.idestudiante]))
+    const mapaPeriodo = new Map(periodosDB?.map(p => [String(p.codigo).trim(), p.idpa]))
+    const matriculadosKey = new Set(matriculasDB?.map(m => `${m.idestudiante}-${m.idpa}`))
 
-      const paraInsertar: any[] = []
-      const errores: any[] = []
+    const preview: any[] = []
+    const paraInsertar: any[] = []
 
-      filas.forEach((row, i) => {
-        const dni = String(row.dni || '').trim().padStart(8, '0')
-        const codigoPeriodo = String(row.periodo || '').toUpperCase().trim()
-        const filaNum = i + 2
+    filas.forEach((row, index) => {
+      const keys = Object.keys(row)
+      const dniKey = keys.find(k => k.toLowerCase().includes('dni'))
+      const nombreKey = keys.find(k => k.toLowerCase().includes('apellido') || k.toLowerCase().includes('nombre'))
+      const periodoKey = keys.find(k => k.toLowerCase().includes('periodo'))
 
-        // DESGLOSAR "APELLIDOS, Nombres"
-        const alumnoCompleto = String(row['apellidos y nombres'] || '').trim()
-        const [apellidosRaw, nombresRaw] = alumnoCompleto.split(',')
-        const apellidos = apellidosRaw?.trim().toUpperCase() || ''
-        const nombres = toTitleCase(nombresRaw?.trim() || '') // <-- YA FUNCIONA
+      let dni = String(row[dniKey] || '').replace(/\D/g, '').padStart(8, '0')
+      const alumnoCompleto = String(row[nombreKey] || '')
+      const [apellidosRaw, nombresRaw] = alumnoCompleto.split(',')
+      const apellidos = apellidosRaw?.trim().toUpperCase() || ''
+      const nombres = toTitleCase(nombresRaw?.trim() || '')
+      const codigoPeriodo = String(row[periodoKey] || '').trim()
 
-        const idest = mapaDni.get(dni)
-        const idpa = mapaPeriodo.get(codigoPeriodo)
+      const idest = mapaDni.get(dni)
+      const idpa = mapaPeriodo.get(codigoPeriodo)
 
-        if(!idest) {
-          errores.push({fila: filaNum, dni, apellidos, nombres, motivo: `DNI no existe como Estudiante`})
-          return
-        }
-        if(!idpa) {
-          errores.push({fila: filaNum, dni, apellidos, nombres, motivo: `Periodo "${codigoPeriodo}" no existe`})
-          return
-        }
-        if(matriculadosKey.has(`${idest}-${idpa}`)) {
-          errores.push({fila: filaNum, dni, apellidos, nombres, motivo: `Ya está matriculado en ${codigoPeriodo}`})
-          return
-        }
+      let motivo = ''
+      let estado: 'ok' | 'error' = 'ok'
 
-        paraInsertar.push({ idestudiante: idest, idpa: idpa, fecha_matricula: new Date().toISOString().split('T')[0], estado: 'MATRICULADO' })
+      if(dni === '00000') { motivo = 'DNI vacío o mal escrito en Excel'; estado = 'error' }
+      else if(!idest) { motivo = `DNI ${dni} no existe como Estudiante`; estado = 'error' }
+      else if(!idpa) { motivo = `Periodo "${codigoPeriodo}" no existe`; estado = 'error' }
+      else if(matriculadosKey.has(`${idest}-${idpa}`)) { motivo = `Ya está matriculado en ${codigoPeriodo}`; estado = 'error' }
+
+      preview.push({
+        fila: index + 2, dni, apellidos, nombres, periodo: codigoPeriodo, motivo, estado,
+        idestudiante: idest, idpa: idpa // <-- GUARDAMOS IDS PARA DESPUES
       })
 
-      if(errores.length > 0){
-        setPreviewErroresMat(errores)
-        setShowPreviewModalMat(true)
-        showToast(`${errores.length} filas con error. Revisa el reporte`, 'warning')
+      if(estado === 'ok') {
+        paraInsertar.push({
+          idestudiante: idest,
+          idpa: idpa,
+          fecha_matricula: new Date().toISOString().split('T')[0],
+          estado: 'MATRICULADO'
+        })
       }
+    })
 
-      if(paraInsertar.length > 0){
-        const {error} = await supabase.from('matricula').insert(paraInsertar)
-        if(error) showToast(error.message, 'error')
-        else {
-          showToast(`Se matricularon ${paraInsertar.length} estudiantes`, 'success')
-          fetchMatriculas()
-        }
-      }
+    setPreviewErroresMat(preview)
+    setParaInsertarMat(paraInsertar) // <-- GUARDAMOS PARA EL BOTON GRABAR
+    setShowPreviewModalMat(true)
 
-    } catch (e: any) {
-      showToast('Error: ' + e.message, 'error')
-    }
-
-    setLoading(false)
-    e.target.value = ''
+  } catch (e: any) {
+    showToast('Error: ' + e.message, 'error')
   }
+
+  setLoading(false)
+  e.target.value = ''
+}
+
+const handleGrabarImportacionMat = async () => {
+  if(paraInsertarMat.length === 0) {
+    showToast('No hay registros para grabar', 'error')
+    return
+  }
+  setLoading(true)
+
+  const {error} = await supabase.from('matricula').insert(paraInsertarMat)
+
+  if(error) showToast('Error al grabar: ' + error.message, 'error')
+  else {
+    showToast(`Se grabaron ${paraInsertarMat.length} matrículas correctamente`, 'success')
+    setShowPreviewModalMat(false)
+    setParaInsertarMat([])
+    fetchMatriculas()
+  }
+  setLoading(false)
+}
+
   // ===== EXPORTAR RECHAZADOS =====
   const handleExportarRechazadosMat = () => {
     if(previewErroresMat.length === 0) {
@@ -266,12 +348,28 @@ const handleImportMatricula = async (e: React.ChangeEvent<HTMLInputElement>) => 
     if(error) showToast(error.message, 'error')
     else { showToast('Matrícula actualizada', 'success'); setShowModalEdit(false); fetchMatriculas() }
   }
-  const handleDesmatricular = async (idmatricula: number) => {
-    if(!confirm('¿Seguro de desmatricular a este estudiante?')) return
-    const {error} = await supabase.from('matricula').delete().eq('idmatricula', idmatricula)
-    if(error) showToast(error.message, 'error')
-    else { showToast('Estudiante desmatriculado', 'success'); fetchMatriculas() }
+
+
+const abrirModalDesmatricular = (matricula: Matricula) => {
+  setEstudianteAEliminar(matricula);
+  setModalDesmatricular(true);
+}
+
+const confirmarDesmatricular = async () => {
+  if(!estudianteAEliminar) return;
+  
+  const {error} = await supabase.from('matricula').delete().eq('idmatricula', estudianteAEliminar.idmatricula)
+  if(error) showToast(error.message, 'error')
+  else { 
+    showToast('Estudiante desmatriculado', 'success'); 
+    fetchMatriculas() 
   }
+  
+  setModalDesmatricular(false);
+  setEstudianteAEliminar(null);
+}
+
+  
 
   const limpiarFiltros = () => { setSearch(""); setFiltroEstado(""); setFiltroPeriodoTabla(""); setPaginaActual(1) }
 
@@ -340,7 +438,7 @@ const handleImportMatricula = async (e: React.ChangeEvent<HTMLInputElement>) => 
                       <td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: d.estado === 'MATRICULADO'? '#F0FDF4' : '#FEF2F2', color: d.estado === 'MATRICULADO'? '#22C55E' : '#EF4444'}}>{d.estado}</span></td>
                       <td style={{display: 'flex', gap: '0.8rem'}}>
                         <button onClick={() => openEditModal(d)} className="btn-icon btn-icon-editar" title="Actualizar"><Edit size={15} /></button>
-                        <button onClick={() => handleDesmatricular(d.idmatricula)} className="btn-icon btn-icon-eliminar" title="Desmatricular"><UserX size={15} color="#fff" /></button>
+                        <button onClick={() => abrirModalDesmatricular(d)} className="btn-icon btn-icon-eliminar" title="Desmatricular"><UserX size={15} color="#fff" /></button>
                       </td>
                     </>
                   )}
@@ -361,15 +459,43 @@ const handleImportMatricula = async (e: React.ChangeEvent<HTMLInputElement>) => 
         )}
       </div>
 
+      {/* MODAL CONFIRMAR DESMATRICULA */}
+      {modalDesmatricular && (
+        <div className="modal-overlay" onClick={() => setModalDesmatricular(false)}>
+          <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Confirmar Desmatrícula</h2>
+              <button className="btn-cerrar-modal" onClick={() => setModalDesmatricular(false)}>
+                <X size={18}/>
+              </button>
+            </div>
+            <div className="modal-body">
+              <p>¿Seguro de desmatricular a este estudiante?</p>
+              <p style={{fontWeight: 600, color: 'var(--color-primario)', marginTop: '0.5rem'}}>
+                {estudianteAEliminar?.estudiante?.persona?.apellidos}, {estudianteAEliminar?.estudiante?.persona?.nombres}
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-secundario" onClick={() => setModalDesmatricular(false)}>
+                Cancelar
+              </button>
+              <button className="btn-terciario" onClick={confirmarDesmatricular}>
+                Desmatricular
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* MODALES */}
       {showModalMasivo && (
         <div className="modal-overlay"><div className="modal-content"><div className="modal-header">
           <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
             <h3 style={{display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.8rem', color: '#1E3A8A'}}>
               <GraduationCap size={22} /> Matricular {seleccionados.length} Estudiantes
-            </h3>
+            </h3></div>
             <button onClick={() => setShowModalMasivo(false)} className="btn-cerrar-modal"><X size={18} /></button>
-          </div>
+          
         </div><div className="modal-body">
           <SelectSGPCFieldset label="Seleccione Periodo Académico *" value={periodoParaMatricular} onChange={setPeriodoParaMatricular} options={periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))} />
         </div><div className="modal-footer">
@@ -398,17 +524,24 @@ const handleImportMatricula = async (e: React.ChangeEvent<HTMLInputElement>) => 
       )}
 
       {/* ===== MODAL REPORTE IMPORTAR ===== */}
-      {showPreviewModalMat && (
+    {showPreviewModalMat && (
   <div className="modal-overlay" onClick={() => setShowPreviewModalMat(false)}>
     <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
       <div className="modal-header">
-        <h2><Upload size={20} style={{marginRight: "0.8rem"}}/>Reporte de Importación Matrículas</h2>
+        <h2><Upload size={20} style={{marginRight: "0.8rem"}}/>Vista Previa de Importación</h2>
         <button onClick={() => setShowPreviewModalMat(false)} className="btn-cerrar-modal"><X size={20} /></button>
       </div>
       <div className="modal-body" style={{overflowY: 'auto', flex: 1}}>
-        <p style={{fontSize: 'var(--text-sm)', marginBottom: '1.2rem', fontWeight: 500, color: '#EF4444'}}>
-          Se omitieron {previewErroresMat.length} registros
-        </p>
+        {/* RESUMEN CON COLORES */}
+        <div style={{display: 'flex', gap: '2rem', marginBottom: '1.5rem', fontSize: '1.4rem', fontWeight: 600}}>
+          <p>
+            Se grabarán: <span style={{color: '#22C55E', fontSize: '1.6rem'}}>{paraInsertarMat.length}</span> registros
+          </p>
+          <p>
+            Se omitieron: <span style={{color: '#EF4444', fontSize: '1.6rem'}}>{previewErroresMat.length - paraInsertarMat.length}</span> registros
+          </p>
+        </div>
+
         <div style={{overflowX: 'auto'}}>
           <table className="tabla-sgpc">
             <thead>
@@ -417,7 +550,8 @@ const handleImportMatricula = async (e: React.ChangeEvent<HTMLInputElement>) => 
                 <th>DNI</th>
                 <th>APELLIDOS</th>
                 <th>NOMBRES</th>
-                <th>OBSERVACIÓN</th>
+                <th>PERIODO</th>
+                <th>ESTADO</th>
               </tr>
             </thead>
             <tbody>
@@ -427,19 +561,24 @@ const handleImportMatricula = async (e: React.ChangeEvent<HTMLInputElement>) => 
                   <td>{p.dni}</td>
                   <td>{p.apellidos}</td>
                   <td>{p.nombres}</td>
-                  <td style={{color: '#EF4444', fontWeight: 600}}>{p.motivo}</td>
+                  <td>{p.periodo}</td>
+                  <td style={{color: p.estado==='ok'?'#22C55E':'#EF4444', fontWeight: 700}}>
+                    {p.estado==='ok'? '✓ CORRECTO' : '✗ ' + p.motivo}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
-      <div className="modal-footer" style={{justifyContent: 'space-between'}}>
-        <button className="btn-secundario-outline" onClick={handleExportarRechazadosMat}>
-          <Download size={18} /> Exportar Rechazados
-        </button>
-        <button className="btn-secundario" onClick={() => setShowPreviewModalMat(false)}>Cerrar</button>
-      </div>
+      <div className="modal-footer" style={{justifyContent: 'flex-end'}}>
+  <button className="btn-secundario-outline" onClick={handleExportarRechazadosMat}>
+    <Download size={18} /> Exportar Rechazados
+  </button>
+  <button className="btn-primario" onClick={handleGrabarImportacionMat} disabled={paraInsertarMat.length === 0}>
+    <Save size={18} /> Grabar {paraInsertarMat.length} Registros
+  </button>
+</div>
     </div>
   </div>
 )}
