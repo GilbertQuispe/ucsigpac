@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, X, Search, Upload, Users, ChevronLeft, ChevronRight, Eraser, Check, UserX, UserCheck, GraduationCap, Save } from 'lucide-react'
+import { Plus, Edit, X, Search, Upload, Users, ChevronLeft, ChevronRight, Eraser, Check, UserX, UserCheck, GraduationCap, Save, Download } from 'lucide-react'
 import Select from 'react-select'
 import * as XLSX from 'xlsx' // <-- AGREGADO
 
@@ -52,6 +52,14 @@ export default function EstudiantesPage() {
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
   const [previewDataEst, setPreviewDataEst] = useState<any[]>([])
   const [showPreviewModalEst, setShowPreviewModalEst] = useState(false)
+
+const handleClickImportar = () => {
+  showToast('Formato requerido: DNI | Apellidos y Nombres | Carrera | Filial', 'success')
+  // Después de 1 segundo le damos click automático al input
+  setTimeout(() => {
+    document.getElementById('import-estudiante')?.click()
+  }, 1000)
+}
 
   useEffect(() => { fetchData() }, [])
 
@@ -130,85 +138,126 @@ export default function EstudiantesPage() {
   }
 
   // ===== INICIO: CODIGO IMPORTAR EXCEL ACTUALIZADO =====
-  const handleImportEstudiante = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
+ // ===== INICIO: CODIGO IMPORTAR EXCEL MEJORADO =====
+const handleImportEstudiante = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0]
+  if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = async (evt) => {
-      setLoading(true)
-      const bstr = evt.target?.result
-      const wb = XLSX.read(bstr, { type: 'binary' })
-      const ws = wb.Sheets[wb.SheetNames[0]]
-      const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
+  // 1. MENSAJE DE FORMATO ANTES DE LEER
+  showToast('Formato: DNI | Apellidos y Nombres | Carrera | Filial', 'success')
 
-      const headerIndex = data.findIndex(row => row.includes('CODIGOALUM'))
-      if(headerIndex === -1){ showToast('El Excel debe tener la cabecera CODIGOALUM', 'error'); setLoading(false); return }
-      const filas = data.slice(headerIndex + 1)
+  const reader = new FileReader()
+  reader.onload = async (evt) => {
+    setLoading(true)
+    const bstr = evt.target?.result
+    const wb = XLSX.read(bstr, { type: 'binary' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const data: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
 
-      const { data: personasRolEst } = await supabase
+    const headerIndex = data.findIndex(row => row.includes('CODIGOALUM'))
+    if(headerIndex === -1){ showToast('El Excel debe tener la cabecera CODIGOALUM', 'error'); setLoading(false); return }
+    const filas = data.slice(headerIndex + 1)
+
+    const { data: personasRolEst } = await supabase
      .from('persona')
      .select('idpersona, dni, apellidos, nombres')
      .eq('estado', 'ACTIVO')
      .eq('idrol', idRolEstudiante)
 
-      const mapPersonas = new Map(personasRolEst?.map(p => [p.dni, p]))
-      const dnisYaEstudiantes = new Set(estudiantes.map(e => e.persona?.dni))
+    const mapPersonas = new Map(personasRolEst?.map(p => [p.dni, p]))
+    const dnisYaEstudiantes = new Set(estudiantes.map(e => e.persona?.dni))
 
-      const preview: any[] = []
+    const preview: any[] = []
 
-      filas.forEach((row, index) => {
-        if(!row[0]) return // fila vacia
-        let dni = row[0]?.toString().replace(/\D/g, '') || ''
-        dni = dni.padStart(8, '0')
+    filas.forEach((row, index) => {
+      if(!row[0]) return // fila vacia
+      let dni = row[0]?.toString().replace(/\D/g, '') || ''
+      dni = dni.padStart(8, '0')
 
-        const alumnoCompleto = row[1]?.toString().trim() || ''
-        const [apellidosRaw, nombresRaw] = alumnoCompleto.split(',')
-        const apellidos = apellidosRaw?.trim().toUpperCase() || ''
-        const nombres = toTitleCase(nombresRaw?.trim() || '')
+      const alumnoCompleto = row[1]?.toString().trim() || ''
+      const [apellidosRaw, nombresRaw] = alumnoCompleto.split(',')
+      const apellidos = apellidosRaw?.trim().toUpperCase() || ''
+      const nombres = toTitleCase(nombresRaw?.trim() || '')
 
-        const idcarrera = Number(row[2]) || null
-        const idfilial = Number(row[3]) || null
+      // 2. MEJORA 3: BUSCAR POR NOMBRE EN VEZ DE ID
+      const nombreCarreraExcel = row[2]?.toString().trim().toUpperCase() || ''
+      const nombreFilialExcel = row[3]?.toString().trim().toUpperCase() || ''
 
-        const persona = mapPersonas.get(dni)
-        let motivo = ''
-        let estado: 'ok' | 'error' = 'ok'
+      const carreraEncontrada = carreras.find(c => c.nombrecarrera.toUpperCase() === nombreCarreraExcel)
+      const filialEncontrada = filiales.find(f => f.nombrefilial.toUpperCase() === nombreFilialExcel)
 
-        if (!dni || dni.length!== 8) {
-          motivo = 'DNI inválido'
-          estado = 'error'
-        } else if (!persona) {
-          motivo = 'No existe como Persona con Rol Estudiante'
-          estado = 'error'
-        } else if (dnisYaEstudiantes.has(dni)) {
-          motivo = 'Ya está registrado como Estudiante'
-          estado = 'error'
-        } else if (!idcarrera) {
-          motivo = 'Falta ID Carrera'
-          estado = 'error'
-        } else if (!idfilial) {
-          motivo = 'Falta ID Filial'
-          estado = 'error'
-        }
+      const idcarrera = carreraEncontrada?.idcarrera || null
+      const idfilial = filialEncontrada?.idfilial || null
 
-        preview.push({
-          fila: headerIndex + index + 1,
-          dni, apellidos, nombres,
-          idcarrera, idfilial,
-          nombrecarrera: carreras.find(c=>c.idcarrera===idcarrera)?.nombrecarrera || `ID:${idcarrera}`,
-          nombrefilial: filiales.find(f=>f.idfilial===idfilial)?.nombrefilial || `ID:${idfilial}`,
-          estadoRegistro: 'ACTIVO',
-          motivo, estado
-        })
+      const persona = mapPersonas.get(dni)
+      let motivo = ''
+      let estado: 'ok' | 'error' = 'ok'
+
+      if (!dni || dni.length!== 8) {
+        motivo = 'DNI inválido'
+        estado = 'error'
+      } else if (!persona) {
+        motivo = 'No existe como Persona con Rol Estudiante'
+        estado = 'error'
+      } else if (dnisYaEstudiantes.has(dni)) {
+        motivo = 'Ya está registrado como Estudiante' // Este lo vamos a excluir del export
+        estado = 'error'
+      } else if (!idcarrera) {
+        motivo = `Carrera "${nombreCarreraExcel}" no existe`
+        estado = 'error'
+      } else if (!idfilial) {
+        motivo = `Filial "${nombreFilialExcel}" no existe`
+        estado = 'error'
+      }
+
+      preview.push({
+        fila: index + 1, // 1. MEJORA 1: NUMERACION DESDE 1
+        dni, apellidos, nombres,
+        idcarrera, idfilial,
+        nombrecarrera: carreraEncontrada?.nombrecarrera || nombreCarreraExcel,
+        nombrefilial: filialEncontrada?.nombrefilial || nombreFilialExcel,
+        estadoRegistro: 'ACTIVO',
+        motivo, estado
       })
+    })
 
-      setPreviewDataEst(preview)
-      setShowPreviewModalEst(true)
-      setLoading(false)
-    }
-    reader.readAsBinaryString(file)
-    e.target.value = ''
+    setPreviewDataEst(preview)
+    setShowPreviewModalEst(true)
+    setLoading(false)
   }
+  reader.readAsBinaryString(file)
+  e.target.value = ''
+}
+
+const handleExportarRechazados = () => {
+  // 2. MEJORA 2: EXCLUIR "Ya está registrado"
+  const rechazados = previewDataEst.filter(p => p.estado === 'error' &&!p.motivo.includes('Ya está registrado'))
+
+  if(rechazados.length === 0) {
+    showToast('No hay registros rechazados para exportar', 'error')
+    return
+  }
+
+  const dataToExport = rechazados.map(p => ({
+    FILA: p.fila,
+    DNI: p.dni,
+    APELLIDOS: p.apellidos,
+    NOMBRES: p.nombres,
+    CARRERA: p.nombrecarrera,
+    FILIAL: p.nombrefilial,
+    OBSERVACION: p.motivo
+  }))
+
+  const ws = XLSX.utils.json_to_sheet(dataToExport)
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, 'Rechazados')
+  XLSX.writeFile(wb, `Estudiantes_Rechazados_${new Date().toISOString().split('T')[0]}.xlsx`)
+  showToast(`${rechazados.length} rechazados exportados`, 'success')
+}
+
+const toTitleCase = (str: string) =>
+  str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
+// ===== FIN: CODIGO IMPORTAR EXCEL MEJORADO =====
 
   const handleConfirmImportEst = async () => {
     const paraGrabar = previewDataEst
@@ -241,8 +290,6 @@ export default function EstudiantesPage() {
     setPreviewDataEst([])
   }
 
-  const toTitleCase = (str: string) =>
-    str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
   // ===== FIN: CODIGO IMPORTAR EXCEL ACTUALIZADO =====
 
   const limpiarFiltros = () => { setSearch(""); setFiltroEstado(""); setFiltroCarrera(""); setFiltroFacultad(""); setFiltroFilial(""); setPaginaActual(1) }
@@ -263,7 +310,10 @@ export default function EstudiantesPage() {
       <div className="header-responsive">
         <div><h1><GraduationCap size={24} style={{marginRight: '0.8rem'}}/>Gestión de Estudiantes</h1><p>Total: {datosFiltrados.length} registros</p></div>
         <div style={{ display: 'flex', gap: '1.2rem' }}>
-          <label htmlFor="import-estudiante" className="btn-secundario" style={{ cursor: 'pointer' }}><Upload size={18} /> Importar Excel</label>
+          <button className="btn-secundario" onClick={handleClickImportar} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+  <Upload size={18} /> Importar Excel
+</button>
+<input id="import-estudiante" type="file" accept=".xlsx,.xls" onChange={handleImportEstudiante} style={{ display: 'none' }} />
           <input id="import-estudiante" type="file" accept=".xlsx,.xls" onChange={handleImportEstudiante} style={{ display: 'none' }} />
           <button className="btn-primario" onClick={handleAbrirModalConvertir}><Check size={18} /> Convertir {seleccionados.length} Seleccionados</button>
         </div>
@@ -417,17 +467,22 @@ export default function EstudiantesPage() {
               </div>
             </div>
 
-            <div className="modal-footer" style={{padding: '1.6rem 2.4rem', borderTop: '1px solid #e2e8f0', flexShrink: 0, justifyContent: 'center'}}>
-              <button className="btn-secundario" onClick={() => setShowPreviewModalEst(false)} style={{minWidth: '15rem'}}>Cancelar</button>
-              <button
-                className="btn-primario"
-                onClick={handleConfirmImportEst}
-                disabled={previewDataEst.filter(p=>p.estado==='ok').length === 0}
-                style={{minWidth: '15rem'}}
-              >
-                <Check size={18} /> Grabar {previewDataEst.filter(p=>p.estado==='ok').length} Registros
-              </button>
-            </div>
+            <div className="modal-footer" style={{padding: '1.6rem 2.4rem', borderTop: '1px solid #e2e8f0', flexShrink: 0, justifyContent: 'space-between'}}>
+  <button className="btn-secundario-outline" onClick={handleExportarRechazados} style={{minWidth: '15rem'}}>
+    <Download size={18} /> Exportar Rechazados
+  </button>
+  <div style={{display: 'flex', gap: '1rem'}}>
+    <button className="btn-secundario" onClick={() => setShowPreviewModalEst(false)} style={{minWidth: '12rem'}}>Cancelar</button>
+    <button
+      className="btn-primario"
+      onClick={handleConfirmImportEst}
+      disabled={previewDataEst.filter(p=>p.estado==='ok').length === 0}
+      style={{minWidth: '15rem'}}
+    >
+      <Check size={18} /> Grabar {previewDataEst.filter(p=>p.estado==='ok').length}
+    </button>
+  </div>
+</div>
           </div>
         </div>
       )}

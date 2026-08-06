@@ -503,11 +503,6 @@ select.input-sgpc {
   border-bottom: 2px solid var(--tabla-borde) !important;
 }
 
-/* .tabla-sgpc tbody td {
-  padding: var(--tabla-padding-y) var(--tabla-padding-x) !important;
-  border-bottom: 1px solid var(--tabla-borde) !important;
-} */
-
 /* FIX PARA QUE LA ULTIMA COLUMNA TENGA LA MISMA LINEA */
 .tabla-sgpc tbody td:last-child {
   border-bottom: 1px solid var(--tabla-borde) !important;
@@ -842,4 +837,13 @@ select.input-sgpc {
 }
 .btn-icon-eliminar:hover {
   background: #DC2626;
+}
+
+/* FIX DEFINITIVO SOLO PARA COLUMNA NOMBRES de la tabla estudiantes disponibles de la pagina de matriculas */
+/* FORZAR ALINEACION COLUMNA NOMBRES - COLUMNA 4 */
+.tabla-sgpc thead th:nth-child(4),
+.tabla-sgpc tbody td:nth-child(4) {
+  text-align: left !important;
+  padding-left: 1.6rem !important;
+  display: table-cell !important; /* Anula el flex que le mete Next */
 }
