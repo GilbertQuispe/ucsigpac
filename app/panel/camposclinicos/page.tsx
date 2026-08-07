@@ -4,6 +4,7 @@ import { createClient } from '@/lib/client'
 import { Plus, Edit, X, Search, Trash2, Hospital, BookOpen, User, Building, Calendar, Eraser, Save, ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 import Select from 'react-select'
 import AsyncSelect from 'react-select/async' // <-- NUEVO 1
+import ModalHorarioDocente from './components/ModalHorarioDocente'
 
 type Persona = { idpersona: number; dni: string; apellidos: string; nombres: string }
 type Profesion = { idprofesion: number; profesion: string }
@@ -92,6 +93,10 @@ const [totalRegistros, setTotalRegistros] = useState(0)
 // NUEVO 2: STATES PARA ASYNC EPS
 const [epsOptions, setEpsOptions] = useState<any[]>([])
 const [loadingEps, setLoadingEps] = useState(false)
+
+// NUEVO PARA EL COMPONENTE  MODALHORARIODOCENTE
+const [showModalHorario, setShowModalHorario] = useState(false)
+const [dataParaHorario, setDataParaHorario] = useState<any>(null)
 
   // 1. CASCADAS PRIMERO
   const provinciasFiltradas = useMemo(() =>
@@ -330,14 +335,34 @@ const [loadingEps, setLoadingEps] = useState(false)
       estado: form.estado
     }
 
-    const {error} = campoEdit
-  ? await supabase.from('campoclinico').update(dataToSave).eq('idcampocli', campoEdit.idcampocli)
-      : await supabase.from('campoclinico').insert(dataToSave)
+    const {data, error} = campoEdit
+     ? await supabase.from('campoclinico').update(dataToSave).eq('idcampocli', campoEdit.idcampocli).select().single()
+      : await supabase.from('campoclinico').insert(dataToSave).select().single() // <-- AQUI ESTA EL CAMBIO
 
     if(error) showToast(error.message, 'error')
     else {
       showToast(campoEdit? 'Campo actualizado' : 'Campo registrado', 'success')
-      setShowModal(false); fetchData()
+      setShowModal(false); // Cierra modal 1
+
+      // NUEVO: SI ES REGISTRO NUEVO, ABRIMOS MODAL 2
+      if(!campoEdit && data) {
+        const docenteSel = docentes.find(d => d.iddocente === data.iddocente)
+        const epsSel = epsOptions.find(e => e.value === data.ideps)
+        const servSel = servicios.find(s => s.idservicios === data.idservicios)
+        const paSel = periodos.find(p => p.idpa === data.idpa)
+
+        setDataParaHorario({
+          idcampocli: data.idcampocli,
+          docente: `${docenteSel?.persona?.apellidos}, ${docenteSel?.persona?.nombres}`,
+          dni: docenteSel?.persona?.dni,
+          eps: epsSel?.label.split(' - ')[0],
+          servicio: servSel?.nombre,
+          periodo: paSel?.codigo
+        })
+        setTimeout(() => setShowModalHorario(true), 500) // Abre modal 2
+      }
+
+      fetchData()
     }
     setLoading(false)
   }
@@ -553,6 +578,14 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
           </div>
         </div>
       )}
+
+      <ModalHorarioDocente
+  show={showModalHorario}
+  onClose={() => setShowModalHorario(false)}
+  idcampocli={dataParaHorario?.idcampocli}
+  dataHeader={dataParaHorario}
+/>
+
     </div>
   )
 }
