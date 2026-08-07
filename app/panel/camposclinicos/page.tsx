@@ -179,11 +179,16 @@ const [loadingEps, setLoadingEps] = useState(false)
     }
   }, [campoEdit])
 
+  useEffect(() => { 
+  const timer = setTimeout(() => { setPaginaActual(1) }, 300) 
+  return () => clearTimeout(timer) 
+}, [search, filtroPeriodo, filtroFilialTabla])
+
   const fetchData = async () => {
     setLoading(true)
     try {
-      // 1. Primero cargamos los maestros: periodos, filiales, etc. Solo 1 vez
-      const [{data: tipoData}, {data: per}, {data: fil}, {data: serv}, {data: doc}, {data: deptoData}, {data: provData}, {data: distData}] = await Promise.all([
+      // 1. Cargar maestros
+      const [tipoRes, perRes, filRes, servRes, docRes, deptoRes, provRes, distRes] = await Promise.all([
         supabase.from("tipoeps").select("*").order("nombretipoeps"),
         supabase.from('periodoacademico').select('*').order('fecha_inicio', {ascending: false}),
         supabase.from('filial').select('*'),
@@ -194,16 +199,86 @@ const [loadingEps, setLoadingEps] = useState(false)
         supabase.from("distrito").select("iddistrito, nombredt, idprovincia").eq("estado", "ACTIVO").order("nombredt"),
       ])
 
-      // BORRADO: ya no se carga el while de 6000 EPS
+      setTiposEps(tipoRes.data || [])
+      setPeriodos(perRes.data || []); setFiliales(filRes.data || []); setServicios(servRes.data || [])
+      setDocentes(docRes.data || []); 
+      setDepartamentos(deptoRes.data || []); setProvincias(provRes.data || []); setDistritos(distRes.data || [])
 
-      // 3. NUEVO: CONTEO TOTAL para la paginación
+      // 2. ARMAR FILTRO DE IDs
+      let idsFinales: number[] | null = null
+
+      if(search.trim() !== '') {
+        const esDni = /^\d+$/.test(search.trim())
+        const idsSet = new Set<number>()
+
+        if(esDni) {
+  // BUSCAR POR DNI PARCIAL: persona -> docente -> campoclinico
+  const {data: personas} = await supabase.from('persona').select('idpersona').ilike('dni', `${search.trim()}%`)
+  const idsPersona = personas?.map(p => p.idpersona) || []
+  if(idsPersona.length > 0) {
+    const {data: docentes} = await supabase.from('docente').select('iddocente').in('idpersona', idsPersona)
+    const idsDoc = docentes?.map(d => d.iddocente) || []
+    if(idsDoc.length > 0) {
+      let q = supabase.from('campoclinico').select('idcampocli').in('iddocente', idsDoc)
+      if(filtroPeriodo!== '') q = q.eq('idpa', filtroPeriodo)
+      if(filtroFilialTabla!== '') q = q.eq('idfilial', filtroFilialTabla)
+      const {data: campos} = await q
+      campos?.forEach(c => idsSet.add(c.idcampocli))
+    }
+  }
+}else {
+          // BUSCAR POR EPS
+          const {data: epsData} = await supabase.from('eps').select('ideps').ilike('razonsocial', `%${search}%`)
+          const idsEps = epsData?.map(e => e.ideps) || []
+          if(idsEps.length > 0) {
+            let q = supabase.from('campoclinico').select('idcampocli').in('ideps', idsEps)
+            if(filtroPeriodo!== '') q = q.eq('idpa', filtroPeriodo)
+            if(filtroFilialTabla!== '') q = q.eq('idfilial', filtroFilialTabla)
+            const {data: campos} = await q
+            campos?.forEach(c => idsSet.add(c.idcampocli))
+          }
+
+          // BUSCAR POR SERVICIO
+          const {data: servData} = await supabase.from('serviciosalud').select('idservicios').ilike('nombre', `%${search}%`)
+          const idsServ = servData?.map(s => s.idservicios) || []
+          if(idsServ.length > 0) {
+            let q = supabase.from('campoclinico').select('idcampocli').in('idservicios', idsServ)
+            if(filtroPeriodo!== '') q = q.eq('idpa', filtroPeriodo)
+            if(filtroFilialTabla!== '') q = q.eq('idfilial', filtroFilialTabla)
+            const {data: campos} = await q
+            campos?.forEach(c => idsSet.add(c.idcampocli))
+          }
+
+          // BUSCAR POR DOCENTE: persona -> docente -> campoclinico
+          const {data: personas} = await supabase.from('persona').select('idpersona').or(`apellidos.ilike.%${search}%,nombres.ilike.%${search}%`)
+          const idsPersona = personas?.map(p => p.idpersona) || []
+          if(idsPersona.length > 0) {
+            const {data: docentes} = await supabase.from('docente').select('iddocente').in('idpersona', idsPersona)
+            const idsDoc = docentes?.map(d => d.iddocente) || []
+            if(idsDoc.length > 0) {
+              let q = supabase.from('campoclinico').select('idcampocli').in('iddocente', idsDoc)
+              if(filtroPeriodo!== '') q = q.eq('idpa', filtroPeriodo)
+              if(filtroFilialTabla!== '') q = q.eq('idfilial', filtroFilialTabla)
+              const {data: campos} = await q
+              campos?.forEach(c => idsSet.add(c.idcampocli))
+            }
+          }
+        }
+        idsFinales = Array.from(idsSet)
+      }
+
+      // 3. CONTEO TOTAL
       let countQuery = supabase.from('campoclinico').select('*', { count: 'exact', head: true })
       if(filtroPeriodo!== '') countQuery = countQuery.eq('idpa', filtroPeriodo)
       if(filtroFilialTabla!== '') countQuery = countQuery.eq('idfilial', filtroFilialTabla)
-      if(search) countQuery = countQuery.or(`eps.razonsocial.ilike.%${search}%,serviciosalud.nombre.ilike.%${search}%,docente.persona.apellidos.ilike.%${search}%`)
+      if(idsFinales !== null) {
+        if(idsFinales.length > 0) countQuery = countQuery.in('idcampocli', idsFinales)
+        else countQuery = countQuery.eq('idcampocli', -1)
+      }
       const { count } = await countQuery
+      setTotalRegistros(count || 0)
 
-      // 4. NUEVO: TRAER SOLO LA PAGINA ACTUAL
+      // 4. DATOS DE LA PAGINA
       let dataQuery = supabase.from('campoclinico')
         .select('*, eps(*, distrito(*, provincia(*, departamento(*)))), serviciosalud(*), docente(*, persona(*), profesion(*), especialidad(*)), periodoacademico(*), filial(*)')
         .order('idcampocli', {ascending: false})
@@ -211,20 +286,16 @@ const [loadingEps, setLoadingEps] = useState(false)
 
       if(filtroPeriodo!== '') dataQuery = dataQuery.eq('idpa', filtroPeriodo)
       if(filtroFilialTabla!== '') dataQuery = dataQuery.eq('idfilial', filtroFilialTabla)
-      if(search) dataQuery = dataQuery.or(`eps.razonsocial.ilike.%${search}%,serviciosalud.nombre.ilike.%${search}%,docente.persona.apellidos.ilike.%${search}%`)
+      if(idsFinales !== null) {
+        if(idsFinales.length > 0) dataQuery = dataQuery.in('idcampocli', idsFinales)
+        else dataQuery = dataQuery.eq('idcampocli', -1)
+      }
 
       const {data: camposDB} = await dataQuery
-
-      // SETEAR ESTADOS
       setCampos(camposDB as CampoClinico[] || [])
-      setTotalRegistros(count || 0) // NUEVO STATE
-      setTiposEps(tipoData || [])
-      setPeriodos(per || []); setFiliales(fil || []); setServicios(serv || [])
-      setDocentes(doc || []); 
-      setDepartamentos(deptoData || []); setProvincias(provData || []); setDistritos(distData || [])
       
     } catch (error: any) {
-      console.error(error)
+      console.error("ERROR FETCH:", error)
       showToast(error.message, 'error')
     }
     setLoading(false)
@@ -299,7 +370,10 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
           <SelectSGPCFieldset label="Filtrar por Filial" value={filtroFilialTabla} onChange={(val:any) => setFiltroFilialTabla(val)} options={[{value: '', label: 'TODAS'},...filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))]} />
         </div>
         <div style={{display: 'flex', gap: '1rem', alignItems: 'flex-end'}}>
-          <div style={{ position: 'relative', flex: 1 }}><Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} /><input className="input-sgpc" placeholder="Buscar por EPS, Servicio, Docente..." value={search} onChange={e => setSearch(e.target.value)} style={{ paddingLeft: '4rem', height: "4.4rem", width: '100%' }} /></div>
+          <div style={{ position: 'relative', flex: 1 }}><Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5 }} /><input className="input-sgpc" placeholder="Buscar por DNI, EPS, Servicio, Docente..." value={search} onChange={e => {
+  setSearch(e.target.value)
+  setPaginaActual(1) // Para que vuelva a pag 1 al buscar
+}} style={{ paddingLeft: '4rem', height: "4.4rem", width: '100%' }} /></div>
           <button className="btn-secundario btn-limpiar" onClick={limpiarFiltros} style={{height: '4.4rem'}}><Eraser size={16} />Limpiar</button>
         </div>
       </div>
@@ -317,7 +391,13 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
                 <td>{(paginaActual-1)*registrosPorPagina + i + 1}</td>
                 <td>{c.eps?.razonsocial} <br/><span style={{fontSize: '1.1rem', opacity: 0.7}}>{c.eps?.distrito?.nombredt} - {c.eps?.distrito?.provincia?.nombrep}</span></td>
                 <td>{c.serviciosalud?.nombre}</td>
-                <td>{c.docente?.persona?.apellidos}, {c.docente?.persona?.nombres} <br/><span style={{fontSize: '1.1rem', opacity: 0.7}}>{c.docente?.profesion?.profesion} / {c.docente?.especialidad?.especialidad}</span></td>
+                <td>
+  <div style={{fontWeight: 600}}>{c.docente?.persona?.dni}</div>
+  <div>{c.docente?.persona?.apellidos}, {c.docente?.persona?.nombres}</div>
+  <span style={{fontSize: '1.1rem', opacity: 0.7}}>
+    {c.docente?.profesion?.profesion} / {c.docente?.especialidad?.especialidad}
+  </span>
+</td>
                 <td>{c.periodoacademico?.codigo}</td>
                 <td>{c.filial?.nombrefilial || '-'}</td>
                 <td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: c.estado === 'ACTIVO'? '#F0FDF4' : '#FEF2F2', color: c.estado === 'ACTIVO'? '#22C55E' : '#EF4444'}}>{c.estado}</span></td>
