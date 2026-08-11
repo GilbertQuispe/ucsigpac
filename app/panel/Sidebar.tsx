@@ -41,7 +41,7 @@ const MENU_COMPLETO: MenuModule[] = [
     {name:'4.5 Asignaturas', href:'/panel/asignaturas', icon: FileText}, // NUEVO
     {name:'4.6 Periodo Académico', href:'/panel/periodo', icon: Calendar},
     {name:'4.7 Matrículas', href:'/panel/matriculas', icon: FileText},
-    {name:'4.8 Carga Académica', href:'/panel/carga', icon: BookOpen},
+    {name:'4.8 Carga Académica', href:'/panel/cargaacademica', icon: BookOpen},
     {name:'4.9 Grupos de Práctica', href:'/panel/grupos', icon: Users},
     {name:'4.10 Horarios Académicos', href:'/panel/horarios', icon: Calendar}
   ]},
