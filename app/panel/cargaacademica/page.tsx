@@ -47,19 +47,18 @@ export default function CargaAcademicaPage() {
 
   const [showModal, setShowModal] = useState(false)
   const [cargaEdit, setCargaEdit] = useState<CargaAcademica | null>(null)
-  const [form, setForm] = useState<any>({idpa: null, idhorariod: null, idasignatura: null, nrc: '', grupo: ''})
+  
+  const [form, setForm] = useState<any>({idpa: null,  idhorariod: null, idasignatura: null, nrc: '', grupo: '', docenteData: null, planacademico: '',  carrera: '' })
 
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
   const loadAsignaturas = async (inputValue: string) => {
-    const {data} = await supabase.from('asignatura').select('idasignatura, codigo, nombre, carrera:idcarrera(nombrecarrera)').ilike('nombre', `%${inputValue}%`).limit(50)
-    return data?.map(a => ({value: a.idasignatura, label: `${a.codigo} - ${a.nombre}`, carrera: a.carrera?.nombrecarrera})) || []
+    const {data, error} = await supabase.from('asignatura').select(`idasignatura, codigo, nombre, carrera:idcarrera(nombrecarrera), planasignatura:idplan(nombre)`).ilike('nombre', `%${inputValue}%`).limit(50)
+    return data?.map(a => ({value: a.idasignatura, label: `${a.codigo} - ${a.nombre}`, carrera: a.carrera?.nombrecarrera, planacademico:a.planasignatura?.nombre})) || []
   }
   
 const loadDocentesPorPeriodo = async (inputValue: string) => {
   if(!form.idpa) return []
-  
-  /*console.log("Buscando docentes para periodo ID:", form.idpa.value)*/
   
   const {data, error} = await supabase
     .from('campoclinico')
@@ -68,15 +67,20 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
       iddocente,
       idpa,
       idservicios,
+      ideps,
       serviciosalud:idservicios!inner(nombre),
+      eps:ideps!inner(
+        razonsocial,
+        distrito:iddistrito!inner(nombredt)
+      ),
       docente:iddocente!inner(
         iddocente,
         persona:idpersona!inner(dni, apellidos, nombres)
       )
     `)
-    .eq('idpa', form.idpa.value)
+    .eq('idpa', form.idpa.value) 
     .eq('estado', 'ACTIVO')
-    .limit(100)
+    .limit(100) // subí el limit porque ahora filtramos en front
 
   if(error) {
     console.error("ERROR CARGANDO DOCENTES:", error)
@@ -84,22 +88,9 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
   }
   
   const registros = data || []
-  /*console.log("REGISTROS CRUDOS:", registros.length)*/
-
-  // Si no escribió nada, devuelve todos los 8
-  if(!inputValue || inputValue.length === 0){
-    const todos = registros.map(c => ({
-      value: c.idcampocli, 
-      label: `${c.docente?.persona?.dni} - ${c.docente?.persona?.apellidos}, ${c.docente?.persona?.nombres} | ${c.serviciosalud?.nombre}`,
-      iddocente: c.iddocente,
-      idcampocli: c.idcampocli
-    }))
-    /*console.log("DEVOLVIENDO TODOS:", todos.length)*/
-    return todos
-  }
+  const texto = inputValue.toLowerCase().trim()
 
   // Si escribió, filtra por dni, apellidos, nombres o servicio
-  const texto = inputValue.toLowerCase()
   const filtrados = registros.filter(c => {
     const dni = c.docente?.persona?.dni?.toLowerCase() || ''
     const apellidos = c.docente?.persona?.apellidos?.toLowerCase() || ''
@@ -108,16 +99,20 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
     return dni.includes(texto) || apellidos.includes(texto) || nombres.includes(texto) || servicio.includes(texto)
   })
 
-  const resultado = filtrados.map(c => ({
+  const listaFinal = texto ? filtrados : registros // si no escribió, muestra todo
+
+  return listaFinal.map(c => ({
     value: c.idcampocli, 
     label: `${c.docente?.persona?.dni} - ${c.docente?.persona?.apellidos}, ${c.docente?.persona?.nombres} | ${c.serviciosalud?.nombre}`,
     iddocente: c.iddocente,
-    idcampocli: c.idcampocli
+    idcampocli: c.idcampocli,
+    servicio: c.serviciosalud?.nombre,
+    eps: c.eps?.razonsocial,
+    distrito: c.eps?.distrito?.nombredt
   }))
-
-  /*console.log("DEVOLVIENDO FILTRADOS:", resultado.length)*/
-  return resultado
 }
+
+
 
  const fetchData = async () => {
     setLoading(true)
@@ -241,40 +236,90 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
               <button onClick={() => setShowModal(false)} className="btn-cerrar-modal"><X size={18} /></button>
             </div>
             <div className="modal-body" style={{gap: '2.4rem'}}>
-              <fieldset className="fieldset-sgpc-section">
-                <legend>Datos Generales</legend>
-                <div className="grid-3">
-                 <fieldset className="fieldset-sgpc">
-              <legend>Periodo Académico *</legend>
-              <Select 
-                options={periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))} 
-                value={form.idpa} 
-                onChange={(opt:any) => setForm({...form, idpa: opt, idhorariod: null})}
-                placeholder="Seleccione..." 
-                isSearchable 
-                styles={{ control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', marginTop: '0.4rem' }), menu: (base) => ({...base, zIndex: 9999 }) }} 
-              />
-            </fieldset>
-                  <SelectSGPCFieldset 
-                    label="DNI + Docente *" 
-                    value={form.idhorariod} 
-                    onChange={(opt:any) => setForm({...form, idhorariod: opt})} 
-                    isAsync 
-                    loadOptions={loadDocentesPorPeriodo} 
-                    isDisabled={!form.idpa} 
-                    key={form.idpa?.value} // <- AGREGA ESTO PARA QUE RECARGUE
-                  />
-                </div>
-              </fieldset>
-              <fieldset className="fieldset-sgpc-section">
-                <legend>Asignatura</legend>
-                <div className="grid-3">
-                  <SelectSGPCFieldset label="Asignatura *" value={form.idasignatura} onChange={(opt:any) => setForm({...form, idasignatura: opt})} isAsync loadOptions={loadAsignaturas} />
-                  <fieldset className="fieldset-sgpc"><legend>NRC *</legend><input className="input-sgpc" value={form.nrc} onChange={e => setForm({...form, nrc: e.target.value})} style={{marginTop: '0.4rem'}} /></fieldset>
-                  <fieldset className="fieldset-sgpc"><legend>Grupo</legend><input className="input-sgpc" value={form.grupo} onChange={e => setForm({...form, grupo: e.target.value})} style={{marginTop: '0.4rem'}} /></fieldset>
-                </div>
-                {form.idasignatura && <p style={{marginTop: '1rem', fontSize: '1.3rem'}}>Carrera: <b>{form.idasignatura.carrera}</b></p>}
-              </fieldset>
+                <fieldset className="fieldset-sgpc-section">
+  <legend>Datos Generales</legend>
+  <div className="grid-2">
+    
+      <SelectSGPCFieldset
+       label="Periodo Académico *" 
+        options={periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))} 
+        value={form.idpa} 
+        onChange={(opt:any) => setForm({...form, idpa: opt, idhorariod: null, docenteData: null})} // <- limpia docenteData
+        placeholder="Seleccione..." 
+        isSearchable 
+        styles={{ control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', marginTop: '0.4rem' }), menu: (base) => ({...base, zIndex: 9999 }) }} 
+      />
+    
+
+    <SelectSGPCFieldset 
+      label="DNI + Docente *" 
+      value={form.idhorariod} 
+      onChange={(opt:any) => setForm({
+        ...form, 
+        idhorariod: opt, // guarda el objeto completo
+        docenteData: opt // <- guarda los datos para los inputs
+      })} 
+      isAsync 
+      loadOptions={loadDocentesPorPeriodo} 
+      isDisabled={!form.idpa} 
+      key={form.idpa?.value}
+    />
+
+    <fieldset className="fieldset-sgpc">
+      <legend>Servicio de Salud</legend>
+      <input 
+        className="input-sgpc" 
+        value={form.docenteData?.servicio || ''} 
+        readOnly 
+        style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} 
+      />
+    </fieldset>
+
+    <fieldset className="fieldset-sgpc">
+      <legend>EPS + Distrito</legend>
+      <input 
+        className="input-sgpc" 
+        value={form.docenteData ? `${form.docenteData.eps || ''} - ${form.docenteData.distrito || ''}` : ''} 
+        readOnly 
+        style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} 
+      />
+    </fieldset>
+
+  </div>
+</fieldset>                               
+                <fieldset className="fieldset-sgpc-section">
+                  <legend>Asignatura</legend>
+                  <div className="grid-3">
+                      <SelectSGPCFieldset label="Asignatura *" value={form.idasignatura} onChange={(opt:any) => setForm({...form, idasignatura: opt, planacademico: opt?.planacademico || '', carrera: opt?.carrera || ''})} isAsync loadOptions={loadAsignaturas} />
+  <fieldset className="fieldset-sgpc">
+  <legend>Plan Académico</legend>
+  <input 
+    type="text" 
+    value={form.planacademico || ''} 
+    readOnly 
+    disabled 
+    className="input-sgpc"
+    style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} 
+  />
+</fieldset>
+
+<fieldset className="fieldset-sgpc">
+  <legend>Carrera</legend>
+  <input 
+    type="text" 
+    value={form.carrera || ''} 
+    readOnly 
+    disabled 
+    className="input-sgpc"
+    style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} 
+  />
+</fieldset>
+                        
+                      <fieldset className="fieldset-sgpc"><legend>NRC *</legend><input className="input-sgpc" value={form.nrc} onChange={e => setForm({...form, nrc: e.target.value})} style={{marginTop: '0.4rem'}} /></fieldset>
+                      <fieldset className="fieldset-sgpc"><legend>Grupo</legend><input className="input-sgpc" value={form.grupo} onChange={e => setForm({...form, grupo: e.target.value})} style={{marginTop: '0.4rem'}} /></fieldset>
+                  </div>
+                  
+                </fieldset>
             </div>
             <div className="modal-footer" style={{justifyContent: 'center', gap: '1.6rem'}}>
               <button className="btn-secundario btn-outline-azul" onClick={() => setShowModal(false)} style={{minWidth: '18rem'}}>Cancelar</button>
@@ -283,6 +328,33 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
           </div>
         </div>
       )}
+
+ <style jsx>{`
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 2fr; 
+      /* 4 columnas iguales */
+  gap: 1.6rem;
+}
+
+.grid-2 .sgpc-fieldset {
+  margin: 0; /* quita el margin que mete fieldset por defecto */
+  padding-left:0;
+}
+  @media (max-width: 1024px) {
+  .grid-2 {
+    grid-template-columns: repeat(1, 1fr); /* 2 columnas */
+  }
+}
+
+@media (max-width: 600px) {
+  .grid-4 {
+    grid-template-columns: 1fr; /* 1 columna */
+  }
+}
+
+      `}</style>
+
     </div>
   )
 }
