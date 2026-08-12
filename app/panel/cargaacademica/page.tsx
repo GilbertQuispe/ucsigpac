@@ -4,6 +4,7 @@ import { createClient } from '@/lib/client'
 import { Plus, Edit, X, Eye, Search, Trash2, Hospital, BookOpen, User, Building, Calendar, Eraser, Save, ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 import AsyncSelect from 'react-select/async'
 import Select from 'react-select'
+import ModalHorarioAcademico from './components/ModalHorarioAcademico' // <-- NUEVO IMPORT
 
 // NUEVO
 const DIAS_SEMANA = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO','DOMINGO']
@@ -93,8 +94,8 @@ export default function CargaAcademicaPage() {
     if(!form.idpa) return []
 
     const {data, error} = await supabase
-     .from('campoclinico')
-     .select(`
+    .from('campoclinico')
+    .select(`
         idcampocli,
         iddocente,
         idpa,
@@ -110,9 +111,9 @@ export default function CargaAcademicaPage() {
           persona:idpersona!inner(dni, apellidos, nombres)
         )
       `)
-     .eq('idpa', form.idpa.value)
-     .eq('estado', 'ACTIVO')
-     .limit(100)
+    .eq('idpa', form.idpa.value)
+    .eq('estado', 'ACTIVO')
+    .limit(100)
 
     if(error) {
       console.error("ERROR CARGANDO DOCENTES:", error)
@@ -151,10 +152,10 @@ export default function CargaAcademicaPage() {
     setPeriodos(perRes.data || [])
 
     let query = supabase.from('cargaacademica')
-   .select(`*, asignatura:idasignatura(*, carrera:idcarrera(*)), horariodocente:idhorariod(*, campoclinico:idcampocli(*, periodoacademico:idpa(*), filial:idfilial(*), docente:iddocente(*, persona:idpersona(*))))`, { count: 'exact' })
-   .eq('estado', 'ACTIVO')
-   .order('idcargaacad', {ascending: false})
-   .range((paginaActual-1)*registrosPorPagina, paginaActual*registrosPorPagina - 1)
+  .select(`*, asignatura:idasignatura(*, carrera:idcarrera(*)), horariodocente:idhorariod(*, campoclinico:idcampocli(*, periodoacademico:idpa(*), filial:idfilial(*), docente:iddocente(*, persona:idpersona(*))))`, { count: 'exact' })
+  .eq('estado', 'ACTIVO')
+  .order('idcargaacad', {ascending: false})
+  .range((paginaActual-1)*registrosPorPagina, paginaActual*registrosPorPagina - 1)
 
     if(filtroPeriodo?.value) query = query.eq('horariodocente.campoclinico.idpa', filtroPeriodo.value)
     if(docenteSel?.value) query = query.eq('horariodocente.idhorariod', docenteSel.value)
@@ -191,7 +192,7 @@ export default function CargaAcademicaPage() {
     setLoading(true)
 
     const { data, error } = cargaEdit
-    ? await supabase.from('cargaacademica').update(dataToSave).eq('idcargaacad', cargaEdit.idcargaacad).select().single()
+   ? await supabase.from('cargaacademica').update(dataToSave).eq('idcargaacad', cargaEdit.idcargaacad).select().single()
       : await supabase.from('cargaacademica').insert(dataToSave).select().single()
 
     setLoading(false)
@@ -346,7 +347,7 @@ export default function CargaAcademicaPage() {
         </div>
       )}
 
-      {/* LLAMADA AL MODAL WIZARD 2 */}
+      {/* LLAMADA AL MODAL WIZARD 2 - AHORA USA EL IMPORTADO */}
       <ModalHorarioAcademico
         show={showModalHorarioAcad}
         onClose={() => setShowModalHorarioAcad(false)}
@@ -354,195 +355,26 @@ export default function CargaAcademicaPage() {
       />
 
       <style jsx>{`
-       .grid-2 {
+      .grid-2 {
           display: grid;
           grid-template-columns: 1fr 2fr;
           gap: 1.6rem;
         }
-       .grid-2.sgpc-fieldset {
+      .grid-2.sgpc-fieldset {
           margin: 0;
           padding-left:0;
         }
         @media (max-width: 1024px) {
-         .grid-2 {
+        .grid-2 {
             grid-template-columns: repeat(1, 1fr);
           }
         }
         @media (max-width: 600px) {
-         .grid-4 {
+        .grid-4 {
             grid-template-columns: 1fr;
           }
         }
       `}</style>
     </div>
-  )
-}
-
-// COMPONENTE WIZARD 2 VA AFUERA
-const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
-  const supabase = createClient()
-  const [loadingW2, setLoadingW2] = useState(false)
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
-  const [estudiantes, setEstudiantes] = useState<any[]>([])
-  const [idMatriculaSel, setIdMatriculaSel] = useState<number | null>(null)
-  const [horarioLaboralDoc, setHorarioLaboralDoc] = useState<any[]>([])
-  const [showConfirm, setShowConfirm] = useState(false)
-
-  const [horarioAcad, setHorarioAcad] = useState(
-    DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }))
-  )
-
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000)
-  }
-
-  useEffect(() => {
-    const cargar = async () => {
-      if(show && dataWizard1){
-        const { data: mat } = await supabase
-        .from('matricula')
-        .select('idmatricula, persona!inner(dni, apellidos, nombres)')
-        .eq('idpa', dataWizard1.idpa)
-        .eq('estado', 'ACTIVO')
-        setEstudiantes(mat?.map((m:any) => ({
-          value: m.idmatricula,
-          label: `${m.persona.dni} - ${m.persona.apellidos}, ${m.persona.nombres}`
-        })) || [])
-
-        console.log("Buscando estudiantes para idpa:", dataWizard1.idpa)
-
-        const { data: horLab } = await supabase
-        .from('horariodocente')
-        .select('*')
-        .eq('idhorariod', dataWizard1.idhorariod)
-        setHorarioLaboralDoc(horLab || [])
-      } else {
-        setIdMatriculaSel(null)
-        setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
-      }
-    }
-    cargar()
-  }, [show, dataWizard1])
-
-  const totalSemanal = useMemo(() =>
-    horarioAcad.reduce((acc, h) => acc + (h.sel? calcularHoras(h.horaInicio, h.horaFin) : 0), 0)
- , [horarioAcad])
-
-  const handleGrabar = async () => {
-    if(!idMatriculaSel) { showToast('Seleccione un estudiante', 'error'); return }
-    const diasSel = horarioAcad.filter(h => h.sel)
-    if(diasSel.length === 0) { showToast('Seleccione al menos 1 día', 'error'); return }
-
-    setLoadingW2(true)
-
-    const { data: horInsert, error: errHor } = await supabase
-    .from('horario')
-    .insert({ idcargaacad: dataWizard1.idcargaacad, idmatricula: idMatriculaSel, estado: 'ACTIVO' })
-    .select().single()
-
-    if(errHor) { showToast(errHor.message, 'error'); setLoadingW2(false); return }
-
-    const detalleToInsert = diasSel.map(d => ({
-      idhorario: horInsert.idhorario,
-      dia_semana: d.dia,
-      hora_inicio: d.horaInicio,
-      hora_fin: d.horaFin,
-      estado: 'ACTIVO'
-    }))
-
-    const { error: errDet } = await supabase.from('detallehorario').insert(detalleToInsert)
-
-    if(errDet) showToast(errDet.message, 'error')
-    else {
-      showToast('Carga académica registrada', 'success')
-      setTimeout(() => setShowConfirm(true), 1000)
-    }
-    setLoadingW2(false)
-  }
-
-  if(!show) return null
-
-  return (
-    <>
-      <div className="modal-overlay">
-        {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600 }}>{toast.msg}</div>}
-
-        <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '110rem'}}>
-          <div className="modal-header">
-            <h2 style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}><BookOpen size={22} /> Registro de Horario</h2>
-            <button onClick={onClose} className="btn-cerrar-modal"><X size={18} /></button>
-          </div>
-
-          <div className="modal-body">
-            <fieldset className="fieldset-sgpc-section">
-              <legend>Datos de la Carga</legend>
-              <p><b>Docente:</b> {dataWizard1?.docente} - DNI: {dataWizard1?.dni}</p>
-              <p><b>Asignatura:</b> {dataWizard1?.asignatura} - <b>NRC:</b> {dataWizard1?.nrc} - <b>Grupo:</b> {dataWizard1?.grupo}</p>
-            </fieldset>
-
-            <fieldset className="fieldset-sgpc-section">
-              <legend>Horario Laboral del Docente</legend>
-              <table className='tabla-sgpc'>
-                <thead><tr><th>N°</th><th>Día</th><th>Hora Inicio</th><th>Hora Final</th></tr></thead>
-                <tbody>{horarioLaboralDoc.map((h:any,i:number)=><tr key={i}><td>{i+1}</td><td>{h.dia_semana}</td><td>{h.hora_inicio}</td><td>{h.hora_fin}</td></tr>)}</tbody>
-              </table>
-            </fieldset>
-
-            <fieldset className="fieldset-sgpc-section">
-              <legend>Horario Académico de la Asignatura</legend>
-              <div style={{border: '1px solid #cbd5e1', borderRadius: '0.8rem'}}>
-                <div style={{display: 'grid', gridTemplateColumns: '5rem 12rem 1fr 1fr 1fr 12rem', background: 'var(--color-primario)', padding: '1rem', color: '#fff', fontWeight: 600}}>
-                  <span>Sel</span><span>Día</span><span>Hora Inicio</span><span></span><span>Hora Final</span><span>Total Día</span>
-                </div>
-                {horarioAcad.map((h,i) => (
-                  <div key={h.dia} style={{display: 'grid', gridTemplateColumns: '5rem 12rem 1fr 1fr 1fr 12rem', padding: '0.8rem', borderTop: '1px solid #e5e7eb', alignItems: 'center'}}>
-                    <input type="checkbox" checked={h.sel} onChange={() => setHorarioAcad(prev => prev.map((p,idx)=> idx===i? {...p, sel:!p.sel} : p))} />
-                    <span>{h.dia}</span>
-                    <input type="time" value={h.horaInicio} disabled={!h.sel} onChange={e => setHorarioAcad(prev => prev.map((p,idx)=> idx===i? {...p, horaInicio: e.target.value} : p))} className="input-sgpc" />
-                    <span style={{textAlign: 'center'}}>a</span>
-                    <input type="time" value={h.horaFin} disabled={!h.sel} onChange={e => setHorarioAcad(prev => prev.map((p,idx)=> idx===i? {...p, horaFin: e.target.value} : p))} className="input-sgpc" />
-                    <span>{h.sel? `${calcularHoras(h.horaInicio, h.horaFin).toFixed(2)} hrs` : '0.00 hrs'}</span>
-                  </div>
-                ))}
-                <div style={{textAlign: 'right', padding: '1rem', fontWeight: 700}}>Total Semanal: {totalSemanal.toFixed(2)} Horas</div>
-              </div>
-            </fieldset>
-
-            <fieldset className="fieldset-sgpc-section">
-              <legend>Estudiante Matriculado</legend>
-              <SelectSGPCFieldset
-                label="DNI + Estudiante *"
-                value={idMatriculaSel}
-                onChange={setIdMatriculaSel}
-                options={estudiantes}
-              />
-            </fieldset>
-          </div>
-
-          <div className="modal-footer" style={{justifyContent: 'center', gap: '1.6rem'}}>
-            <button className="btn-secundario" onClick={() => setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))}><Eraser size={16} />Limpiar</button>
-            <button className="btn-primario" onClick={handleGrabar} disabled={loadingW2}><Save size={16} />{loadingW2? 'Grabando...' : 'Grabar'}</button>
-          </div>
-        </div>
-      </div>
-
-      {showConfirm && (
-        <div className="modal-overlay" style={{zIndex: 10000}}>
-          <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '45rem'}}>
-            <div className="modal-header"><h2>¿Desea Registrar otro estudiante?</h2></div>
-            <div className="modal-body"><p>La carga del estudiante anterior se guardó correctamente.</p></div>
-            <div className="modal-footer" style={{justifyContent: 'center', gap: '1.6rem'}}>
-              <button className="btn-secundario" onClick={() => {
-                setIdMatriculaSel(null)
-                setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
-                setShowConfirm(false)
-              }}><Plus size={16} />Sí</button>
-              <button className="btn-primario" onClick={() => { setShowConfirm(false); onClose() }}><X size={16} />Terminar</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
   )
 }

@@ -1,5 +1,54 @@
+'use client'
+import { useState, useMemo, useEffect } from 'react'
+import { X, Save, Eraser, Clock, BookOpen, Plus } from 'lucide-react'
+import { createClient } from '@/lib/client'
+import AsyncSelect from 'react-select/async'
+import Select from 'react-select'
+
+const supabase = createClient()
+
+const DIAS_SEMANA = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
+
+const calcularHoras = (ini: string, fin: string) => {
+  const [h1, m1] = ini.split(':').map(Number)
+  const [h2, m2] = fin.split(':').map(Number)
+  return Math.max(0, (h2 + m2/60) - (h1 + m1/60))
+}
+
+const SelectSGPCFieldset = ({label, value, onChange, options, isDisabled = false, isAsync = false, loadOptions}:any) => {
+  const Component = isAsync? AsyncSelect : Select
+  const selectedOption = isAsync? value : options.find((o:any) => o.value === value?.value) || value || null
+
+  return (
+    <fieldset className="fieldset-sgpc">
+      <legend>{label}</legend>
+      <Component
+        options={isAsync? undefined : options}
+        loadOptions={isAsync? loadOptions : undefined}
+        defaultOptions={isAsync}
+        value={selectedOption}
+        onChange={onChange}
+        isDisabled={isDisabled} 
+        placeholder="Seleccione..." 
+        isSearchable 
+        maxMenuHeight={200}
+        classNamePrefix="react-select" 
+        getOptionValue={(e:any) => e.value} 
+        getOptionLabel={(e:any) => e.label}
+        styles={{ 
+          control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer', opacity: isDisabled? 0.6 : 1 }), 
+          valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), 
+          input: (base) => ({...base, margin: 0, padding: 0 }), 
+          indicatorsContainer: (base) => ({...base, height: '4.4rem' }), 
+          option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }), 
+          menu: (base) => ({...base, zIndex: 9999, marginTop: '0.4rem' }) 
+        }}
+      />
+    </fieldset>
+  )
+}
+
 const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
-  const supabase = createClient()
   const [loadingW2, setLoadingW2] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
   const [estudiantes, setEstudiantes] = useState<any[]>([])
@@ -18,36 +67,49 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
 
   useEffect(() => {
     const cargar = async () => {
-      if(show && dataWizard1){
-        console.log("Datos que llegan a W2:", dataWizard1)
-
-        // 1. CARGAR ESTUDIANTES
-        const { data: mat, error: errMat } = await supabase
-         .from('matricula')
-         .select('idmatricula, persona!inner(dni, apellidos, nombres)')
-         .eq('idpa', dataWizard1.idpa)
-         .eq('estado', 'ACTIVO')
-        
-        if(errMat) console.error("Error cargando matricula:", errMat)
-        setEstudiantes(mat?.map((m:any) => ({
-          value: m.idmatricula,
-          label: `${m.persona.dni} - ${m.persona.apellidos}, ${m.persona.nombres}`
-        })) || [])
-
-        // 2. CARGAR HORARIO LABORAL
-        const { data: horLab, error: errHor } = await supabase
-         .from('horariodocente')
-         .select('*')
-         .eq('idhorariod', dataWizard1.idhorariod)
-
-        if(errHor) console.error("Error cargando horario docente:", errHor)
-        setHorarioLaboralDoc(horLab || [])
-      } else {
-        setIdMatriculaSel(null)
+      if(!show || !dataWizard1?.idpa) {
         setEstudiantes([])
         setHorarioLaboralDoc([])
-        setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
+        return
       }
+      
+      console.log("Buscando CON idpa:", dataWizard1.idpa)
+
+      // SOLO ESTAS 2 COLUMNAS. NADA MAS
+      const { data: mat, error: errMat } = await supabase
+       .from('matricula')
+       .select('idmatricula, idestudiante')
+       .eq('idpa', Number(dataWizard1.idpa))
+       .eq('estado', 'MATRICULADO')
+
+      if(errMat){ 
+        console.error("Error matricula:", errMat) 
+        showToast("Error: " + errMat.message)
+        return 
+      }
+      console.log("Matriculas encontradas:", mat)
+
+      if(!mat || mat.length === 0){ 
+        setEstudiantes([]); 
+        return 
+      }
+
+      const ids = mat.map(m => m.idestudiante)
+      const { data: est } = await supabase.from('estudiante').select('idestudiante, idpersona').in('idestudiante', ids)
+      const idsPer = est?.map(e => e.idpersona) || []
+      const { data: pers } = await supabase.from('persona').select('idpersona, dni, apellidos, nombres').in('idpersona', idsPer)
+
+      const lista = mat.map(m => {
+        const e = est?.find(x => x.idestudiante === m.idestudiante)
+        const p = pers?.find(x => x.idpersona === e?.idpersona)
+        return p ? { value: m.idmatricula, label: `${p.dni} - ${p.apellidos}, ${p.nombres}` } : null
+      }).filter(Boolean)
+      
+      setEstudiantes(lista)
+
+      // CARGAR HORARIO LABORAL
+      const { data: horLab } = await supabase.from('horariodocente').select('*').eq('idhorariod', dataWizard1.idhorariod)
+      setHorarioLaboralDoc(horLab || [])
     }
     cargar()
   }, [show, dataWizard1])
@@ -92,7 +154,7 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
 
   return (
     <>
-      <div className="modal-overlay">
+      <div className="modal-overlay" onClick={onClose}>
         {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600 }}>{toast.msg}</div>}
 
         <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '110rem'}}>
@@ -179,3 +241,5 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
     </>
   )
 }
+
+export default ModalHorarioAcademico
