@@ -108,7 +108,7 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
       setEstudiantes(lista)
 
       // CARGAR HORARIO LABORAL
-      const { data: horLab } = await supabase.from('horariodocente').select('*').eq('idhorariod', dataWizard1.idhorariod)
+      const { data: horLab } = await supabase.from('horariodocente').select('*').eq('idcampocli', dataWizard1.idhorariod)
       setHorarioLaboralDoc(horLab || [])
     }
     cargar()
