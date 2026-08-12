@@ -95,20 +95,7 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 
   transform: translateY(-1px);
 }
 
-/* RESPONSIVE PARA BOTONES */
-/* @media (max-width: 768px) {
-  .btn-primario, .btn-secundario {
-    flex: 1;
-    padding: 1rem 1.2rem;
-    font-size: 1.3rem;
-  }
-  .btn-primario svg, .btn-secundario svg {
-    width: 16px;
-    height: 16px;
-  }
-} */
 
-/* RESPONSIVE HEADER + BOTONES EJECUTIVOS */
 /* RESPONSIVE HEADER EJECUTIVO SIGPAC */
 @media (max-width: 768px) {
   .header-responsive {
@@ -906,4 +893,55 @@ select.input-sgpc {
   color: #1e293b!important;
   opacity: 1!important;
   -webkit-text-fill-color: #1e293b; /* Para que no se ponga gris en Chrome */
+}
+
+/* Para bajar el tamaño de la fuente de los select*/
+/* ===== TAMAÑO MODAL CARGA ACADEMICA ===== */
+/* ===== TAMAÑO GLOBAL PARA TODOS LOS SELECTS SGPC ===== */
+
+/* 1. Leyenda del fieldset */
+.fieldset-sgpc legend {
+  font-size: var(--text-sm); /* 12px */
+  font-weight: 600;
+}
+
+/* 2. La cajita del select y el input normal */
+.fieldset-sgpc .input-sgpc,
+.fieldset-sgpc .react-select__control {
+  font-size: var(--text-sm); /* 12px */
+  height: 3.8rem !important; /* 38px en vez de 44px */
+  min-height: 3.8rem !important;
+}
+
+/* 3. Contenedor interno del select */
+.fieldset-sgpc .react-select__value-container {
+  height: 3.8rem !important;
+  padding: 0 1.2rem !important;
+}
+
+/* 4. Iconitos de flecha y x */
+.fieldset-sgpc .react-select__indicators {
+  height: 3.8rem !important;
+}
+
+/* 5. LOS ITEMS DE LA LISTA DESPLEGABLE - ESTO ES LO NUEVO */
+.fieldset-sgpc .react-select__option {
+  font-size: var(--text-sm); /* 12px */
+  padding: 0.8rem 1.2rem !important; /* más compacto */
+}
+
+/* 6. Hover y seleccionado de la lista */
+.fieldset-sgpc .react-select__option--is-focused {
+  background-color: var(--color-acento) !important;
+  color: var(--color-texto) !important;
+}
+.fieldset-sgpc .react-select-sgpc__option--is-selected {
+  background-color: var(--color-primario) !important;
+  color: var(--color-blanco) !important;
+}
+
+/* 7. Placeholder más pequeño también */
+.fieldset-sgpc .react-select__placeholder {
+  font-size: var(--text-sm);
+  color: var(--color-placeholder);
 }
