@@ -59,7 +59,7 @@ export default function CargaAcademicaPage() {
   const [showModal, setShowModal] = useState(false)
   const [cargaEdit, setCargaEdit] = useState<CargaAcademica | null>(null)
 
-  const [form, setForm] = useState<any>({idpa: null, idhorariod: null, idasignatura: null, nrc: '', grupo: '', docenteData: null, planacademico: '', carrera: '' })
+  const [form, setForm] = useState<any>({idpa: null, idhorariod: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: '' })
 
   // STATES PARA WIZARD 2 MODO PRUEBA
   const [showModalHorarioAcad, setShowModalHorarioAcad] = useState(false)
@@ -73,8 +73,7 @@ export default function CargaAcademicaPage() {
 
     setDataWizard2({
       idcargaacad: 999, // id falso porque no hemos grabado aún
-      nrc: form.nrc,
-      grupo: form.grupo,
+      nrc: form.nrc,      
       idhorariod: form.idhorariod.value,
       idpa: form.idpa.value, // para cargar estudiantes
       docente: form.idhorariod.label.split(' - ')[1] || form.idhorariod.label,
@@ -160,7 +159,7 @@ export default function CargaAcademicaPage() {
     if(filtroPeriodo?.value) query = query.eq('horariodocente.campoclinico.idpa', filtroPeriodo.value)
     if(docenteSel?.value) query = query.eq('horariodocente.idhorariod', docenteSel.value)
     if(asignaturaSel?.value) query = query.eq('idasignatura', asignaturaSel.value)
-    if(search) query = query.or(`nrc.ilike.%${search}%,grupo.ilike.%${search}%`)
+    if(search) query = query.ilike(`nrc`, `%${search}%`)
 
     const {data, count, error} = await query
     if(error) showToast(error.message, 'error')
@@ -172,7 +171,7 @@ export default function CargaAcademicaPage() {
 
   useEffect(() => {
     if(showModal){
-      setForm({idpa: null, idhorariod: null, idasignatura: null, nrc: '', grupo: '', docenteData: null, planacademico: '', carrera: ''})
+      setForm({idpa: null, idhorariod: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: ''})
     }
   }, [showModal])
 
@@ -184,8 +183,7 @@ export default function CargaAcademicaPage() {
     const dataToSave = {
       idasignatura: form.idasignatura.value,
       idhorariod: form.idhorariod.value,
-      nrc: form.nrc,
-      grupo: form.grupo,
+      nrc: form.nrc,      
       estado: 'ACTIVO'
     }
 
@@ -205,8 +203,7 @@ export default function CargaAcademicaPage() {
       if(!cargaEdit && data) {
         setDataWizard2({
           idcargaacad: data.idcargaacad,
-          nrc: data.nrc,
-          grupo: data.grupo,
+          nrc: data.nrc,          
           idhorariod: data.idhorariod,
           idpa: form.idpa.value,
           docente: `${form.idhorariod.label.split(' - ')[1] || form.idhorariod.label}`,
@@ -245,7 +242,7 @@ export default function CargaAcademicaPage() {
             isDisabled={!filtroPeriodo?.value}
           /></div>
           <div><legend>Asignatura</legend><AsyncSelect cacheOptions loadOptions={loadAsignaturas} value={asignaturaSel} onChange={setAsignaturaSel} placeholder="Buscar asignatura..." /></div>
-          <div><legend>Buscar NRC/Grupo</legend><input className="input-sgpc" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} style={{height: "4.4rem", width: '100%' }} /></div>
+          <div><legend>Buscar NRC</legend><input className="input-sgpc" placeholder="Buscar..." value={search} onChange={e => setSearch(e.target.value)} style={{height: "4.4rem", width: '100%' }} /></div>
           <button className="btn-secundario btn-limpiar" onClick={() => {setSearch(""); setFiltroPeriodo({value: '', label: 'TODOS'}); setDocenteSel(null); setAsignaturaSel(null); setPaginaActual(1)}} style={{height: '4.4rem'}}><Eraser size={16} />Limpiar</button>
         </div>
       </div>
@@ -253,11 +250,11 @@ export default function CargaAcademicaPage() {
       <div className="card-sgpc" style={{ overflowX: 'auto' }}>
         <table className='tabla-sgpc'>
           <thead><tr>
-            <th>#</th><th>PERIODO</th><th>FILIAL</th><th>CARRERA</th><th>DNI</th><th>DOCENTE</th><th>ASIGNATURA</th><th>NRC</th><th>GRUPO</th><th>ESTADO</th><th>ACCIONES</th>
+            <th>#</th><th>PERIODO</th><th>FILIAL</th><th>CARRERA</th><th>DNI</th><th>DOCENTE</th><th>ASIGNATURA</th><th>NRC</th><th>ESTADO</th><th>ACCIONES</th>
           </tr></thead>
           <tbody>
-            {loading? <tr><td colSpan={11} style={{textAlign: 'center', padding: '2rem'}}>Cargando...</td></tr> :
-            cargas.length === 0? <tr><td colSpan={11} style={{textAlign: 'center', padding: '2rem'}}>No hay registros. Registre una nueva carga.</td></tr> :
+            {loading? <tr><td colSpan={10} style={{textAlign: 'center', padding: '2rem'}}>Cargando...</td></tr> :
+            cargas.length === 0? <tr><td colSpan={10} style={{textAlign: 'center', padding: '2rem'}}>No hay registros. Registre una nueva carga.</td></tr> :
             cargas.map((c,i) => (
               <tr key={c.idcargaacad}>
                 <td>{(paginaActual-1)*registrosPorPagina + i + 1}</td>
@@ -268,7 +265,7 @@ export default function CargaAcademicaPage() {
                 <td>{c.horariodocente?.campoclinico?.docente?.persona?.apellidos}, {c.horariodocente?.campoclinico?.docente?.persona?.nombres}</td>
                 <td>{c.asignatura?.nombre}</td>
                 <td>{c.nrc}</td>
-                <td>{c.grupo}</td>
+                
                 <td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: c.estado === 'ACTIVO'? '#F0FDF4' : '#FEF2F2', color: c.estado === 'ACTIVO'? '#22C55E' : '#EF4444'}}>{c.estado}</span></td>
                 <td style={{display: 'flex', gap: '0.8rem'}}>
                   <button className="btn-icon btn-icon-editar" title="Editar"><Edit size={15} /></button>
@@ -324,13 +321,12 @@ export default function CargaAcademicaPage() {
                     <SelectSGPCFieldset label="Asignatura *" value={form.idasignatura} onChange={(opt:any) => setForm({...form, idasignatura: opt, planacademico: opt?.planacademico || '', carrera: opt?.carrera || ''})} isAsync loadOptions={loadAsignaturas} />
                     <fieldset className="fieldset-sgpc"><legend>Plan Académico</legend><input type="text" value={form.planacademico || ''} readOnly disabled className="input-sgpc" style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} /></fieldset>
                     <fieldset className="fieldset-sgpc"><legend>Carrera</legend><input type="text" value={form.carrera || ''} readOnly disabled className="input-sgpc" style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} /></fieldset>
-                    <fieldset className="fieldset-sgpc"><legend>NRC *</legend><input className="input-sgpc" value={form.nrc} onChange={e => setForm({...form, nrc: e.target.value})} style={{marginTop: '0.4rem'}} /></fieldset>
-                    <fieldset className="fieldset-sgpc"><legend>Grupo</legend><input className="input-sgpc" value={form.grupo} onChange={e => setForm({...form, grupo: e.target.value})} style={{marginTop: '0.4rem'}} /></fieldset>
+                    <fieldset className="fieldset-sgpc"><legend>NRC *</legend><input className="input-sgpc" value={form.nrc} onChange={e => setForm({...form, nrc: e.target.value})} style={{marginTop: '0.4rem'}} /></fieldset>                    
                   </div>
                 </fieldset>
             </div>
            <div className="modal-footer" style={{justifyContent: 'center', gap: '1.6rem'}}>
-              <button className="btn-secundario btn-outline-azul" onClick={() => setForm({idpa: null, idhorariod: null, idasignatura: null, nrc: '', grupo: '', docenteData: null, planacademico: '', carrera: ''})} style={{minWidth: '18rem'}}><Eraser size={16} />Limpiar</button>
+              <button className="btn-secundario btn-outline-azul" onClick={() => setForm({idpa: null, idhorariod: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: ''})} style={{minWidth: '18rem'}}><Eraser size={16} />Limpiar</button>
 
               {/* BOTON NUEVO PARA PROBAR */}
               <button
