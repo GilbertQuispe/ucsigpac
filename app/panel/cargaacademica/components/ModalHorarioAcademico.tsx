@@ -39,25 +39,45 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
   const diaEstaEnLaboral = (dia: string) => horarioLaboralDoc.some(h => h.dia_semana === dia)
   const getHorasLaboralesDia = (dia: string) => { const reg = horarioLaboralDoc.find(h => h.dia_semana === dia); return reg ? { inicio: reg.hora_inicio, fin: reg.hora_fin } : null }
 
-  useEffect(() => {
-    const cargar = async () => {
-      if(!show || !dataWizard1?.idpa) { setEstudiantes([]); setHorarioLaboralDoc([]); setTotalMatriculados(0); return }
-      const { data: mat } = await supabase.from('matricula').select('idmatricula, idestudiante').eq('idpa', Number(dataWizard1.idpa)).eq('estado', 'MATRICULADO')
-      if(mat && mat.length > 0) {
-        const ids = mat.map(m => m.idestudiante)
-        const { data: est } = await supabase.from('estudiante').select('idestudiante, idpersona').in('idestudiante', ids)
-        const idsPer = est?.map(e => e.idpersona) || []
-        const { data: pers } = await supabase.from('persona').select('idpersona, dni, apellidos, nombres').in('idpersona', idsPer)
-        const lista = mat.map(m => { const e = est?.find(x => x.idestudiante === m.idestudiante); const p = pers?.find(x => x.idpersona === e?.idpersona); return p ? { value: m.idmatricula, label: `${p.dni} - ${p.apellidos}, ${p.nombres}` } : null }).filter(Boolean)
-        setEstudiantes(lista)
-      } else { setEstudiantes([]) }
-      const { data: horLab } = await supabase.from('horariodocente').select('*').eq('idcampocli', dataWizard1.idhorariod)
-      setHorarioLaboralDoc(horLab || [])
-      const { count } = await supabase.from('horario').select('idhorario, cargaacademica!inner(nrc)', { count: 'exact', head: true }).eq('cargaacademica.nrc', dataWizard1.nrc)
-      setTotalMatriculados(count || 0)
+ useEffect(() => {
+  const cargar = async () => {
+    if(!show || !dataWizard1?.idpa || !dataWizard1?.iddocente) { 
+      setEstudiantes([]); 
+      setHorarioLaboralDoc([]); 
+      setTotalMatriculados(0);
+      setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
+      return 
     }
-    cargar()
-  }, [show, dataWizard1])
+    
+    console.log("BUSCANDO HORARIO DE:", dataWizard1.iddocente, "PERIODO:", dataWizard1.idpa) // DEBUG
+
+    // 1. CARGAR ESTUDIANTES
+    const { data: mat } = await supabase.from('matricula').select('idmatricula, idestudiante').eq('idpa', Number(dataWizard1.idpa)).eq('estado', 'MATRICULADO')
+    if(mat && mat.length > 0) {
+      const ids = mat.map(m => m.idestudiante)
+      const { data: est } = await supabase.from('estudiante').select('idestudiante, idpersona').in('idestudiante', ids)
+      const idsPer = est?.map(e => e.idpersona) || []
+      const { data: pers } = await supabase.from('persona').select('idpersona, dni, apellidos, nombres').in('idpersona', idsPer)
+      const lista = mat.map(m => { const e = est?.find(x => x.idestudiante === m.idestudiante); const p = pers?.find(x => x.idpersona === e?.idpersona); return p ? { value: m.idmatricula, label: `${p.dni} - ${p.apellidos}, ${p.nombres}` } : null }).filter(Boolean)
+      setEstudiantes(lista)
+    } else { setEstudiantes([]) }
+
+    // 2. CARGAR HORARIO LABORAL - ESTE ERA EL ERROR
+    const { data: horLab } = await supabase
+      .from('horariodocente')
+      .select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`)
+      .eq('campoclinico.iddocente', dataWizard1.iddocente) // <- FILTRAR POR DOCENTE DENTRO DE CAMPOC
+      .eq('campoclinico.idpa', dataWizard1.idpa) // <- FILTRAR POR PERIODO
+
+    console.log("HORARIO ENCONTRADO:", horLab) // DEBUG
+    setHorarioLaboralDoc(horLab || [])
+
+    // 3. CONTAR MATRICULADOS
+    const { count } = await supabase.from('horario').select('idhorario, cargaacademica!inner(nrc)', { count: 'exact', head: true }).eq('cargaacademica.nrc', dataWizard1.nrc)
+    setTotalMatriculados(count || 0)
+  }
+  cargar()
+}, [show, dataWizard1])
 
   useEffect(() => {
     if(!showConfirm && show && dataWizard1?.nrc) {
@@ -167,7 +187,12 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
               <legend className="legend-sgpc-titulo"><Users size={18}/> Estudiante Matriculado</legend>
               <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
                 <div style={{flex: 1}}>
-                  <SelectSGPCFieldset label="DNI + Estudiante *" value={idMatriculaSel} onChange={setIdMatriculaSel} options={estudiantes} />
+                  <SelectSGPCFieldset 
+  label="DNI + Estudiante *" 
+  value={estudiantes.find(e => e.value === idMatriculaSel) || null} 
+  onChange={(opt:any) => setIdMatriculaSel(opt?.value || null)} 
+  options={estudiantes} 
+/>
                 </div>
                 <span className="badge-sgpc-info">En BD: {estudiantes.length}</span>
               </div>

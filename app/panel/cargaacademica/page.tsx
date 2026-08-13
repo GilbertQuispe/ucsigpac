@@ -60,89 +60,78 @@ export default function CargaAcademicaPage() {
   const [cargaEdit, setCargaEdit] = useState<CargaAcademica | null>(null)
 
   const [form, setForm] = useState<any>({idpa: null, idhorariod: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: '' })
-
-  // STATES PARA WIZARD 2 MODO PRUEBA
-  const [showModalHorarioAcad, setShowModalHorarioAcad] = useState(false)
-  const [dataWizard2, setDataWizard2] = useState<any>(null)
+const [showModalHorarioAcad, setShowModalHorarioAcad] = useState(false)
+const [dataWizard2, setDataWizard2] = useState<any>(null)
 
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
   // NUEVO: FUNCION DE PRUEBA USA DATOS DEL FORM
-  const abrirModeloPrueba = () => {
-    if(!puedeGuardar) { showToast('Complete Periodo, Docente, Asignatura y NRC primero', 'error'); return }
-
-    setDataWizard2({
-      idcargaacad: 999, // id falso porque no hemos grabado aún
-      nrc: form.nrc,      
-      idhorariod: form.idhorariod.value,
-      idpa: form.idpa.value, // para cargar estudiantes
-      docente: form.idhorariod.label.split(' - ')[1] || form.idhorariod.label,
-      dni: form.idhorariod.label.split(' - ')[0] || '',
-      asignatura: form.idasignatura.label
-    })
-    setShowModal(false) // cierra wizard 1
-    setTimeout(() => setShowModalHorarioAcad(true), 300) // abre wizard 2
-  }
-
+  
   const loadAsignaturas = async (inputValue: string) => {
     const {data, error} = await supabase.from('asignatura').select(`idasignatura, codigo, nombre, carrera:idcarrera(nombrecarrera), planasignatura:idplan(nombre)`).ilike('nombre', `%${inputValue}%`).limit(50)
     return data?.map(a => ({value: a.idasignatura, label: `${a.codigo} - ${a.nombre}`, carrera: a.carrera?.nombrecarrera, planacademico:a.planasignatura?.nombre})) || []
   }
 
-  const loadDocentesPorPeriodo = async (inputValue: string) => {
-    if(!form.idpa) return []
+const loadDocentesPorPeriodo = async (inputValue: string) => {
+  if(!form.idpa) return []
 
-    const {data, error} = await supabase
-    .from('campoclinico')
-    .select(`
+  const {data, error} = await supabase
+  .from('horariodocente')
+  .select(`
+      idhorariod,
+      campoclinico:idcampocli!inner(
         idcampocli,
-        iddocente,
         idpa,
+        estado,
+        iddocente,
         idservicios,
         ideps,
         serviciosalud:idservicios!inner(nombre),
-        eps:ideps!inner(
-          razonsocial,
-          distrito:iddistrito!inner(nombredt)
-        ),
+        eps:ideps!inner(razonsocial, distrito:iddistrito!inner(nombredt)),
         docente:iddocente!inner(
           iddocente,
           persona:idpersona!inner(dni, apellidos, nombres)
         )
-      `)
-    .eq('idpa', form.idpa.value)
-    .eq('estado', 'ACTIVO')
-    .limit(100)
+      )
+    `)
+  .eq('campoclinico.idpa', form.idpa.value)
+  .eq('campoclinico.estado', 'ACTIVO')
+  .limit(200) // subí el limit por si hay muchos
 
-    if(error) {
-      console.error("ERROR CARGANDO DOCENTES:", error)
-      return []
+  if(error) return []
+
+  // 1. QUITAR DUPLICADOS POR IDDOCENTE
+  const mapaDocentes = new Map()
+  data?.forEach(h => {
+    const id = h.campoclinico.docente.iddocente
+    if(!mapaDocentes.has(id)) {
+      mapaDocentes.set(id, h) // me quedo con el primer idhorariod que encuentre
     }
+  })
+  
+  const registrosUnicos = Array.from(mapaDocentes.values())
 
-    const registros = data || []
-    const texto = inputValue.toLowerCase().trim()
+  const texto = inputValue.toLowerCase().trim()
+  const filtrados = registrosUnicos.filter(h => {
+    const dni = h.campoclinico?.docente?.persona?.dni?.toLowerCase() || ''
+    const apellidos = h.campoclinico?.docente?.persona?.apellidos?.toLowerCase() || ''
+    const nombres = h.campoclinico?.docente?.persona?.nombres?.toLowerCase() || ''
+    const servicio = h.campoclinico?.serviciosalud?.nombre?.toLowerCase() || ''
+    return dni.includes(texto) || apellidos.includes(texto) || nombres.includes(texto) || servicio.includes(texto)
+  })
 
-    const filtrados = registros.filter(c => {
-      const dni = c.docente?.persona?.dni?.toLowerCase() || ''
-      const apellidos = c.docente?.persona?.apellidos?.toLowerCase() || ''
-      const nombres = c.docente?.persona?.nombres?.toLowerCase() || ''
-      const servicio = c.serviciosalud?.nombre?.toLowerCase() || ''
-      return dni.includes(texto) || apellidos.includes(texto) || nombres.includes(texto) || servicio.includes(texto)
-    })
+  const listaFinal = texto? filtrados : registrosUnicos
 
-    const listaFinal = texto? filtrados : registros
-
-    return listaFinal.map(c => ({
-      value: c.idcampocli,
-      label: `${c.docente?.persona?.dni} - ${c.docente?.persona?.apellidos}, ${c.docente?.persona?.nombres} | ${c.serviciosalud?.nombre}`,
-      iddocente: c.iddocente,
-      idcampocli: c.idcampocli,
-      servicio: c.serviciosalud?.nombre,
-      eps: c.eps?.razonsocial,
-      distrito: c.eps?.distrito?.nombredt
-    }))
-  }
-
+  return listaFinal.map(h => ({
+    value: h.idhorariod, // seguimos mandando 1 idhorariod válido
+    label: `${h.campoclinico.docente.persona.dni} - ${h.campoclinico.docente.persona.apellidos}, ${h.campoclinico.docente.persona.nombres} | ${h.campoclinico.serviciosalud.nombre}`,
+    iddocente: h.campoclinico.docente.iddocente,
+    idcampocli: h.campoclinico.idcampocli,
+    servicio: h.campoclinico.serviciosalud.nombre,
+    eps: h.campoclinico.eps?.razonsocial,
+    distrito: h.campoclinico.eps?.distrito?.nombredt
+  }))
+}
   const fetchData = async () => {
     setLoading(true)
     const [perRes] = await Promise.all([
@@ -205,6 +194,7 @@ export default function CargaAcademicaPage() {
           idcargaacad: data.idcargaacad,
           nrc: data.nrc,          
           idhorariod: data.idhorariod,
+          iddocente: form.idhorariod.iddocente,
           idpa: form.idpa.value,
           docente: `${form.idhorariod.label.split(' - ')[1] || form.idhorariod.label}`,
           dni: `${form.idhorariod.label.split(' - ')[0] || ''}`,
@@ -327,30 +317,18 @@ export default function CargaAcademicaPage() {
             </div>
            <div className="modal-footer" style={{justifyContent: 'center', gap: '1.6rem'}}>
               <button className="btn-secundario btn-outline-azul" onClick={() => setForm({idpa: null, idhorariod: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: ''})} style={{minWidth: '18rem'}}><Eraser size={16} />Limpiar</button>
-
-              {/* BOTON NUEVO PARA PROBAR */}
-              <button
-                className="btn-secundario"
-                onClick={abrirModeloPrueba}
-                disabled={!puedeGuardar}
-                style={{minWidth: '18rem', background: '#F59E0B'}}>
-                <Eye size={16} />Ver Modelo W2
-              </button>
-
+                       
               <button className="btn-primario btn-azul-solido" onClick={handleGuardar} disabled={!puedeGuardar} style={{minWidth: '18rem'}}><Save size={16} />Guardar</button>
            </div>
           </div>
         </div>
       )}
-
-      {/* LLAMADA AL MODAL WIZARD 2 - AHORA USA EL IMPORTADO */}
-      <ModalHorarioAcademico
+<ModalHorarioAcademico
         show={showModalHorarioAcad}
         onClose={() => setShowModalHorarioAcad(false)}
         dataWizard1={dataWizard2}
       />
-
-      <style jsx>{`
+    <style jsx>{`
       .grid-2 {
           display: grid;
           grid-template-columns: 1fr 2fr;
