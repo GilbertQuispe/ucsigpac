@@ -65,8 +65,6 @@ const [dataWizard2, setDataWizard2] = useState<any>(null)
 
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
-  // NUEVO: FUNCION DE PRUEBA USA DATOS DEL FORM
-  
   const loadAsignaturas = async (inputValue: string) => {
     const {data, error} = await supabase.from('asignatura').select(`idasignatura, codigo, nombre, carrera:idcarrera(nombrecarrera), planasignatura:idplan(nombre)`).ilike('nombre', `%${inputValue}%`).limit(50)
     return data?.map(a => ({value: a.idasignatura, label: `${a.codigo} - ${a.nombre}`, carrera: a.carrera?.nombrecarrera, planacademico:a.planasignatura?.nombre})) || []
@@ -76,8 +74,8 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
   if(!form.idpa) return []
 
   const {data, error} = await supabase
-  .from('horariodocente')
-  .select(`
+ .from('horariodocente')
+ .select(`
       idhorariod,
       campoclinico:idcampocli!inner(
         idcampocli,
@@ -94,21 +92,20 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
         )
       )
     `)
-  .eq('campoclinico.idpa', form.idpa.value)
-  .eq('campoclinico.estado', 'ACTIVO')
-  .limit(200) // subí el limit por si hay muchos
+ .eq('campoclinico.idpa', form.idpa.value)
+ .eq('campoclinico.estado', 'ACTIVO')
+ .limit(200)
 
   if(error) return []
 
-  // 1. QUITAR DUPLICADOS POR IDDOCENTE
   const mapaDocentes = new Map()
   data?.forEach(h => {
     const id = h.campoclinico.docente.iddocente
     if(!mapaDocentes.has(id)) {
-      mapaDocentes.set(id, h) // me quedo con el primer idhorariod que encuentre
+      mapaDocentes.set(id, h)
     }
   })
-  
+
   const registrosUnicos = Array.from(mapaDocentes.values())
 
   const texto = inputValue.toLowerCase().trim()
@@ -123,7 +120,7 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
   const listaFinal = texto? filtrados : registrosUnicos
 
   return listaFinal.map(h => ({
-    value: h.idhorariod, // seguimos mandando 1 idhorariod válido
+    value: h.idhorariod,
     label: `${h.campoclinico.docente.persona.dni} - ${h.campoclinico.docente.persona.apellidos}, ${h.campoclinico.docente.persona.nombres} | ${h.campoclinico.serviciosalud.nombre}`,
     iddocente: h.campoclinico.docente.iddocente,
     idcampocli: h.campoclinico.idcampocli,
@@ -140,10 +137,10 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
     setPeriodos(perRes.data || [])
 
     let query = supabase.from('cargaacademica')
-  .select(`*, asignatura:idasignatura(*, carrera:idcarrera(*)), horariodocente:idhorariod(*, campoclinico:idcampocli(*, periodoacademico:idpa(*), filial:idfilial(*), docente:iddocente(*, persona:idpersona(*))))`, { count: 'exact' })
-  .eq('estado', 'ACTIVO')
-  .order('idcargaacad', {ascending: false})
-  .range((paginaActual-1)*registrosPorPagina, paginaActual*registrosPorPagina - 1)
+ .select(`*, asignatura:idasignatura(*, carrera:idcarrera(*)), horariodocente:idhorariod(*, campoclinico:idcampocli(*, periodoacademico:idpa(*), filial:idfilial(*), docente:iddocente(*, persona:idpersona(*))))`, { count: 'exact' })
+ .eq('estado', 'ACTIVO')
+ .order('idcargaacad', {ascending: false})
+ .range((paginaActual-1)*registrosPorPagina, paginaActual*registrosPorPagina - 1)
 
     if(filtroPeriodo?.value) query = query.eq('horariodocente.campoclinico.idpa', filtroPeriodo.value)
     if(docenteSel?.value) query = query.eq('horariodocente.idhorariod', docenteSel.value)
@@ -166,44 +163,71 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
 
   const puedeGuardar = useMemo(() => form.idpa && form.idhorariod && form.idasignatura && form.nrc, [form])
 
-  const handleGuardar = async () => {
+const handleGuardar = async () => {
     if(!puedeGuardar) { showToast('Complete Periodo, Docente, Asignatura y NRC *', 'error'); return }
-
-    const dataToSave = {
-      idasignatura: form.idasignatura.value,
-      idhorariod: form.idhorariod.value,
-      nrc: form.nrc,      
-      estado: 'ACTIVO'
-    }
-
     setLoading(true)
 
+    const idasignatura = form.idasignatura.value
+    const idhorariod = form.idhorariod.value
+    const nrc = form.nrc.trim().toUpperCase()
+    const iddocente = form.idhorariod.iddocente
+    const idpa = form.idpa.value
+
+    const { data: existeCargaDocente } = await supabase
+    .from('cargaacademica')
+    .select(`idcargaacad`)
+    .eq('idasignatura', idasignatura)
+    .eq('nrc', nrc)
+    .eq('idhorariod', idhorariod)
+    .eq('estado', 'ACTIVO')
+    .maybeSingle()
+
+    if(existeCargaDocente &&!cargaEdit) {
+      showToast('Este Docente ya tiene registrado este NRC + Asignatura en el periodo', 'error')
+      setLoading(false)
+      return
+    }
+
+    const { data: existeCargaNRC } = await supabase
+    .from('cargaacademica')
+    .select(`idcargaacad`)
+    .eq('idasignatura', idasignatura)
+    .eq('nrc', nrc)
+    .eq('estado', 'ACTIVO')
+    .limit(1)
+    .maybeSingle()
+
+    let esReutilizado = false
+    if(existeCargaNRC) esReutilizado = true
+
     const { data, error } = cargaEdit
-   ? await supabase.from('cargaacademica').update(dataToSave).eq('idcargaacad', cargaEdit.idcargaacad).select().single()
-      : await supabase.from('cargaacademica').insert(dataToSave).select().single()
+ ? await supabase.from('cargaacademica').update({ idasignatura, idhorariod, nrc, estado: 'ACTIVO' }).eq('idcargaacad', cargaEdit.idcargaacad).select().single()
+      : await supabase.from('cargaacademica').insert({ idasignatura, idhorariod, nrc, estado: 'ACTIVO' }).select().single()
 
     setLoading(false)
 
-    if(error) showToast(error.message, 'error')
-    else {
-      showToast(cargaEdit? 'Carga actualizada' : 'Carga registrada', 'success');
-      setShowModal(false);
+    if(error) { showToast(error.message, 'error'); return }
 
-      if(!cargaEdit && data) {
-        setDataWizard2({
-          idcargaacad: data.idcargaacad,
-          nrc: data.nrc,          
-          idhorariod: data.idhorariod,
-          iddocente: form.idhorariod.iddocente,
-          idpa: form.idpa.value,
-          docente: `${form.idhorariod.label.split(' - ')[1] || form.idhorariod.label}`,
-          dni: `${form.idhorariod.label.split(' - ')[0] || ''}`,
-          asignatura: form.idasignatura.label
-        })
-        setTimeout(() => setShowModalHorarioAcad(true), 500)
-      }
-      fetchData()
+    showToast(cargaEdit? 'Carga actualizada' : esReutilizado? 'Carga registrada - Horario heredado' : 'Carga registrada', 'success');
+    setShowModal(false);
+
+    if(!cargaEdit && data) {
+      setDataWizard2({
+        idcargaacad: data.idcargaacad,
+        idcargaacad_referencia: existeCargaNRC?.idcargaacad || null, // <-- NUEVO: PARA HEREDAR HORARIO
+        nrc: data.nrc,
+        idhorariod: data.idhorariod, // <-- NUEVO: SIEMPRE EL DEL DOCENTE ACTUAL PARA EL HORARIO LABORAL
+        iddocente: iddocente,
+        idpa: idpa,
+        idasignatura: idasignatura,
+        docente: `${form.idhorariod.label.split(' - ')[1] || form.idhorariod.label}`,
+        dni: `${form.idhorariod.label.split(' - ')[0] || ''}`,
+        asignatura: form.idasignatura.label,
+        esSoloLectura: esReutilizado // <-- NUEVO: BANDERA PARA BLOQUEAR
+      })
+      setTimeout(() => setShowModalHorarioAcad(true), 500)
     }
+    fetchData()
   }
 
   return (
@@ -255,7 +279,7 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
                 <td>{c.horariodocente?.campoclinico?.docente?.persona?.apellidos}, {c.horariodocente?.campoclinico?.docente?.persona?.nombres}</td>
                 <td>{c.asignatura?.nombre}</td>
                 <td>{c.nrc}</td>
-                
+
                 <td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: c.estado === 'ACTIVO'? '#F0FDF4' : '#FEF2F2', color: c.estado === 'ACTIVO'? '#22C55E' : '#EF4444'}}>{c.estado}</span></td>
                 <td style={{display: 'flex', gap: '0.8rem'}}>
                   <button className="btn-icon btn-icon-editar" title="Editar"><Edit size={15} /></button>
@@ -311,13 +335,12 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
                     <SelectSGPCFieldset label="Asignatura *" value={form.idasignatura} onChange={(opt:any) => setForm({...form, idasignatura: opt, planacademico: opt?.planacademico || '', carrera: opt?.carrera || ''})} isAsync loadOptions={loadAsignaturas} />
                     <fieldset className="fieldset-sgpc"><legend>Plan Académico</legend><input type="text" value={form.planacademico || ''} readOnly disabled className="input-sgpc" style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} /></fieldset>
                     <fieldset className="fieldset-sgpc"><legend>Carrera</legend><input type="text" value={form.carrera || ''} readOnly disabled className="input-sgpc" style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} /></fieldset>
-                    <fieldset className="fieldset-sgpc"><legend>NRC *</legend><input className="input-sgpc" value={form.nrc} onChange={e => setForm({...form, nrc: e.target.value})} style={{marginTop: '0.4rem'}} /></fieldset>                    
+                    <fieldset className="fieldset-sgpc"><legend>NRC *</legend><input className="input-sgpc" value={form.nrc} onChange={e => setForm({...form, nrc: e.target.value})} style={{marginTop: '0.4rem'}} /></fieldset>
                   </div>
                 </fieldset>
             </div>
            <div className="modal-footer" style={{justifyContent: 'center', gap: '1.6rem'}}>
               <button className="btn-secundario btn-outline-azul" onClick={() => setForm({idpa: null, idhorariod: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: ''})} style={{minWidth: '18rem'}}><Eraser size={16} />Limpiar</button>
-                       
               <button className="btn-primario btn-azul-solido" onClick={handleGuardar} disabled={!puedeGuardar} style={{minWidth: '18rem'}}><Save size={16} />Guardar</button>
            </div>
           </div>
@@ -329,22 +352,22 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
         dataWizard1={dataWizard2}
       />
     <style jsx>{`
-      .grid-2 {
+     .grid-2 {
           display: grid;
           grid-template-columns: 1fr 2fr;
           gap: 1.6rem;
         }
-      .grid-2.sgpc-fieldset {
+     .grid-2.sgpc-fieldset {
           margin: 0;
           padding-left:0;
         }
         @media (max-width: 1024px) {
-        .grid-2 {
+       .grid-2 {
             grid-template-columns: repeat(1, 1fr);
           }
         }
         @media (max-width: 600px) {
-        .grid-4 {
+       .grid-4 {
             grid-template-columns: 1fr;
           }
         }

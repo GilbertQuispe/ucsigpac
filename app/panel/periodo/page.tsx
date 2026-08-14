@@ -221,7 +221,7 @@ export default function PeriodoPage() {
               <div className="grid-2">
                 <div className="input-wrapper">
                   <label className="input-label">Código Periodo</label>
-                  <input className="input-sgpc-floating" placeholder="2026-I" value={form.codigo || ""} onChange={e => setForm({...form, codigo: e.target.value.toUpperCase() })} maxLength={20} />
+                  <input className="input-sgpc-floating" placeholder="202610" value={form.codigo || ""} onChange={e => setForm({...form, codigo: e.target.value.toUpperCase() })} maxLength={20} />
                 </div>
                 <div className="input-wrapper">
                   <label className="input-label">Nombre Periodo *</label>

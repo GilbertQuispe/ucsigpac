@@ -1,6 +1,6 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
-import { X, Save, Eraser, Clock, BookOpen, Plus, Users, AlertCircle } from 'lucide-react'
+import { X, Save, Eraser, Clock, BookOpen, Plus, Users, AlertCircle, Lock } from 'lucide-react'
 import { createClient } from '@/lib/client'
 import AsyncSelect from 'react-select/async'
 import Select from 'react-select'
@@ -33,79 +33,157 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
   const [horarioLaboralDoc, setHorarioLaboralDoc] = useState<any[]>([])
   const [showConfirm, setShowConfirm] = useState(false)
   const [totalMatriculados, setTotalMatriculados] = useState(0)
+  const [horariosRegistrados, setHorariosRegistrados] = useState<any[]>([])
 
   const [horarioAcad, setHorarioAcad] = useState(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
   const diaEstaEnLaboral = (dia: string) => horarioLaboralDoc.some(h => h.dia_semana === dia)
-  const getHorasLaboralesDia = (dia: string) => { const reg = horarioLaboralDoc.find(h => h.dia_semana === dia); return reg ? { inicio: reg.hora_inicio, fin: reg.hora_fin } : null }
+  const getHorasLaboralesDia = (dia: string) => { const reg = horarioLaboralDoc.find(h => h.dia_semana === dia); return reg? { inicio: reg.hora_inicio, fin: reg.hora_fin } : null }
+
+  const esSoloLectura = dataWizard1?.esSoloLectura || false
 
  useEffect(() => {
   const cargar = async () => {
-    if(!show || !dataWizard1?.idpa || !dataWizard1?.iddocente) { 
-      setEstudiantes([]); 
-      setHorarioLaboralDoc([]); 
-      setTotalMatriculados(0);
+    setIdMatriculaSel(null)
+    if(!show ||!dataWizard1?.idpa ||!dataWizard1?.iddocente ||!dataWizard1?.nrc) {
+      setEstudiantes([]); setHorarioLaboralDoc([]); setTotalMatriculados(0); setHorariosRegistrados([]);
       setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
-      return 
+      return
     }
-    
-    console.log("BUSCANDO HORARIO DE:", dataWizard1.iddocente, "PERIODO:", dataWizard1.idpa) // DEBUG
 
-    // 1. CARGAR ESTUDIANTES
+    // 1. CARGAR HORARIO LABORAL DEL DOCENTE ACTUAL - SIEMPRE
+    const { data: horLab } = await supabase.from('horariodocente').select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`).eq('campoclinico.iddocente', dataWizard1.iddocente).eq('campoclinico.idpa', dataWizard1.idpa)
+    setHorarioLaboralDoc(horLab || [])
+
+    // 2. CARGAR ESTUDIANTES MATRICULADOS DEL PERIODO
     const { data: mat } = await supabase.from('matricula').select('idmatricula, idestudiante').eq('idpa', Number(dataWizard1.idpa)).eq('estado', 'MATRICULADO')
     if(mat && mat.length > 0) {
       const ids = mat.map(m => m.idestudiante)
       const { data: est } = await supabase.from('estudiante').select('idestudiante, idpersona').in('idestudiante', ids)
       const idsPer = est?.map(e => e.idpersona) || []
       const { data: pers } = await supabase.from('persona').select('idpersona, dni, apellidos, nombres').in('idpersona', idsPer)
-      const lista = mat.map(m => { const e = est?.find(x => x.idestudiante === m.idestudiante); const p = pers?.find(x => x.idpersona === e?.idpersona); return p ? { value: m.idmatricula, label: `${p.dni} - ${p.apellidos}, ${p.nombres}` } : null }).filter(Boolean)
+      const lista = mat.map(m => { const e = est?.find(x => x.idestudiante === m.idestudiante); const p = pers?.find(x => x.idpersona === e?.idpersona); return p? { value: m.idmatricula, label: `${p.dni} - ${p.apellidos}, ${p.nombres}` } : null }).filter(Boolean)
       setEstudiantes(lista)
     } else { setEstudiantes([]) }
 
-    // 2. CARGAR HORARIO LABORAL - ESTE ERA EL ERROR
-    const { data: horLab } = await supabase
-      .from('horariodocente')
-      .select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`)
-      .eq('campoclinico.iddocente', dataWizard1.iddocente) // <- FILTRAR POR DOCENTE DENTRO DE CAMPOC
-      .eq('campoclinico.idpa', dataWizard1.idpa) // <- FILTRAR POR PERIODO
+    // 3. CARGAR HORARIOS YA REGISTRADOS - CLAVE: SI ES REUTILIZADO USAMOS REFERENCIA
+    const idParaBuscar = esSoloLectura? dataWizard1.idcargaacad_referencia : dataWizard1.idcargaacad
 
-    console.log("HORARIO ENCONTRADO:", horLab) // DEBUG
-    setHorarioLaboralDoc(horLab || [])
+    const { data: horRegistrados } = await supabase.from('horario')
+ .select(`*, matricula!inner(idmatricula, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres))), detallehorario(*)`)
+ .eq('idcargaacad', idParaBuscar)
+ .eq('estado', 'ACTIVO')
 
-    // 3. CONTAR MATRICULADOS
-    const { count } = await supabase.from('horario').select('idhorario, cargaacademica!inner(nrc)', { count: 'exact', head: true }).eq('cargaacademica.nrc', dataWizard1.nrc)
-    setTotalMatriculados(count || 0)
+    setHorariosRegistrados(horRegistrados || [])
+    setTotalMatriculados(horRegistrados?.length || 0)
+
+    // 4. SI ES SOLO LECTURA, CARGAMOS EL HORARIO DE LA CARGA ORIGINAL
+    if(esSoloLectura && horRegistrados && horRegistrados.length > 0) {
+      const primerHorario = horRegistrados[0]
+      const detalle = primerHorario.detallehorario || []
+      const nuevoHorario = DIAS_SEMANA.map(d => {
+        const det = detalle.find((x:any) => x.dia_semana === d)
+        return det? { dia: d, sel: true, horaInicio: det.hora_inicio, horaFin: det.hora_fin } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
+      })
+      setHorarioAcad(nuevoHorario)
+      showToast('Horario heredado del NRC. Solo puede agregar estudiantes.', 'success')
+    } else {
+      setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
+    }
+
   }
   cargar()
 }, [show, dataWizard1])
 
-  useEffect(() => {
-    if(!showConfirm && show && dataWizard1?.nrc) {
-      const recargarCount = async () => {
-        const { count } = await supabase.from('horario').select('idhorario, cargaacademica!inner(nrc)', { count: 'exact', head: true }).eq('cargaacademica.nrc', dataWizard1.nrc)
-        setTotalMatriculados(count || 0)
-      }
-      recargarCount()
-    }
-  }, [showConfirm, show, dataWizard1])
+  const totalSemanal = useMemo(() => horarioAcad.reduce((acc, h) => acc + (h.sel? calcularHoras(h.horaInicio, h.horaFin) : 0), 0), [horarioAcad])
 
-  const totalSemanal = useMemo(() => horarioAcad.reduce((acc, h) => acc + (h.sel ? calcularHoras(h.horaInicio, h.horaFin) : 0), 0), [horarioAcad])
-
-  const handleGrabar = async () => {
+const handleGrabar = async () => {
     if(!idMatriculaSel) { showToast('Seleccione un estudiante', 'error'); return }
-    const diasSel = horarioAcad.filter(h => h.sel)
-    if(diasSel.length === 0) { showToast('Seleccione al menos 1 día', 'error'); return }
-    setLoadingW2(true)
-    const { data: horInsert, error: errHor } = await supabase.from('horario').insert({ idcargaacad: dataWizard1.idcargaacad, idmatricula: idMatriculaSel, estado: 'ACTIVO' }).select().single()
-    if(errHor) { showToast(errHor.message, 'error'); setLoadingW2(false); return }
-    const detalleToInsert = diasSel.map(d => ({ idhorario: horInsert.idhorario, dia_semana: d.dia, hora_inicio: d.horaInicio, hora_fin: d.horaFin, estado: 'ACTIVO' }))
-     const { error: errDet } = await supabase.from('detallehorario').insert(detalleToInsert)
 
-    if(errDet) showToast(errDet.message, 'error')
-    else {
-      showToast('Carga académica registrada', 'success')
-      setTimeout(() => setShowConfirm(true), 1000)
+    const diasSel = horarioAcad.filter(h => h.sel)
+    if(!esSoloLectura && diasSel.length === 0) {
+      showToast('Seleccione al menos 1 día', 'error');
+      return
     }
+    setLoadingW2(true)
+
+    // VALIDACION 1: ESTUDIANTE YA EN ESE NRC
+    const { data: existeEnNrc } = await supabase
+     .from('horario')
+     .select('idhorario')
+     .eq('idmatricula', idMatriculaSel)
+     .eq('idcargaacad', dataWizard1.idcargaacad)
+     .eq('estado', 'ACTIVO')
+     .maybeSingle()
+
+    if(existeEnNrc) {
+      showToast('Este estudiante ya está registrado en este NRC para el periodo', 'error')
+      setIdMatriculaSel(null)
+      setLoadingW2(false)
+      return
+    }
+
+    // VALIDACION 2: NUEVA - ESTUDIANTE YA EN ESA ASIGNATURA + PERIODO
+    // Buscamos en todas las cargas de esa asignatura y ese periodo
+    const { data: existeEnAsignatura } = await supabase
+     .from('horario')
+     .select(`
+      idhorario,
+      cargaacademica!inner(
+        idcargaacad,
+        idasignatura,
+        horariodocente!inner(
+          campoclinico!inner(idpa)
+        )
+      )
+     `)
+     .eq('idmatricula', idMatriculaSel)
+     .eq('cargaacademica.idasignatura', dataWizard1.idasignatura) // <-- AHORA SI TENEMOS EL ID
+     .eq('cargaacademica.horariodocente.campoclinico.idpa', dataWizard1.idpa)
+     .eq('estado', 'ACTIVO')
+     .maybeSingle()
+
+    if(existeEnAsignatura) {
+      showToast('Este estudiante ya está matriculado en esta Asignatura para el periodo', 'error')
+      setIdMatriculaSel(null)
+      setLoadingW2(false)
+      return
+    }
+
+    // 1. SIEMPRE INSERTAMOS EN HORARIO CON LA CARGA NUEVA
+    const { data: horInsert, error: errHor } = await supabase
+     .from('horario')
+     .insert({ idcargaacad: dataWizard1.idcargaacad, idmatricula: idMatriculaSel, estado: 'ACTIVO' })
+     .select().single()
+
+    if(errHor) { showToast(errHor.message, 'error'); setLoadingW2(false); return }
+
+    // 2. SOLO INSERTAR DETALLE SI ES CARGA NUEVA
+    if(!esSoloLectura) {
+      const detalleToInsert = diasSel.map(d => ({
+        idhorario: horInsert.idhorario,
+        dia_semana: d.dia,
+        hora_inicio: d.horaInicio,
+        hora_fin: d.horaFin,
+        estado: 'ACTIVO'
+      }))
+      const { error: errDet } = await supabase.from('detallehorario').insert(detalleToInsert)
+      if(errDet) { showToast(errDet.message, 'error'); setLoadingW2(false); return }
+    }
+
+    // 3. ACTUALIZAR BADGE Y LIMPIAR
+    setTotalMatriculados(prev => prev + 1)
+    
+    const idParaBuscar = esSoloLectura? dataWizard1.idcargaacad_referencia : dataWizard1.idcargaacad
+    const { data: horRecarga } = await supabase.from('horario')
+    .select(`*, matricula!inner(idmatricula, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`)
+    .eq('idcargaacad', idParaBuscar)
+    .eq('estado', 'ACTIVO')
+    setHorariosRegistrados(horRecarga || [])
+
+    showToast('Estudiante agregado al NRC', 'success')    
+    setIdMatriculaSel(null)
+    setShowConfirm(true)
     setLoadingW2(false)
   }
 
@@ -117,36 +195,48 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
         {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.8rem' }}><AlertCircle size={18}/>{toast.msg}</div>}
         <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '90rem'}}>
           <div className="modal-header">
-            {/* TITULO PRINCIPAL: NEGRITA Y MAS GRANDE */}
             <p className="titulo-principal"><BookOpen size={24} /> Registro de Horario Académico</p>
             <button onClick={onClose} className="btn-cerrar-modal"><X size={18} /></button>
           </div>
           <div className="modal-body">
-            {/* DATOS DE LA CARGA */}
             <fieldset className="fieldset-sgpc-section">
-  <legend className="legend-sgpc-titulo">Datos de la Carga</legend>
-  <div style={{display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'stretch'}}>
-    {/* COLUMNA IZQUIERDA */}
-    <div>
-      <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem'}}>
-        <div><label className="label-sgpc">Docente</label><p className="text-bold">{dataWizard1?.docente}</p></div>
-        <div><label className="label-sgpc">DNI</label><p className="text-bold">{dataWizard1?.dni}</p></div>
-        <div style={{gridColumn: '1 / 3'}}><label className="label-sgpc">Asignatura</label><p className="text-bold">{dataWizard1?.asignatura}</p></div>
-      </div>
-    </div>
+              <legend className="legend-sgpc-titulo">Datos de la Carga</legend>
+              <div style={{display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem', alignItems: 'stretch'}}>
+                <div>
+                  <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.5rem'}}>
+                    <div><label className="label-sgpc">Docente</label><p className="text-bold">{dataWizard1?.docente}</p></div>
+                    <div><label className="label-sgpc">DNI</label><p className="text-bold">{dataWizard1?.dni}</p></div>
+                    <div style={{gridColumn: '1 / 3'}}><label className="label-sgpc">Asignatura</label><p className="text-bold">{dataWizard1?.asignatura}</p></div>
+                  </div>
+                </div>
+                <div className="card-nrc-badge">
+                  <div style={{textAlign: 'center'}}><label className="label-sgpc">NRC</label><div className="nrc-box">{dataWizard1?.nrc}</div></div>
+                  <span className="badge-sgpc-primario">Estudiantes en NRC: {totalMatriculados}</span>
+                </div>
+              </div>
+            </fieldset>
 
-    {/* COLUMNA DERECHA: CARD CON NRC + BADGE */}
-    <div className="card-nrc-badge">
-      <div style={{textAlign: 'center'}}>
-        <label className="label-sgpc">NRC</label>
-        <div className="nrc-box">{dataWizard1?.nrc}</div>
-      </div>
-      <span className="badge-sgpc-primario">Estudiantes Matriculados: {totalMatriculados}</span>
-    </div>
-  </div>
-</fieldset>
+            {horariosRegistrados.length > 0 && (
+              <fieldset className="fieldset-sgpc-section">
+                <legend className="legend-sgpc-titulo"><Users size={18}/> Estudiantes ya registrados en este NRC</legend>
+                <div className="table-responsive">
+                  <table className='tabla-sgpc'>
+                    <thead><tr><th>#</th><th>DNI</th><th>Estudiante</th></tr></thead>
+                    <tbody>
+                      {horariosRegistrados.map((h:any,i:number)=>
+                        <tr key={h.idhorario}>
+                          <td>{i+1}</td>
+                          <td>{h.matricula?.estudiante?.persona?.dni}</td>
+                          <td>{h.matricula?.estudiante?.persona?.apellidos}, {h.matricula?.estudiante?.persona?.nombres}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </fieldset>
+            )}
+
             <fieldset className="fieldset-sgpc-section">
-              {/* LEYENDA: NEGRITA Y MAS GRANDE */}
               <legend className="legend-sgpc-titulo"><Clock size={18}/> Horario Laboral del Docente</legend>
               <div className="table-responsive">
                 <table className='tabla-sgpc'>
@@ -157,50 +247,55 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
                 </table>
               </div>
             </fieldset>
+
             <fieldset className="fieldset-sgpc-section">
-              {/* LEYENDA: NEGRITA Y MAS GRANDE */}
-              <legend className="legend-sgpc-titulo">Horario Académico de la Asignatura</legend>
+              <legend className="legend-sgpc-titulo">Horario Académico de la Asignatura {esSoloLectura && <span style={{fontSize: '1.3rem', color: '#64748b'}}>- Heredado del NRC <Lock size={14}/></span>}</legend>
               <p className="text-muted" style={{marginBottom: '1rem'}}>Marque los días y horas. Solo se habilitan días dentro del horario laboral.</p>
               <div style={{border: '1px solid #cbd5e1', borderRadius: '0.8rem', overflow: 'hidden'}}>
-                <div style={{display: 'grid', gridTemplateColumns: '5rem 12rem 1fr 1fr 1fr 12rem', background: 'var(--color-primario)', padding: '1.2rem', color: '#fff', fontWeight: 600}}>
+                <div style={{display: 'grid', gridTemplateColumns: '5rem 20rem 10rem 5rem 10rem 12rem', background: 'var(--color-primario)', padding: '1.2rem', color: '#fff', fontWeight: 400}}>
                   <span>Sel</span><span>Día</span><span>Hora Inicio</span><span></span><span>Hora Final</span><span style={{textAlign: 'center'}}>Total Día</span>
                 </div>
                 {horarioAcad.map((h,i) => {
                   const enLaboral = diaEstaEnLaboral(h.dia)
                   const horasLab = getHorasLaboralesDia(h.dia)
                   return (
-                    <div key={h.dia} style={{ display: 'grid', gridTemplateColumns: '5rem 12rem 1fr 1fr 1fr 12rem', padding: '1rem', borderTop: '1px solid #e5e7eb', alignItems: 'center', background: !enLaboral ? '#f8fafc' : '#fff', opacity: !enLaboral ? 0.5 : 1 }}>
-                      <input type="checkbox" disabled={!enLaboral} checked={h.sel} onChange={() => setHorarioAcad(prev => prev.map((p,idx)=> idx===i? {...p, sel: !p.sel} : p))} />
-                      <span style={{fontWeight: 600}}>{h.dia} {!enLaboral && <span style={{color: '#EF4444', fontSize: '1.1rem'}}>(No labora)</span>}</span>
-                      <input type="time" value={h.horaInicio} min={horasLab?.inicio} max={horasLab?.fin} disabled={!h.sel || !enLaboral} onChange={e => setHorarioAcad(prev => prev.map((p,idx)=> idx===i? {...p, horaInicio: e.target.value} : p))} className="input-sgpc" />
+                    <div key={h.dia} style={{ display: 'grid', gridTemplateColumns: '5rem 20rem 10rem 5rem 10rem 12rem', padding: '1rem', borderTop: '1px solid #e5e7eb', alignItems: 'center', background: !enLaboral ? '#f8fafc' : '#fff', opacity: !enLaboral || esSoloLectura ? 0.5 : 1 }}>
+                      <input type="checkbox" disabled={!enLaboral || esSoloLectura} checked={h.sel} onChange={() => setHorarioAcad(prev => prev.map((p,idx)=> idx===i? {...p, sel: !p.sel} : p))} />
+                      <span style={{fontWeight: 400}}>{h.dia} {!enLaboral && <span style={{color: '#EF4444', fontSize: '1.1rem'}}>(No labora)</span>}</span>
+                      <input type="time" value={h.horaInicio} min={horasLab?.inicio} max={horasLab?.fin} disabled={!h.sel || !enLaboral || esSoloLectura} onChange={e => setHorarioAcad(prev => prev.map((p,idx)=> idx===i? {...p, horaInicio: e.target.value} : p))} className="input-sgpc" />
                       <span style={{textAlign: 'center'}}>a</span>
-                      <input type="time" value={h.horaFin} min={horasLab?.inicio} max={horasLab?.fin} disabled={!h.sel || !enLaboral} onChange={e => setHorarioAcad(prev => prev.map((p,idx)=> idx===i? {...p, horaFin: e.target.value} : p))} className="input-sgpc" />
-                      <span style={{fontWeight: 600, textAlign: 'center'}}>{h.sel ? `${calcularHoras(h.horaInicio, h.horaFin).toFixed(2)} hrs` : '0.00 hrs'}</span>
+                      <input type="time" value={h.horaFin} min={horasLab?.inicio} max={horasLab?.fin} disabled={!h.sel || !enLaboral || esSoloLectura} onChange={e => setHorarioAcad(prev => prev.map((p,idx)=> idx===i? {...p, horaFin: e.target.value} : p))} className="input-sgpc" />
+                      <span style={{fontWeight: 400, textAlign: 'center'}}>{h.sel ? `${calcularHoras(h.horaInicio, h.horaFin).toFixed(2)} hrs` : '0.00 hrs'}</span>
                     </div>
                   )
                 })}
-                <div style={{textAlign: 'right', padding: '1.2rem', fontWeight: 700, background: '#eff6ff', borderTop: '2px solid var(--color-primario)', fontSize: '1.6rem'}}>Total Semanal: {totalSemanal.toFixed(2)} Horas</div>
+                <div style={{textAlign: 'right', padding: '1.2rem', fontWeight: 600, background: '#eff6ff', borderTop: '2px solid var(--color-primario)', fontSize: '1.4rem'}}>Total Semanal: {totalSemanal.toFixed(2)} Horas</div>
               </div>
             </fieldset>
+
             <fieldset className="fieldset-sgpc-section">
-              {/* LEYENDA: NEGRITA Y MAS GRANDE */}
-              <legend className="legend-sgpc-titulo"><Users size={18}/> Estudiante Matriculado</legend>
+              <legend className="legend-sgpc-titulo"><Users size={18}/> Agregar Estudiante Matriculado</legend>
               <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
                 <div style={{flex: 1}}>
-                  <SelectSGPCFieldset 
-  label="DNI + Estudiante *" 
-  value={estudiantes.find(e => e.value === idMatriculaSel) || null} 
-  onChange={(opt:any) => setIdMatriculaSel(opt?.value || null)} 
-  options={estudiantes} 
-/>
+                  <SelectSGPCFieldset label="DNI + Estudiante *" value={estudiantes.find(e => e.value === idMatriculaSel) || null} onChange={(opt:any) => setIdMatriculaSel(opt?.value || null)} options={estudiantes} isDisabled={false} />
                 </div>
-                <span className="badge-sgpc-info">En BD: {estudiantes.length}</span>
+                <span className="badge-sgpc-info">Matriculados en Periodo: {estudiantes.length}</span>
               </div>
               {estudiantes.length === 0 && <p style={{color: '#EF4444', marginTop: '0.8rem', fontSize: '1.3rem'}}>No hay estudiantes matriculados activos para el periodo</p>}
             </fieldset>
           </div>
           <div className="modal-footer" style={{justifyContent: 'center', gap: '1.6rem'}}>
-            <button className="btn-secundario" onClick={() => setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))}><Eraser size={16} />Limpiar</button>
+            
+           <button 
+  className="btn-secundario" 
+  onClick={() => {
+    setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })));
+    setIdMatriculaSel(null);
+  }} 
+  disabled={false}
+>
+  <Eraser size={16} />Limpiar
+</button>
             <button className="btn-primario" onClick={handleGrabar} disabled={loadingW2}><Save size={16} />{loadingW2 ? 'Grabando...' : 'Grabar Horario'}</button>
           </div>
         </div>
@@ -209,62 +304,24 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
         <div className="modal-overlay" style={{zIndex: 10000}}>
           <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '45rem'}}>
             <div className="modal-header"><h2>¿Desea Registrar otro estudiante?</h2></div>
-            <div className="modal-body"><p>La carga del estudiante anterior se guardó correctamente.</p></div>
+            <div className="modal-body"><p>El horario del estudiante anterior se guardó correctamente.</p></div>
             <div className="modal-footer" style={{justifyContent: 'center', gap: '1.6rem'}}>
-              
               <button className="btn-secundario" onClick={() => { setIdMatriculaSel(null); setShowConfirm(false)}}> <Plus size={16} />Sí, Agregar Otro</button>
               <button className="btn-primario" onClick={() => { setShowConfirm(false); onClose() }}><X size={16} />Terminar</button>
             </div>
           </div>
         </div>
       )}
-      {/* ESTILOS NUEVOS */}
       <style jsx>{`
-  .titulo-principal { font-size: 2.4rem; font-weight: 800; color: var(--color-primario); display: flex; align-items: center; gap: 0.8rem; }
-  .legend-sgpc-titulo { font-size: 1.8rem !important; font-weight: 700 !important; color: var(--color-texto); display: flex; align-items: center; gap: 0.6rem; }
-  
-  /* NUEVO: CARD PARA NRC Y BADGE */
-  .card-nrc-badge {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    gap: 1.2rem;
-    padding: 1.6rem;
-    background: #FFF7ED; /* Fondo naranja clarito */
-    border: 2px solid #FED7AA;
-    border-radius: 1.2rem;
-  }
-
-  /* NUEVO: NRC DENTRO DE RECUADRO */
-  .nrc-box {
-    font-size: 2.6rem;
-    font-weight: 800;
-    color: #D97706; /* Naranja fuerte */
-    background: #fff;
-    border: 2px dashed #F59E0B;
-    border-radius: 0.8rem;
-    padding: 0.8rem 1.6rem;
-    min-width: 14rem;
-    text-align: center;
-    letter-spacing: 1px;
-  }
-
-  .badge-sgpc-primario {
-    background: var(--color-primario);
-    color: #fff;
-    padding: 1rem 0.5rem;
-    border-radius: 10px;
-    font-size: 1.5rem;
-    font-weight: 700;
-    text-align: center;
-    box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.1);
-    width: 100%;
-  }
-  .badge-sgpc-info { background: #dbeafe; color: #1e40af; padding: 0.6rem 1.2rem; border-radius: 20px; font-size: 1.3rem; font-weight: 600; white-space: nowrap; }
-  .text-bold { font-weight: 600; font-size: 1.5rem; }
-  .label-sgpc { font-size: 1.2rem; color: #64748b; margin-bottom: 0.4rem; display: block; font-weight: 500; }
-`}</style>
+        .titulo-principal { font-size: 2.4rem; font-weight: 800; color: var(--color-primario); display: flex; align-items: center; gap: 0.8rem; }
+        .legend-sgpc-titulo { font-size: 1.8rem !important; font-weight: 700 !important; color: var(--color-texto); display: flex; align-items: center; gap: 0.6rem; }
+        .card-nrc-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 1.2rem; padding: 1.6rem; background: #FFF7ED; border: 2px solid #FED7AA; border-radius: 1.2rem; }
+        .nrc-box { font-size: 2.6rem; font-weight: 800; color: #D97706; background: #fff; border: 2px dashed #F59E0B; border-radius: 0.8rem; padding: 0.8rem 1.6rem; min-width: 14rem; text-align: center; letter-spacing: 1px; }
+        .badge-sgpc-primario { background: var(--color-primario); color: #fff; padding: 1rem 0.5rem; border-radius: 10px; font-size: 1.5rem; font-weight: 700; text-align: center; box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.1); width: 100%; }
+        .badge-sgpc-info { background: #dbeafe; color: #1e40af; padding: 0.6rem 1.2rem; border-radius: 20px; font-size: 1.3rem; font-weight: 600; white-space: nowrap; }
+        .text-bold { font-weight: 600; font-size: 1.5rem; }
+        .label-sgpc { font-size: 1.2rem; color: #64748b; margin-bottom: 0.4rem; display: block; font-weight: 500; }
+      `}</style>
     </>
   )
 }
