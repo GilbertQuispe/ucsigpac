@@ -127,10 +127,19 @@ const handleGrabar = async () => {
       if(errDet) { showToast(errDet.message, 'error'); setLoadingW2(false); return }
     }
 
-    setTotalMatriculados(prev => prev + 1)
-    const idParaBuscar = esSoloLectura? dataWizard1.idcargaacad_referencia : dataWizard1.idcargaacad
-    const { data: horRecarga } = await supabase.from('horario').select(`*, matricula!inner(idmatricula, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`).eq('idcargaacad', idParaBuscar).eq('estado', 'ACTIVO')
+    // ===== FIX: CARGAR AMBOS NRC SI ES REUTILIZABLE =====
+    let idsACargar = [dataWizard1.idcargaacad]
+    if(esSoloLectura && dataWizard1.idcargaacad_referencia){
+      idsACargar.push(dataWizard1.idcargaacad_referencia)
+    }
+
+    const { data: horRecarga } = await supabase.from('horario')
+      .select(`*, matricula!inner(idmatricula, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`)
+      .in('idcargaacad', idsACargar) // <-- usamos IN para traer ambos
+      .eq('estado', 'ACTIVO')
+    
     setHorariosRegistrados(horRecarga || [])
+    setTotalMatriculados(horRecarga?.length || 0) // ACTUALIZA BADGE
 
     showToast('Estudiante agregado al NRC', 'success')    
     setIdMatriculaSel(null)
@@ -147,7 +156,7 @@ const handleGrabar = async () => {
         <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '75rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column'}}>
           
           {/* HEADER MAS COMPACTO */}
-          <div className="modal-header" style={{padding: '1.2rem 2rem'}}> 
+          <div className="modal-header" style={{padding: '0.5rem 0rem'}}> 
             <p className="titulo-principal"><BookOpen size={18} /> Registro de Horario Académico</p>
             <button onClick={onClose} className="btn-cerrar-modal"><X size={16} /></button>
           </div>
@@ -168,7 +177,7 @@ const handleGrabar = async () => {
                 {/* CARD NRC MAS PEQUEÑO */}
                 <div className="card-nrc-badge">
                   <div style={{textAlign: 'center'}}><label className="label-sgpc" style={{fontSize: '1rem'}}>NRC</label><div className="nrc-box">{dataWizard1?.nrc}</div></div>
-                  <span className="badge-sgpc-primario">Est: {totalMatriculados}</span>
+                  <span className="badge-sgpc-primario">Estudiantes con NRC: {totalMatriculados}</span>
                 </div>
               </div>
             </fieldset>
@@ -259,21 +268,26 @@ const handleGrabar = async () => {
           </div>
         </div>
       )}
-       <style jsx>{`
-        .titulo-principal { font-size: 1.8rem; font-weight: 700; color: var(--color-primario); display: flex; align-items: center; gap: 0.8rem; }
-        .legend-sgpc-titulo { font-size: 1.5rem !important; font-weight: 700 !important; color: var(--color-texto); display: flex; align-items: center; gap: 0.6rem; }
-        .card-nrc-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 0.6rem; padding: 0.8rem; background: #FFF7ED; border: 2px solid #FED7AA; border-radius: 0.8rem; }
-        .nrc-box { font-size: 1.8rem; font-weight: 800; color: #D97706; background: #fff; border: 2px dashed #F59E0B; border-radius: 0.6rem; padding: 0.4rem 1rem; min-width: 10rem; text-align: center; letter-spacing: 1px; }
-        .badge-sgpc-primario { background: var(--color-primario); color: #fff; padding: 0.6rem 0.5rem; border-radius: 8px; font-size: 1.2rem; font-weight: 700; text-align: center; box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.1); width: 100%; }
-        .badge-sgpc-info { background: #dbeafe; color: #1e40af; padding: 0.5rem 1rem; border-radius: 20px; font-size: 1.2rem; font-weight: 600; white-space: nowrap; }
-        .text-bold { font-weight: 600; font-size: 1.3rem; }
-        .label-sgpc { font-size: 1.1rem; color: #64748b; margin-bottom: 0.3rem; display: block; font-weight: 500; }
-        .input-sgpc { height: 3.2rem !important; padding: 0 0.8rem !important; font-size: 1.2rem !important; }
-        .fieldset-sgpc-section { border: 1px solid #e5e7eb; border-radius: 0.8rem; padding: 1.2rem; margin-bottom: 1.2rem; }
-        @media (max-width: 768px) {
-          .modal-content { maxWidth: 95vw !important; }
-        }
-      `}</style>
+     <style jsx>{`
+  .titulo-principal { font-size: 1.8rem; font-weight: 700; color: var(--color-primario); display: flex; align-items: center; gap: 0.8rem; }
+  .legend-sgpc-titulo { font-size: 1.5rem !important; font-weight: 700 !important; color: var(--color-texto); display: flex; align-items: center; gap: 0.6rem; }
+  .card-nrc-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 0.6rem; padding: 0.8rem; background: #FFF7ED; border: 2px solid #FED7AA; border-radius: 0.8rem; }
+  .nrc-box { font-size: 1.8rem; font-weight: 800; color: #D97706; background: #fff; border: 2px dashed #F59E0B; border-radius: 0.6rem; padding: 0.4rem 1rem; min-width: 10rem; text-align: center; letter-spacing: 1px; }
+  .badge-sgpc-primario { background: var(--color-primario); color: #fff; padding: 0.6rem 0.5rem; border-radius: 8px; font-size: 1.2rem; font-weight: 700; text-align: center; box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.1); width: 100%; }
+  .badge-sgpc-info { background: #dbeafe; color: '1e40af'; padding: 0.5rem 1rem; border-radius: 20px; font-size: 1.2rem; font-weight: 600; white-space: nowrap; }
+  .text-bold { font-weight: 600; font-size: 1.3rem; }
+  .label-sgpc { font-size: 1.1rem; color: #64748b; margin-bottom: 0.3rem; display: block; font-weight: 500; }
+  .input-sgpc { height: 3.2rem !important; padding: 0 0.8rem !important; font-size: 1.2rem !important; }
+  .fieldset-sgpc-section { border: 1px solid #e5e7eb; border-radius: 0.8rem; padding: '1.2rem'; margin-bottom: 1.2rem; }
+  
+  /* ESTO ES LO NUEVO */
+  :global(.tabla-sgpc tbody td:nth-child(3)) { text-align: left !important; padding-left: 1.2rem !important; }
+:global(.tabla-sgpc thead th:nth-child(3)) { text-align: left !important; padding-left: 1.2rem !important; }
+
+  @media (max-width: 768px) {
+    .modal-content { maxWidth: 95vw !important; }
+  }
+`}</style>
     </>
   )
 }
