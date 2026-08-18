@@ -1,0 +1,310 @@
+'use client'
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/client'
+import { Users, Eye, Trash2, RefreshCcw, Eraser, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
+import AsyncSelect from 'react-select/async'
+import Select from 'react-select'
+
+type RegistroNRC = any
+
+const SelectSGPCFieldset = ({label, value, onChange, options, isAsync = false, loadOptions, isDisabled = false}:any) => {
+  const Component = isAsync? AsyncSelect : Select
+  return (
+    <fieldset className="fieldset-sgpc">
+      <legend>{label}</legend>
+      <Component
+        options={isAsync? undefined : options}
+        loadOptions={isAsync? loadOptions : undefined}
+        defaultOptions={isAsync}
+        cacheOptions={isAsync}
+        value={value}
+        onChange={onChange}
+        isDisabled={isDisabled}
+        placeholder="Seleccione..." isSearchable maxMenuHeight={200}
+        classNamePrefix="react-select"
+        menuPortalTarget={typeof document !== 'undefined' ? document.body : null} // <-- ESTO ES CLAVE
+        menuPosition="fixed"
+        styles={{ 
+          control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem' }), 
+          menuPortal: (base) => ({...base, zIndex: 99999 }), // <-- ESTO ES CLAVE
+          menu: (base) => ({...base, zIndex: 9999 }) 
+        }}
+      />
+    </fieldset>
+  )
+}
+
+export default function EstudiantesNRCPage() {
+  const supabase = createClient()
+  
+  const [registros, setRegistros] = useState<RegistroNRC[]>([])
+  const [periodos, setPeriodos] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+
+  const [searchNRC, setSearchNRC] = useState('')
+  const [filtroPeriodo, setFiltroPeriodo] = useState<any>({value: '', label: 'TODOS'})
+  const [estudianteSel, setEstudianteSel] = useState<any>(null)
+  const [asignaturaSel, setAsignaturaSel] = useState<any>(null)
+
+  const [paginaActual, setPaginaActual] = useState(1)
+  const registrosPorPagina = 10
+  const [totalRegistros, setTotalRegistros] = useState(0)
+
+  const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+
+const loadEstudiantes = async (inputValue: string) => {
+  const {data, error} = await supabase.from('horario')
+    .select(`
+      idmatricula,
+      matricula!inner(
+        idmatricula,
+        estudiante!inner(
+          idestudiante, 
+          persona:idpersona!inner(dni, apellidos, nombres)
+        )
+      ),
+      cargaacademica!inner(
+        idcargaacad,
+        horariodocente:idhorariod(
+          campoclinico:idcampocli!inner(idpa)
+        )
+      )
+    `)
+    .eq('estado', 'ACTIVO')
+    .eq('cargaacademica.estado', 'ACTIVO')
+    .limit(1000)
+
+  if(error || !data) return []
+
+  // 1. Filtrar por periodo en JS
+  let filtrado = data
+  if(filtroPeriodo?.value) {
+    const idpa = Number(filtroPeriodo.value)
+    filtrado = filtrado.filter(h => h.cargaacademica?.horariodocente?.campoclinico?.idpa === idpa)
+  }
+
+  // 2. Quitar duplicados por idestudiante
+  const mapaEst = new Map()
+  filtrado.forEach(h => {
+    const est = h.matricula?.estudiante
+    if(est?.idestudiante && !mapaEst.has(est.idestudiante)) {
+      mapaEst.set(est.idestudiante, est)
+    }
+  })
+
+  // 3. Filtrar por texto
+  const texto = inputValue.toLowerCase().trim()
+  const lista = Array.from(mapaEst.values())
+  const filtrados = texto ? lista.filter(e => 
+    e.persona?.dni?.toLowerCase().includes(texto) || 
+    e.persona?.apellidos?.toLowerCase().includes(texto) ||
+    e.persona?.nombres?.toLowerCase().includes(texto)
+  ) : lista
+
+  return filtrados.map(e => ({
+    value: e.idestudiante,
+    label: `${e.persona.dni} - ${e.persona.apellidos}, ${e.persona.nombres}`
+  }))
+}
+
+const loadAsignaturasFiltro = async (inputValue: string) => {
+  const {data, error} = await supabase.from('horario')
+    .select(`
+      cargaacademica!inner(
+        idasignatura,
+        asignatura:idasignatura(idasignatura, codigo, nombre),
+        horariodocente:idhorariod(
+          campoclinico:idcampocli!inner(idpa)
+        )
+      ),
+      matricula!inner(
+        estudiante!inner(idestudiante)
+      )
+    `)
+    .eq('estado', 'ACTIVO')
+    .eq('cargaacademica.estado', 'ACTIVO')
+    .limit(1000)
+
+  if(error || !data) return []
+
+  // 1. Filtrar por periodo en JS
+  let filtrado = data
+  if(filtroPeriodo?.value) {
+    const idpa = Number(filtroPeriodo.value)
+    filtrado = filtrado.filter(h => h.cargaacademica?.horariodocente?.campoclinico?.idpa === idpa)
+  }
+
+  // 2. Filtrar por estudiante en JS - ESTO ES LO NUEVO
+  if(estudianteSel?.value) {
+    filtrado = filtrado.filter(h => h.matricula?.estudiante?.idestudiante === estudianteSel.value)
+  }
+
+  // 3. Quitar duplicados por idasignatura
+  const mapaAsig = new Map()
+  filtrado.forEach(h => {
+    const asig = h.cargaacademica?.asignatura
+    if(asig?.idasignatura && !mapaAsig.has(asig.idasignatura)) {
+      mapaAsig.set(asig.idasignatura, asig)
+    }
+  })
+
+  // 4. Filtrar por texto
+  const texto = inputValue.toLowerCase().trim()
+  const lista = Array.from(mapaAsig.values())
+  const filtrados = texto ? lista.filter(a => 
+    a.nombre?.toLowerCase().includes(texto) || 
+    a.codigo?.toLowerCase().includes(texto)
+  ) : lista
+
+  return filtrados.map(a => ({
+    value: a.idasignatura, 
+    label: `${a.codigo} - ${a.nombre}`
+  }))
+}
+
+  const fetchData = async () => {
+  setLoading(true)
+  const {data: per} = await supabase.from('periodoacademico').select('*').order('fecha_inicio', {ascending: false})
+  setPeriodos(per || [])
+
+  // 1. Trae todo sin filtro de periodo
+  let query = supabase.from('horario')
+    .select(`
+      idhorario, estado,
+      cargaacademica!inner(
+        idcargaacad, nrc,
+        asignatura:idasignatura(*, carrera:idcarrera(*)),
+        horariodocente:idhorariod(*, campoclinico:idcampocli!inner(*, periodoacademico:idpa(*), filial:idfilial(*)))
+      ),
+      matricula!inner(
+        idmatricula,
+        estudiante!inner(idestudiante, idcarrera, idfilial, persona:idpersona(*))
+      )
+    `, { count: 'exact' })
+    .eq('estado', 'ACTIVO')
+    .eq('cargaacademica.estado', 'ACTIVO')
+
+  if(estudianteSel?.value) query = query.eq('matricula.estudiante.idestudiante', estudianteSel.value)
+  if(asignaturaSel?.value) query = query.eq('cargaacademica.idasignatura', asignaturaSel.value)
+  if(searchNRC) query = query.ilike('cargaacademica.nrc', `%${searchNRC}%`)
+
+  const {data, count, error} = await query.order('idhorario', {ascending: false}).limit(1000) // Trae max 1000
+  
+  if(error) { showToast(error.message, 'error') }
+
+  let dataFiltrada = data || []
+  
+  // 2. FILTRA EN JS IGUAL QUE EN CARGAACADEMICA
+  if(filtroPeriodo?.value) {
+    const idpa = Number(filtroPeriodo.value)
+    dataFiltrada = dataFiltrada.filter(h => h.cargaacademica?.horariodocente?.campoclinico?.idpa === idpa)
+  }
+
+  // 3. PAGINACION MANUAL
+  const inicio = (paginaActual-1)*registrosPorPagina
+  const fin = inicio + registrosPorPagina
+  setRegistros(dataFiltrada.slice(inicio, fin))
+  setTotalRegistros(dataFiltrada.length) // <-- IMPORTANTE: usa length del filtrado
+  setLoading(false)
+}
+
+  useEffect(() => { fetchData() }, [paginaActual, filtroPeriodo, estudianteSel, asignaturaSel, searchNRC])
+
+  const handlePeriodoChange = (opt) => {
+  setFiltroPeriodo(opt)
+  setEstudianteSel(null) // <-- limpia
+  setAsignaturaSel(null) // <-- limpia
+}
+
+  const handleEliminar = async (idhorario: number) => {
+    if(!confirm('¿Está seguro de dar de baja a este estudiante del NRC?')) return
+    const {error} = await supabase.from('horario').update({estado: 'INACTIVO'}).eq('idhorario', idhorario)
+    if(error) showToast(error.message, 'error') 
+    else { showToast('Estudiante dado de baja del NRC', 'success'); fetchData() }
+  }
+
+  const handleReasignar = (reg: any) => {
+    showToast(`Próximamente: Reasignar a otro NRC`, 'success')
+  }
+
+  const handleVerHorario = (reg: any) => {
+    showToast(`Próximamente: Ver horario del estudiante`, 'success')
+  }
+
+  const limpiarFiltros = () => {
+    setSearchNRC(""); 
+    setFiltroPeriodo({value: '', label: 'TODOS'}); 
+    setEstudianteSel(null); 
+    setAsignaturaSel(null); 
+    setPaginaActual(1)
+  }
+
+  return (
+    <div className="main-content">
+      {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}><AlertCircle size={16}/>{toast.msg}</div>}
+
+      <div className="header-responsive">
+        <div><h1><Users size={24} style={{marginRight: '0.8rem'}}/>Gestión Estudiantes con NRC</h1><p>Total: {totalRegistros} registros</p></div>
+      </div>
+
+      <div className="card-sgpc" style={{ marginBottom: '2.4rem', padding: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: '1.2rem', alignItems: 'flex-end' }}>
+          <SelectSGPCFieldset label="Filtrar por Periodo" value={filtroPeriodo} onChange={(opt) => { setFiltroPeriodo(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))]} />
+          <SelectSGPCFieldset label="Estudiante" value={estudianteSel} onChange={(opt) => {setEstudianteSel(opt); setPaginaActual(1)}} isAsync loadOptions={loadEstudiantes} isDisabled={!filtroPeriodo?.value} />
+          <SelectSGPCFieldset
+  key={`asig-${filtroPeriodo?.value || 'todos'}-${estudianteSel?.value || 'todos'}`} // <-- AGREGA ESTO
+  label="Asignatura"
+  value={asignaturaSel}
+  onChange={setAsignaturaSel}
+  isAsync
+  loadOptions={loadAsignaturasFiltro}
+/>
+          <div><legend>Buscar NRC</legend><input className="input-sgpc" placeholder="Buscar NRC..." value={searchNRC} onChange={e => {setSearchNRC(e.target.value); setPaginaActual(1)}} style={{height: "4.4rem", width: '100%', marginTop: '0.4rem' }} /></div>
+          <button className="btn-secundario btn-limpiar" onClick={limpiarFiltros} style={{height: '4.4rem'}}><Eraser size={16} />Limpiar</button>
+        </div>
+      </div>
+
+      <div className="card-sgpc" style={{ overflowX: 'auto' }}>
+        <table className='tabla-sgpc'>
+          <thead><tr>
+            <th>N°</th><th>PERIODO</th><th>FILIAL</th><th>CARRERA</th><th>DNI</th><th>ESTUDIANTE</th><th>ASIGNATURA</th><th>NRC</th><th>ESTADO</th><th>ACCIONES</th>
+          </tr></thead>
+          <tbody>
+            {loading? <tr><td colSpan={10} style={{textAlign: 'center', padding: '2rem'}}>Cargando...</td></tr> :
+            registros.length === 0? <tr><td colSpan={10} style={{textAlign: 'center', padding: '2rem'}}>No hay estudiantes registrados con los filtros actuales</td></tr> :
+            registros.map((r,i) => (
+              <tr key={r.idhorario}>
+                <td>{(paginaActual-1)*registrosPorPagina + i + 1}</td>
+                <td>{r.cargaacademica?.horariodocente?.campoclinico?.periodoacademico?.codigo}</td>
+                <td>{r.cargaacademica?.horariodocente?.campoclinico?.filial?.nombrefilial}</td>
+                <td>{r.cargaacademica?.asignatura?.carrera?.nombrecarrera}</td>
+                <td>{r.matricula?.estudiante?.persona?.dni}</td>
+                <td>{r.matricula?.estudiante?.persona?.apellidos}, {r.matricula?.estudiante?.persona?.nombres}</td>
+                <td>{r.cargaacademica?.asignatura?.nombre}</td>
+                <td><b>{r.cargaacademica?.nrc}</b></td>
+                <td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: '#F0FDF4', color: '#22C55E'}}>{r.estado}</span></td>
+                <td style={{display: 'flex', gap: '0.8rem'}}>
+                  <button className="btn-icon" title="Ver Horario" onClick={() => handleVerHorario(r)}><Eye size={15} /></button>
+                  <button className="btn-icon btn-icon-editar" title="Reasignar" onClick={() => handleReasignar(r)}><RefreshCcw size={15} /></button>
+                  <button className="btn-icon btn-icon-eliminar" title="Eliminar" onClick={() => handleEliminar(r.idhorario)}><Trash2 size={15} /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        
+        {totalRegistros > 0 && (
+          <div className="card-sgpc" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.6rem 2rem', marginTop: '1.6rem', borderRadius: '0.8rem'}}>
+            <span style={{fontSize: '1.4rem'}}>Mostrando { (paginaActual-1)*registrosPorPagina + 1 } al { Math.min(paginaActual*registrosPorPagina, totalRegistros) } de {totalRegistros} registros</span>
+            <div style={{display: 'flex', alignItems: 'center', gap: '1.2rem'}}>
+              <button className="btn-secundario btn-outline-azul" onClick={() => setPaginaActual(paginaActual - 1)} disabled={paginaActual === 1} style={{display: 'flex', alignItems: 'center', gap: '0.6rem'}}><ChevronLeft size={16} /> Anterior</button>
+              <span style={{fontWeight: 600}}>Pág {paginaActual} de {Math.ceil(totalRegistros / registrosPorPagina) || 1}</span>
+              <button className="btn-primario" onClick={() => setPaginaActual(paginaActual + 1)} disabled={paginaActual >= Math.ceil(totalRegistros / registrosPorPagina)} style={{display: 'flex', alignItems: 'center', gap: '0.6rem'}}>Siguiente <ChevronRight size={16} /></button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}

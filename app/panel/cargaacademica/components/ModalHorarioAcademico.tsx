@@ -66,10 +66,22 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
 
     const idParaBuscar = esSoloLectura? dataWizard1.idcargaacad_referencia : dataWizard1.idcargaacad
 
-    const { data: horRegistrados } = await supabase.from('horario')
- .select(`*, matricula!inner(idmatricula, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres))), detallehorario(*)`)
- .eq('idcargaacad', idParaBuscar)
- .eq('estado', 'ACTIVO')
+//     const { data: horRegistrados } = await supabase.from('horario')
+//  .select(`*, matricula!inner(idmatricula, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres))), detallehorario(*)`)
+//  .eq('idcargaacad', idParaBuscar)
+//  .eq('estado', 'ACTIVO')
+
+const { data: horRegistrados } = await supabase.from('horario')
+  .select(`*, 
+    matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres))), 
+    detallehorario(*),
+    cargaacademica!inner(horariodocente!inner(campoclinico!inner(idpa)))
+  `)
+  .eq('idcargaacad', idParaBuscar)
+  .eq('estado', 'ACTIVO')
+  .eq('matricula.idpa', dataWizard1.idpa) // <-- FILTRO CLAVE: SOLO ESTUDIANTES DEL PERIODO ACTUAL
+  .eq('cargaacademica.horariodocente.campoclinico.idpa', dataWizard1.idpa) // <-- DOBLE SEGURIDAD
+
 
     setHorariosRegistrados(horRegistrados || [])
     setTotalMatriculados(horRegistrados?.length || 0)
@@ -133,10 +145,19 @@ const handleGrabar = async () => {
       idsACargar.push(dataWizard1.idcargaacad_referencia)
     }
 
+    // const { data: horRecarga } = await supabase.from('horario')
+    //   .select(`*, matricula!inner(idmatricula, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`)
+    //   .in('idcargaacad', idsACargar) // <-- usamos IN para traer ambos
+    //   .eq('estado', 'ACTIVO')
+
     const { data: horRecarga } = await supabase.from('horario')
-      .select(`*, matricula!inner(idmatricula, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`)
-      .in('idcargaacad', idsACargar) // <-- usamos IN para traer ambos
-      .eq('estado', 'ACTIVO')
+  .select(`*, 
+    matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres))),
+    cargaacademica!inner(horariodocente!inner(campoclinico!inner(idpa)))
+  `)
+  .in('idcargaacad', idsACargar)
+  .eq('estado', 'ACTIVO')
+  .eq('matricula.idpa', dataWizard1.idpa) // <-- SOLO DEL PERIODO ACTUAL
     
     setHorariosRegistrados(horRecarga || [])
     setTotalMatriculados(horRecarga?.length || 0) // ACTUALIZA BADGE
