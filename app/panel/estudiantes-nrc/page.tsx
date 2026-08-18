@@ -4,6 +4,8 @@ import { createClient } from '@/lib/client'
 import { Users, Eye, Trash2, RefreshCcw, Eraser, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
 import AsyncSelect from 'react-select/async'
 import Select from 'react-select'
+import ModalVerHorarioSoloLectura from './components/ModalVerHorarioSoloLectura'
+import ModalReasignarEstudiante from './components/ModalReasignarEstudiante'
 
 type RegistroNRC = any
 
@@ -36,6 +38,13 @@ const SelectSGPCFieldset = ({label, value, onChange, options, isAsync = false, l
 
 export default function EstudiantesNRCPage() {
   const supabase = createClient()
+
+  // NUEVO - PARA LOS MODALES
+  const [showVer, setShowVer] = useState(false)
+  const [idHorarioSel, setIdHorarioSel] = useState<number | null>(null)
+  
+  const [showReasignar, setShowReasignar] = useState(false)
+  const [dataReasignar, setDataReasignar] = useState<any>(null)
   
   const [registros, setRegistros] = useState<RegistroNRC[]>([])
   const [periodos, setPeriodos] = useState<any[]>([])
@@ -285,8 +294,20 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
                 <td><b>{r.cargaacademica?.nrc}</b></td>
                 <td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: '#F0FDF4', color: '#22C55E'}}>{r.estado}</span></td>
                 <td style={{display: 'flex', gap: '0.8rem'}}>
-                  <button className="btn-icon" title="Ver Horario" onClick={() => handleVerHorario(r)}><Eye size={15} /></button>
-                  <button className="btn-icon btn-icon-editar" title="Reasignar" onClick={() => handleReasignar(r)}><RefreshCcw size={15} /></button>
+                  <button className="btn-icon" title="Ver Horario" onClick={() => {setIdHorarioSel(r.idhorario); setShowVer(true)}}><Eye size={15} /></button>
+                  {/* <button onClick={() => {setIdHorarioSel(h.idhorario); setShowVer(true)}}><Eye /></button> */}
+                  <button className="btn-icon btn-icon-editar" title="Reasignar" onClick={() => { 
+      setDataReasignar({
+        idhorario: r.idhorario,
+        idmatricula: r.idmatricula,
+        idcargaacad: r.idcargaacad,
+        idpa: r.idpa,
+        idasignatura: r.idasignatura,
+        estudiante: `${r.estudiante_apellidos}, ${r.estudiante_nombres}`,
+        nrc_actual: r.nrc
+      }); 
+      setShowReasignar(true) 
+    }}><RefreshCcw size={15} /></button>
                   <button className="btn-icon btn-icon-eliminar" title="Eliminar" onClick={() => handleEliminar(r.idhorario)}><Trash2 size={15} /></button>
                 </td>
               </tr>
@@ -304,6 +325,20 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
             </div>
           </div>
         )}
+
+        {/* MODALES NUEVOS */}
+<ModalVerHorarioSoloLectura 
+  show={showVer} 
+  onClose={() => setShowVer(false)} 
+  idhorario={idHorarioSel} 
+/>
+
+<ModalReasignarEstudiante 
+  show={showReasignar} 
+  onClose={() => setShowReasignar(false)} 
+  dataEstudiante={dataReasignar}
+  onReasignado={() => fetchData()} // para que recargue la tabla
+/>
       </div>
     </div>
   )
