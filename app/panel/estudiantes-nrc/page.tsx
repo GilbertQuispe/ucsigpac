@@ -346,7 +346,7 @@ const confirmarBaja = async () => {
       </div>
 
       <div className="card-sgpc" style={{ marginBottom: '2.4rem', padding: '2rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr), auto', gap: '1.2rem', alignItems: 'flex-end' }}>
+        <div className="grid-filtros-nrc">
           <SelectSGPCFieldset label="Filtrar por Periodo" value={filtroPeriodo} onChange={(opt) => { setFiltroPeriodo(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))]} />
              <SelectSGPCFieldset label="Filial" value={filtroFilial} onChange={(opt) => { setFiltroFilial(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))]} isDisabled={!filtroPeriodo?.value} />
           <SelectSGPCFieldset label="Estudiante" value={estudianteSel} onChange={(opt) => {setEstudianteSel(opt); setPaginaActual(1)}} isAsync loadOptions={loadEstudiantes} isDisabled={!filtroPeriodo?.value} />
@@ -517,39 +517,31 @@ const confirmarBaja = async () => {
   display: grid;
   gap: 1.2rem;
   align-items: flex-end;
+  /* Mobile First: empieza en 1 columna */
+  grid-template-columns: 1fr;
 }
 
-/* PC: 1025px en adelante = 3 arriba y 4 abajo */
-@media (min-width: 1025px) {
-  .grid-filtros-nrc {
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-areas: 
-      "periodo filial estado ."
-      "estudiante asignatura buscar limpiar";
-  }
-  .periodo { grid-area: periodo; }
-  .filial { grid-area: filial; }
-  .estado { grid-area: estado; }
-  .estudiante { grid-area: estudiante; }
-  .asignatura { grid-area: asignatura; }
-  .buscar { grid-area: buscar; }
-  .limpiar { grid-area: limpiar; }
-}
-
-/* TABLET: 641px a 1024px = 2 columnas */
-@media (min-width: 641px) and (max-width: 1024px) {
+/* TABLET PEQUEÑA: 2 columnas */
+@media (min-width: 640px) {
   .grid-filtros-nrc {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-/* CELULAR: 640px o menos = 1 columna */
-@media (max-width: 640px) {
+/* LAPTOP: 3 columnas */
+@media (min-width: 900px) {
   .grid-filtros-nrc {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr);
   }
 }
-  `}</style>
+
+/* PC EJECUTIVO: 1025px en adelante = 4 columnas */
+@media (min-width: 1025px) {
+  .grid-filtros-nrc {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+`}</style>
     </div>
   )
 }
