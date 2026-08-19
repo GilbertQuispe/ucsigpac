@@ -48,6 +48,11 @@ export default function EstudiantesNRCPage() {
   
   const [registros, setRegistros] = useState<RegistroNRC[]>([])
   const [periodos, setPeriodos] = useState<any[]>([])
+
+const [filiales, setFiliales] = useState<any[]>([])
+const [filtroFilial, setFiltroFilial] = useState<any>({value: '', label: 'TODOS'})
+const [filtroEstado, setFiltroEstado] = useState<any>({value: 'ACTIVO', label: 'ACTIVO'})
+
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
 
@@ -64,6 +69,54 @@ const [showBaja, setShowBaja] = useState(false)
 const [dataBaja, setDataBaja] = useState<any>(null)
 
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+
+// useEffect(() => {
+//   const cargarFiliales = async () => {
+//     const {data} = await supabase.from('filial').select('*').order('nombrefilial')
+//     setFiliales(data || [])
+//   }
+//   cargarFiliales()
+// }, [])
+
+useEffect(() => {
+  cargarFilialesDelPeriodo()
+}, [filtroPeriodo?.value])
+
+const cargarFilialesDelPeriodo = async () => {
+  const idpa = filtroPeriodo?.value
+  if(!idpa) {
+    setFiliales([]);
+    return
+  }
+
+  const {data, error} = await supabase.from('horario')
+   .select(`
+      matricula!inner(
+        estudiante!inner(idfilial)
+      ),
+      cargaacademica!inner(
+        horariodocente:idhorariod(
+          campoclinico:idcampocli!inner(idpa)
+        )
+      )
+    `)
+   .eq('estado', 'ACTIVO')
+   .eq('cargaacademica.estado', 'ACTIVO')
+   .eq('cargaacademica.horariodocente.campoclinico.idpa', Number(filtroPeriodo.value))
+   .limit(1000)
+
+  if(error ||!data) { setFiliales([]); return }
+
+  // Sacar filiales únicas
+  const idsFiliales = [...new Set(data.map(h => h.matricula?.estudiante?.idfilial).filter(Boolean))]
+
+  if(idsFiliales.length === 0) { setFiliales([]); return }
+
+  // Traer nombres de esas filiales
+  const {data: filData} = await supabase.from('filial').select('idfilial, nombrefilial').in('idfilial', idsFiliales).order('nombrefilial')
+
+  setFiliales(filData || [])
+}
 
 const loadEstudiantes = async (inputValue: string) => {
   const {data, error} = await supabase.from('horario')
@@ -95,6 +148,11 @@ const loadEstudiantes = async (inputValue: string) => {
     const idpa = Number(filtroPeriodo.value)
     filtrado = filtrado.filter(h => h.cargaacademica?.horariodocente?.campoclinico?.idpa === idpa)
   }
+
+  if(filtroFilial?.value) {
+  const idfilial = Number(filtroFilial.value)
+  filtrado = filtrado.filter(h => h.matricula?.estudiante?.idfilial === idfilial)
+}
 
   // 2. Quitar duplicados por idestudiante
   const mapaEst = new Map()
@@ -131,7 +189,7 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
         )
       ),
       matricula!inner(
-        estudiante!inner(idestudiante)
+        estudiante!inner(idestudiante,idfilial)
       )
     `)
     .eq('estado', 'ACTIVO')
@@ -146,6 +204,10 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
     const idpa = Number(filtroPeriodo.value)
     filtrado = filtrado.filter(h => h.cargaacademica?.horariodocente?.campoclinico?.idpa === idpa)
   }
+  if(filtroFilial?.value) {
+  const idfilial = Number(filtroFilial.value)
+  filtrado = filtrado.filter(h => h.matricula?.estudiante?.idfilial === idfilial)
+}
 
   // 2. Filtrar por estudiante en JS - ESTO ES LO NUEVO
   if(estudianteSel?.value) {
@@ -198,6 +260,7 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
     .eq('cargaacademica.estado', 'ACTIVO')
 
   if(estudianteSel?.value) query = query.eq('matricula.estudiante.idestudiante', estudianteSel.value)
+  if(filtroEstado?.value) query = query.eq('estado', filtroEstado.value)
   if(asignaturaSel?.value) query = query.eq('cargaacademica.idasignatura', asignaturaSel.value)
   if(searchNRC) query = query.ilike('cargaacademica.nrc', `%${searchNRC}%`)
 
@@ -212,6 +275,10 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
     const idpa = Number(filtroPeriodo.value)
     dataFiltrada = dataFiltrada.filter(h => h.cargaacademica?.horariodocente?.campoclinico?.idpa === idpa)
   }
+  if(filtroFilial?.value) {
+  const idfilial = Number(filtroFilial.value)
+  dataFiltrada = dataFiltrada.filter(h => h.matricula?.estudiante?.idfilial === idfilial)
+}
 
   // 3. PAGINACION MANUAL
   const inicio = (paginaActual-1)*registrosPorPagina
@@ -221,12 +288,15 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
   setLoading(false)
 }
 
-  useEffect(() => { fetchData() }, [paginaActual, filtroPeriodo, estudianteSel, asignaturaSel, searchNRC])
+  useEffect(() => { fetchData() }, [paginaActual, filtroPeriodo, filtroFilial, filtroEstado, estudianteSel, asignaturaSel, searchNRC])
 
-  const handlePeriodoChange = (opt) => {
+const handlePeriodoChange = (opt) => {
   setFiltroPeriodo(opt)
-  setEstudianteSel(null) // <-- limpia
-  setAsignaturaSel(null) // <-- limpia
+  setFiltroFilial({value: '', label: 'TODOS'}) // limpia
+  setEstudianteSel(null)
+  setAsignaturaSel(null)
+  setPaginaActual(1)
+  cargarFilialesDelPeriodo() // NUEVO
 }
 
  const handleEliminar = (reg: any) => {
@@ -257,13 +327,15 @@ const confirmarBaja = async () => {
     showToast(`Próximamente: Ver horario del estudiante`, 'success')
   }
 
-  const limpiarFiltros = () => {
-    setSearchNRC(""); 
-    setFiltroPeriodo({value: '', label: 'TODOS'}); 
-    setEstudianteSel(null); 
-    setAsignaturaSel(null); 
-    setPaginaActual(1)
-  }
+ const limpiarFiltros = () => {
+  setSearchNRC(""); 
+  setFiltroPeriodo({value: '', label: 'TODOS'}); 
+  setFiltroFilial({value: '', label: 'TODOS'});
+  setFiltroEstado({value: 'ACTIVO', label: 'ACTIVO'});
+  setEstudianteSel(null); 
+  setAsignaturaSel(null); 
+  setPaginaActual(1)
+}
 
   return (
     <div className="main-content">
@@ -274,17 +346,19 @@ const confirmarBaja = async () => {
       </div>
 
       <div className="card-sgpc" style={{ marginBottom: '2.4rem', padding: '2rem' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr) auto', gap: '1.2rem', alignItems: 'flex-end' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr), auto', gap: '1.2rem', alignItems: 'flex-end' }}>
           <SelectSGPCFieldset label="Filtrar por Periodo" value={filtroPeriodo} onChange={(opt) => { setFiltroPeriodo(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))]} />
+             <SelectSGPCFieldset label="Filial" value={filtroFilial} onChange={(opt) => { setFiltroFilial(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))]} isDisabled={!filtroPeriodo?.value} />
           <SelectSGPCFieldset label="Estudiante" value={estudianteSel} onChange={(opt) => {setEstudianteSel(opt); setPaginaActual(1)}} isAsync loadOptions={loadEstudiantes} isDisabled={!filtroPeriodo?.value} />
-          <SelectSGPCFieldset
-  key={`asig-${filtroPeriodo?.value || 'todos'}-${estudianteSel?.value || 'todos'}`} // <-- AGREGA ESTO
+          <SelectSGPCFieldset  
+  key={`asig-${filtroPeriodo?.value || 'todos'}-${filtroFilial?.value || 'todos'}-${estudianteSel?.value || 'todos'}`}
   label="Asignatura"
   value={asignaturaSel}
   onChange={setAsignaturaSel}
   isAsync
   loadOptions={loadAsignaturasFiltro}
 />
+<SelectSGPCFieldset label="Estado" value={filtroEstado} onChange={(opt)=>{setFiltroEstado(opt); setPaginaActual(1)}} options={[{value: 'ACTIVO', label: 'ACTIVO'}, {value: 'INACTIVO', label: 'INACTIVO'}, {value: '', label: 'TODOS'}]} />
           <div><legend>Buscar NRC</legend><input className="input-sgpc" placeholder="Buscar NRC..." value={searchNRC} onChange={e => {setSearchNRC(e.target.value); setPaginaActual(1)}} style={{height: "4.4rem", width: '100%', marginTop: '0.4rem' }} /></div>
           <button className="btn-secundario btn-limpiar" onClick={limpiarFiltros} style={{height: '4.4rem'}}><Eraser size={16} />Limpiar</button>
         </div>
@@ -438,6 +512,44 @@ const confirmarBaja = async () => {
 )}
 
       </div>
+      <style jsx>{`
+.grid-filtros-nrc {
+  display: grid;
+  gap: 1.2rem;
+  align-items: flex-end;
+}
+
+/* PC: 1025px en adelante = 3 arriba y 4 abajo */
+@media (min-width: 1025px) {
+  .grid-filtros-nrc {
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-areas: 
+      "periodo filial estado ."
+      "estudiante asignatura buscar limpiar";
+  }
+  .periodo { grid-area: periodo; }
+  .filial { grid-area: filial; }
+  .estado { grid-area: estado; }
+  .estudiante { grid-area: estudiante; }
+  .asignatura { grid-area: asignatura; }
+  .buscar { grid-area: buscar; }
+  .limpiar { grid-area: limpiar; }
+}
+
+/* TABLET: 641px a 1024px = 2 columnas */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .grid-filtros-nrc {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* CELULAR: 640px o menos = 1 columna */
+@media (max-width: 640px) {
+  .grid-filtros-nrc {
+    grid-template-columns: 1fr;
+  }
+}
+  `}</style>
     </div>
   )
 }
