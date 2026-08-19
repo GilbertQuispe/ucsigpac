@@ -10,26 +10,28 @@ const ModalVerHorarioSoloLectura = ({ show, onClose, idhorario }: any) => {
   const [detalle, setDetalle] = useState<any[]>([])
   const [info, setInfo] = useState<any>(null)
 
-  useEffect(() => {
-    const cargar = async () => {
-      if(!show || !idhorario) return
-      const { data } = await supabase.from('horario')
-        .select(`*, 
-          detallehorario(*),
-          cargaacademica!inner(nrc, asignatura:idasignatura(nombre),
-            horariodocente:idhorariod(campoclinico:idcampocli(docente:iddocente(persona:apellidos, nombres)))
-          ),
-          matricula!inner(estudiante:estudiante(idpersona(persona:apellidos, nombres)))
-        `)
-        .eq('idhorario', idhorario)
-        .single()
-      setInfo(data)
-      
-      const detOrdenado = DIAS_SEMANA.map(dia => data?.detallehorario.find((d:any) => d.dia_semana === dia)).filter(Boolean)
-      setDetalle(detOrdenado)
-    }
-    cargar()
-  }, [show, idhorario])
+useEffect(() => {
+  const cargar = async () => {
+    if(!show ||!idhorario) return
+    setInfo(null)
+    setDetalle([])
+
+    // 1 SOLA LLAMADA PARA TODO EL HEADER + 1 PARA EL DETALLE
+    const [{data: h, error}, {data: det}] = await Promise.all([
+      supabase.from('v_horario_completo').select('*').eq('idhorario', idhorario).single(),
+      supabase.from('detallehorario').select('*').eq('idhorario', idhorario)
+    ])
+
+    if(error || !h){ console.error(error); return }
+    setInfo(h)
+    
+    const detOrdenado = DIAS_SEMANA.map(dia => 
+      det?.find((d:any) => d.dia_semana === dia)
+    ).filter(Boolean)
+    setDetalle(detOrdenado)
+  }
+  cargar()
+}, [show, idhorario])
 
   if(!show) return null
 
@@ -44,10 +46,10 @@ const ModalVerHorarioSoloLectura = ({ show, onClose, idhorario }: any) => {
           <fieldset className="fieldset-sgpc-section">
             <legend>Datos del Horario</legend>
             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.2rem', fontSize: '1.4rem'}}>
-              <p><b>Estudiante:</b> {info?.matricula?.estudiante?.persona?.apellidos}, {info?.matricula?.estudiante?.persona?.nombres}</p>
-              <p><b>Asignatura:</b> {info?.cargaacademica?.asignatura?.nombre}</p>
-              <p><b>NRC:</b> {info?.cargaacademica?.nrc}</p>
-              <p><b>Docente:</b> {info?.cargaacademica?.horariodocente?.campoclinico?.docente?.persona?.apellidos}, {info?.cargaacademica?.horariodocente?.campoclinico?.docente?.persona?.nombres}</p>
+              <p><b>Estudiante:</b> {info?.estudiante_apellidos} {info?.estudiante_nombres}</p>
+<p><b>Asignatura:</b> {info?.asignatura_nombre}</p>
+<p><b>NRC:</b> {info?.nrc}</p>
+<p><b>Docente:</b> {info?.docente_apellidos}, {info?.docente_nombres}</p>
             </div>
           </fieldset>
           <fieldset className="fieldset-sgpc-section">
