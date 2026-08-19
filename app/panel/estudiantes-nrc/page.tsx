@@ -337,6 +337,7 @@ const confirmarBaja = async () => {
   setPaginaActual(1)
 }
 
+
   return (
     <div className="main-content">
       {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}><AlertCircle size={16}/>{toast.msg}</div>}
