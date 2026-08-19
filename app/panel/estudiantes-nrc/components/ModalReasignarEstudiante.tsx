@@ -20,32 +20,32 @@ useEffect(() => {
     if(!show || !dataEstudiante?.idhorario) return
     setNrcSeleccionado(null); setMotivo(''); setNrcsDisponibles([]); setLoading(true)
 
-    // QUERY 1: Traer horario + matricula
+    // QUERY 1: Traer horario
     const { data: h } = await supabase.from('horario')
       .select(`idhorario, idcargaacad, idmatricula`)
       .eq('idhorario', dataEstudiante.idhorario)
       .single()
-    
     if(!h) {setLoading(false); return}
 
     // QUERY 2: Traer matricula + periodo + estudiante
     const { data: mat } = await supabase.from('matricula')
       .select(`
         idmatricula, idpa, 
-        periodoacademico:idpa(nombre, codigo),
-        estudiante:idestudiante(persona: idpersona(apellidos, nombres))
+        periodoacademico(nombre, codigo),
+        estudiante(persona(apellidos, nombres))
       `)
       .eq('idmatricula', h.idmatricula)
       .single()
+    if(!mat) {setLoading(false); return}
 
-    // QUERY 3: Traer cargaacademica + asignatura + docente
+    // QUERY 3: Traer cargaacademica actual + docente
     const { data: ca } = await supabase.from('cargaacademica')
       .select(`
         idcargaacad, nrc, idasignatura,
-        asignatura: idasignatura(nombre),
-        horariodocente: idhorariod(
-          campoclinico: idcampocli(
-            docente: iddocente(persona: idpersona(apellidos, nombres))
+        asignatura(nombre),
+        horariodocente(
+          campoclinico(
+            docente(persona(apellidos, nombres))
           )
         )
       `)
@@ -54,43 +54,47 @@ useEffect(() => {
 
     setActual({ ...h, ...ca, matricula: mat })
 
-    // QUERY 4: Traer NRCs destino - SOLO DEL MISMO PERIODO
-    const { data: cas } = await supabase.from('cargaacademica')
-      .select(`
-        idcargaacad, nrc,
-        horariodocente: idhorariod(
-          campoclinico: idcampocli(
-            docente: iddocente(persona: idpersona(apellidos, nombres))
-          )
-        )
-      `)
-      .eq('estado', 'ACTIVO')
-      .eq('idasignatura', ca?.idasignatura)
-      
-    const opciones: any[] = []
+    // QUERY 4: Traer NRCs destino - SOLO DEL MISMO PERIODO Y ASIGNATURA
+const { data: cas } = await supabase.from('cargaacademica')
+  .select(`
+    idcargaacad, nrc, idhorariod, estado,
+    horariodocente(
+      campoclinico(
+        docente(persona(apellidos, nombres))
+      )
+    )
+  `)
+  .eq('estado', 'ACTIVO')
+  .eq('idasignatura', ca?.idasignatura)
 
-    for(const c of cas || []){
-      if(c.idcargaacad === h?.idcargaacad) continue;
+// PASO 1: Sacar todos los idcampocli del periodo del alumno
+const { data: campoclinicosDelPeriodo } = await supabase
+  .from('campoclinico')
+  .select('idcampocli')
+  .eq('idpa', mat.idpa)
 
-      // FILTRO CLAVE: Buscar si ese NRC tiene horarios con alumnos en el mismo idpa
-      const { data: horarioValido } = await supabase
-        .from('horario')
-        .select(`idhorario, matricula!inner(idpa)`)
-        .eq('idcargaacad', c.idcargaacad)
-        .eq('matricula.idpa', mat.idpa) // <-- AHORA SI TENEMOS mat.idpa
-        .limit(1)
-      
-      if(horarioValido && horarioValido.length > 0){
-        opciones.push({
-          value: c.idcargaacad,
-          label: `NRC: ${c.nrc} - ${c.horariodocente?.campoclinico?.docente?.persona?.apellidos}, ${c.horariodocente?.campoclinico?.docente?.persona?.nombres}`,
-          nrc: c.nrc
-        })
-      }
-    }
-    
-    setNrcsDisponibles(opciones)
-    setLoading(false)
+const idsCampocli = campoclinicosDelPeriodo?.map(c => c.idcampocli) || []
+
+// PASO 2: Sacar todos los idhorariod que usan esos campoclinicos
+const { data: horDocDelPeriodo } = await supabase
+  .from('horariodocente')
+  .select('idhorariod')
+  .in('idcampocli', idsCampocli)
+
+const idsHorariod = horDocDelPeriodo?.map(h => h.idhorariod) || []
+
+// PASO 3: Filtrar NRCs que usan esos horariodocente
+const opciones = (cas || [])
+  .filter(c => c.idcargaacad !== h.idcargaacad) // Quitar el actual
+  .filter(c => idsHorariod.includes(c.idhorariod)) // Solo del periodo
+  .map(c => ({
+    value: c.idcargaacad,
+    label: `NRC: ${c.nrc} - ${c.horariodocente?.campoclinico?.docente?.persona?.apellidos || 'SIN DOCENTE'}, ${c.horariodocente?.campoclinico?.docente?.persona?.nombres || ''}`,
+    nrc: c.nrc
+  }))
+
+setNrcsDisponibles(opciones)
+setLoading(false)
   }
   cargarTodo()
 }, [show, dataEstudiante])
