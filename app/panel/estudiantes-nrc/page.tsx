@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/client'
-import { Users, Eye, Trash2, RefreshCcw, Eraser, ChevronLeft, ChevronRight, AlertCircle } from 'lucide-react'
+import { Users, Eye, Trash2, RefreshCcw, Eraser, ChevronLeft, ChevronRight, AlertCircle, X } from 'lucide-react'
 import AsyncSelect from 'react-select/async'
 import Select from 'react-select'
 import ModalVerHorarioSoloLectura from './components/ModalVerHorarioSoloLectura'
@@ -59,6 +59,9 @@ export default function EstudiantesNRCPage() {
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
   const [totalRegistros, setTotalRegistros] = useState(0)
+
+const [showBaja, setShowBaja] = useState(false)
+const [dataBaja, setDataBaja] = useState<any>(null)
 
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
@@ -191,7 +194,7 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
         estudiante!inner(idestudiante, idcarrera, idfilial, persona:idpersona(*))
       )
     `, { count: 'exact' })
-    .eq('estado', 'ACTIVO')
+    
     .eq('cargaacademica.estado', 'ACTIVO')
 
   if(estudianteSel?.value) query = query.eq('matricula.estudiante.idestudiante', estudianteSel.value)
@@ -226,12 +229,25 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
   setAsignaturaSel(null) // <-- limpia
 }
 
-  const handleEliminar = async (idhorario: number) => {
-    if(!confirm('¿Está seguro de dar de baja a este estudiante del NRC?')) return
-    const {error} = await supabase.from('horario').update({estado: 'INACTIVO'}).eq('idhorario', idhorario)
-    if(error) showToast(error.message, 'error') 
-    else { showToast('Estudiante dado de baja del NRC', 'success'); fetchData() }
+ const handleEliminar = (reg: any) => {
+  setDataBaja({
+    idhorario: reg.idhorario,
+    estudiante: `${reg.matricula?.estudiante?.persona?.apellidos}, ${reg.matricula?.estudiante?.persona?.nombres}`,
+    asignatura: reg.cargaacademica?.asignatura?.nombre,
+    nrc: reg.cargaacademica?.nrc
+  })
+  setShowBaja(true)
+}
+
+const confirmarBaja = async () => {
+  if(!dataBaja) return
+  const {error} = await supabase.from('horario').update({estado: 'INACTIVO'}).eq('idhorario', dataBaja.idhorario)
+  if(error) showToast(error.message, 'error') 
+  else { 
+    showToast('Estudiante dado de baja del NRC', 'success'); 
+    fetchData() 
   }
+}
 
   const handleReasignar = (reg: any) => {
     showToast(`Próximamente: Reasignar a otro NRC`, 'success')
@@ -292,24 +308,62 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
                 <td>{r.matricula?.estudiante?.persona?.apellidos}, {r.matricula?.estudiante?.persona?.nombres}</td>
                 <td>{r.cargaacademica?.asignatura?.nombre}</td>
                 <td><b>{r.cargaacademica?.nrc}</b></td>
-                <td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: '#F0FDF4', color: '#22C55E'}}>{r.estado}</span></td>
+                <td>
+  <span style={{
+    padding: '0.4rem 0.8rem', 
+    borderRadius: '999px', 
+    fontSize: '1.2rem', 
+    fontWeight: 600, 
+    background: r.estado === 'ACTIVO' ? '#F0FDF4' : '#FEF2F2', 
+    color: r.estado === 'ACTIVO' ? '#22C55E' : '#DC2626'
+  }}>
+    {r.estado}
+  </span>
+</td>
                 <td style={{display: 'flex', gap: '0.8rem'}}>
-                  <button className="btn-icon" title="Ver Horario" onClick={() => {setIdHorarioSel(r.idhorario); setShowVer(true)}}><Eye size={15} /></button>
-                  {/* <button onClick={() => {setIdHorarioSel(h.idhorario); setShowVer(true)}}><Eye /></button> */}
-                  <button className="btn-icon btn-icon-editar" title="Reasignar" onClick={() => { 
-      setDataReasignar({
-        idhorario: r.idhorario,
-        idmatricula: r.idmatricula,
-        idcargaacad: r.idcargaacad,
-        idpa: r.idpa,
-        idasignatura: r.idasignatura,
-        estudiante: `${r.estudiante_apellidos}, ${r.estudiante_nombres}`,
-        nrc_actual: r.nrc
-      }); 
-      setShowReasignar(true) 
-    }}><RefreshCcw size={15} /></button>
-                  <button className="btn-icon btn-icon-eliminar" title="Eliminar" onClick={() => handleEliminar(r.idhorario)}><Trash2 size={15} /></button>
-                </td>
+  {r.estado === 'ACTIVO'? (
+    <>
+      <button className="btn-icon" title="Ver Horario" onClick={() => {setIdHorarioSel(r.idhorario); setShowVer(true)}}><Eye size={15} /></button>
+      
+      <button 
+        className="btn-icon btn-icon-editar" 
+        title="Reasignar" 
+        onClick={() => { 
+          setDataReasignar({
+            idhorario: r.idhorario,
+            idmatricula: r.matricula?.idmatricula,
+            idcargaacad: r.cargaacademica?.idcargaacad,
+            idpa: r.cargaacademica?.horariodocente?.campoclinico?.idpa,
+            idasignatura: r.cargaacademica?.idasignatura,
+            estudiante: `${r.matricula?.estudiante?.persona?.apellidos}, ${r.matricula?.estudiante?.persona?.nombres}`,
+            nrc_actual: r.cargaacademica?.nrc
+          }); 
+          setShowReasignar(true) 
+        }}
+      >
+        <RefreshCcw size={15} />
+      </button>
+      
+      <button className="btn-icon btn-icon-eliminar" title="Dar de Baja" onClick={() => handleEliminar(r)}><Trash2 size={15} /></button>
+    </>
+  ) : (
+    <>
+      <button className="btn-icon" title="Ver Horario" disabled><Eye size={15} /></button>
+      <button className="btn-icon btn-icon-editar" title="Reasignar" disabled><RefreshCcw size={15} /></button>
+      <button
+        className="btn-icon btn-icon-reactivar"
+        title="Reactivar"
+        onClick={async () => {
+          const {error} = await supabase.from('horario').update({estado: 'ACTIVO'}).eq('idhorario', r.idhorario)
+          if(error) showToast(error.message, 'error') 
+          else { showToast('Estudiante reactivado en el NRC', 'success'); fetchData() }
+        }}
+      >
+        <RefreshCcw size={15} />
+      </button>
+    </>
+  )}
+</td>
               </tr>
             ))}
           </tbody>
@@ -339,6 +393,50 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
   dataEstudiante={dataReasignar}
   onReasignado={() => fetchData()} // para que recargue la tabla
 />
+
+{showBaja && (
+  <div className="modal-overlay" style={{background: 'rgba(0,0,0,0.5)'}}>
+    <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '45rem'}}>
+      <div className="modal-header">
+        <h2 style={{display: 'flex', alignItems: 'center', gap: '0.8rem', color: '#DC2626'}}><Trash2 size={22} /> Confirmar Baja</h2>
+        <button onClick={() => setShowBaja(false)} className="btn-cerrar-modal"><X size={18} /></button>
+      </div>
+      <div className="modal-body">
+        <p style={{fontSize: '1.5rem', textAlign: 'center', marginBottom: '1rem'}}>
+          ¿Está seguro de dar de baja a este estudiante del NRC?
+        </p>
+        <div style={{background: '#FEF2F2', padding: '1rem', borderRadius: '0.8rem', border: '1px solid #FECACA'}}>
+          <p><b>Estudiante:</b> {dataBaja?.estudiante}</p>
+          <p><b>Asignatura:</b> {dataBaja?.asignatura}</p>
+          <p><b>NRC:</b> {dataBaja?.nrc}</p>
+        </div>
+      </div>
+      <div className="modal-footer" style={{justifyContent: 'center', gap: '1rem'}}>
+  <button 
+    className="btn-secundario btn-outline-azul" 
+    style={{display: 'flex', alignItems: 'center', gap: '0.6rem'}}
+    onClick={() => setShowBaja(false)}
+  >
+    <X size={16} />Cancelar
+  </button>
+  <button 
+    className="btn-primario" 
+    style={{
+      display: 'flex', 
+      alignItems: 'center', 
+      gap: '0.6rem', 
+      background: '#DC2626', 
+      borderColor: '#DC2626'
+    }}
+    onClick={async () => { await confirmarBaja(); setShowBaja(false) }}
+  >
+    <Trash2 size={16} />Confirmar Baja
+  </button>
+</div>
+    </div>
+  </div>
+)}
+
       </div>
     </div>
   )
