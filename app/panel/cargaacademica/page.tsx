@@ -5,6 +5,7 @@ import { Plus, Edit, X, Eye, Search, Trash2, Hospital, BookOpen, User, Building,
 import AsyncSelect from 'react-select/async'
 import Select from 'react-select'
 import ModalHorarioAcademico from './components/ModalHorarioAcademico' // <-- NUEVO IMPORT
+import ModalVerCargaDocente from './components/ModalVerCargaDocente' // <-- NUEVO
 
 // NUEVO
 const DIAS_SEMANA = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO','DOMINGO']
@@ -63,6 +64,9 @@ export default function CargaAcademicaPage() {
 const [showModalHorarioAcad, setShowModalHorarioAcad] = useState(false)
 const [dataWizard2, setDataWizard2] = useState<any>(null)
 
+const [showModalVerCarga, setShowModalVerCarga] = useState(false)
+const [cargaVer, setCargaVer] = useState<CargaAcademica | null>(null)
+
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
   const loadAsignaturas = async (inputValue: string) => {
@@ -103,6 +107,8 @@ const [dataWizard2, setDataWizard2] = useState<any>(null)
     }
   })
 
+
+  
   const registrosUnicos = Array.from(mapaDocentes.values())
   const texto = inputValue.toLowerCase().trim()
   const filtrados = registrosUnicos.filter(h => {
@@ -117,6 +123,26 @@ const [dataWizard2, setDataWizard2] = useState<any>(null)
     label: `${h.campoclinico.docente.persona.dni} - ${h.campoclinico.docente.persona.apellidos}, ${h.campoclinico.docente.persona.nombres}`,
     iddocente: h.campoclinico.docente.iddocente,
   }))
+}
+
+// 2. FUNCION NUEVA
+const handleVerCarga = (carga: CargaAcademica) => {
+  // Primero armamos el dataWizard2 para que ModalHorarioAcademico funcione
+  setDataWizard2({
+    idcargaacad: carga.idcargaacad,
+    nrc: carga.nrc,
+    idhorariod: carga.idhorariod,
+    iddocente: carga.horariodocente?.campoclinico?.docente?.iddocente,
+    idpa: carga.horariodocente?.campoclinico?.idpa,
+    idasignatura: carga.idasignatura,
+    docente: `${carga.horariodocente?.campoclinico?.docente?.persona?.apellidos}, ${carga.horariodocente?.campoclinico?.docente?.persona?.nombres}`,
+    dni: carga.horariodocente?.campoclinico?.docente?.persona?.dni,
+    asignatura: `${carga.asignatura?.codigo} - ${carga.asignatura?.nombre}`,
+    esSoloLectura: false
+  })
+  
+  setCargaVer(carga)
+  setShowModalVerCarga(true)
 }
 
 const loadAsignaturasFiltro = async (inputValue: string) => {
@@ -463,6 +489,9 @@ const handleGuardar = async () => {
 
                 <td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: c.estado === 'ACTIVO'? '#F0FDF4' : '#FEF2F2', color: c.estado === 'ACTIVO'? '#22C55E' : '#EF4444'}}>{c.estado}</span></td>
                 <td style={{display: 'flex', gap: '0.8rem'}}>
+                  <button className="btn-icon btn-icon-ver" title="Ver Estudiantes" onClick={() => handleVerCarga(c)}>
+    <Eye size={15} />
+  </button>
                   <button 
   className="btn-icon btn-icon-editar" 
   title="Editar"
@@ -471,6 +500,7 @@ const handleGuardar = async () => {
   <Edit size={15} />
 </button>
                 </td>
+                
               </tr>
             ))}
           </tbody>
@@ -569,6 +599,17 @@ const handleGuardar = async () => {
         onClose={() => setShowModalHorarioAcad(false)}
         dataWizard1={dataWizard2}
       />
+<ModalVerCargaDocente
+  show={showModalVerCarga}
+  onClose={() => setShowModalVerCarga(false)}
+  carga={cargaVer}
+  onAbrirAgregarEstudiante={() => {
+    setShowModalVerCarga(false)
+    setTimeout(() => setShowModalHorarioAcad(true), 300)
+  }}
+  setDataWizard2={setDataWizard2}
+/>
+
     <style jsx>{`
      .grid-2 {
           display: grid;
