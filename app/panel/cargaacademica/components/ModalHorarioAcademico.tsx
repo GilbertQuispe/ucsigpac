@@ -32,8 +32,12 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
   const [idMatriculaSel, setIdMatriculaSel] = useState<number | null>(null)
   const [horarioLaboralDoc, setHorarioLaboralDoc] = useState<any[]>([])
   const [showConfirm, setShowConfirm] = useState(false)
-  const [totalMatriculados, setTotalMatriculados] = useState(0)
-  const [horariosRegistrados, setHorariosRegistrados] = useState<any[]>([])
+  
+  // NUEVO: SEPARAR TOTALES
+  const [totalGeneral, setTotalGeneral] = useState(0)
+  const [totalDocente, setTotalDocente] = useState(0)
+  const [horariosGeneral, setHorariosGeneral] = useState<any[]>([]) // Para badge total
+  const [horariosDocente, setHorariosDocente] = useState<any[]>([]) // Para tabla
 
   const [horarioAcad, setHorarioAcad] = useState(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
@@ -42,11 +46,13 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
 
   const esSoloLectura = dataWizard1?.esSoloLectura || false
 
- useEffect(() => {
+useEffect(() => {
   const cargar = async () => {
     setIdMatriculaSel(null)
-    if(!show ||!dataWizard1?.idpa ||!dataWizard1?.iddocente ||!dataWizard1?.nrc) {
-      setEstudiantes([]); setHorarioLaboralDoc([]); setTotalMatriculados(0); setHorariosRegistrados([]);
+    if(!show ||!dataWizard1?.idpa ||!dataWizard1?.iddocente ||!dataWizard1?.nrc ||!dataWizard1?.idasignatura) {
+      setEstudiantes([]); setHorarioLaboralDoc([]); 
+      setTotalGeneral(0); setTotalDocente(0); 
+      setHorariosGeneral([]); setHorariosDocente([]);
       setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
       return
     }
@@ -64,33 +70,41 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
       setEstudiantes(lista)
     } else { setEstudiantes([]) }
 
-    const idParaBuscar = esSoloLectura? dataWizard1.idcargaacad_referencia : dataWizard1.idcargaacad
+    // 1. BUSCAR TODOS LOS IDCARGAAACAD CON EL MISMO NRC + ASIGNATURA + PERIODO
+    const { data: cargasNrc } = await supabase.from('cargaacademica')
+     .select(`idcargaacad, idhorariod, horariodocente:idhorariod!inner(campoclinico:idcampocli!inner(idpa))`)
+     .eq('nrc', dataWizard1.nrc)
+     .eq('idasignatura', dataWizard1.idasignatura)
+     .eq('estado', 'ACTIVO')
+     .eq('horariodocente.campoclinico.idpa', dataWizard1.idpa)
 
-//     const { data: horRegistrados } = await supabase.from('horario')
-//  .select(`*, matricula!inner(idmatricula, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres))), detallehorario(*)`)
-//  .eq('idcargaacad', idParaBuscar)
-//  .eq('estado', 'ACTIVO')
+    const idsCarga = cargasNrc?.map(c => c.idcargaacad) || []
 
-const { data: horRegistrados } = await supabase.from('horario')
-  .select(`*, 
-    matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres))), 
-    detallehorario(*),
-    cargaacademica!inner(horariodocente!inner(campoclinico!inner(idpa)))
-  `)
-  .eq('idcargaacad', idParaBuscar)
-  .eq('estado', 'ACTIVO')
-  .eq('matricula.idpa', dataWizard1.idpa) // <-- FILTRO CLAVE: SOLO ESTUDIANTES DEL PERIODO ACTUAL
-  .eq('cargaacademica.horariodocente.campoclinico.idpa', dataWizard1.idpa) // <-- DOBLE SEGURIDAD
+    // 2. CARGAR TOTAL GENERAL: Todos los docentes con ese NRC
+    const { data: horGen } = idsCarga.length > 0? await supabase.from('horario')
+     .select(`*, matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`)
+     .in('idcargaacad', idsCarga)
+     .eq('estado', 'ACTIVO')
+     .eq('matricula.idpa', dataWizard1.idpa) : { data: [] }
 
+    // 3. CARGAR SOLO DOCENTE: Solo los del docente actual
+    const { data: horDoc } = await supabase.from('horario')
+     .select(`*, matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`)
+     .eq('idcargaacad', dataWizard1.idcargaacad)
+     .eq('estado', 'ACTIVO')
+     .eq('matricula.idpa', dataWizard1.idpa)
 
-    setHorariosRegistrados(horRegistrados || [])
-    setTotalMatriculados(horRegistrados?.length || 0)
+    setHorariosGeneral(horGen || [])
+    setHorariosDocente(horDoc || [])
+    setTotalGeneral(horGen?.length || 0)
+    setTotalDocente(horDoc?.length || 0)
 
-    if(esSoloLectura && horRegistrados && horRegistrados.length > 0) {
-      const primerHorario = horRegistrados[0]
-      const detalle = primerHorario.detallehorario || []
+    // Para heredar horario usamos el primero que encuentre del NRC
+    if(esSoloLectura && horGen && horGen.length > 0) {
+      const primerHorario = horGen[0]
+      const { data: detalle } = await supabase.from('detallehorario').select('*').eq('idhorario', primerHorario.idhorario)
       const nuevoHorario = DIAS_SEMANA.map(d => {
-        const det = detalle.find((x:any) => x.dia_semana === d)
+        const det = detalle?.find((x:any) => x.dia_semana === d)
         return det? { dia: d, sel: true, horaInicio: det.hora_inicio, horaFin: det.hora_fin } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
       })
       setHorarioAcad(nuevoHorario)
@@ -109,24 +123,21 @@ const handleGrabar = async () => {
     if(!idMatriculaSel) { showToast('Seleccione un estudiante', 'error'); return }
     
     const diasSel = horarioAcad.filter(h => h.sel)
-    if(diasSel.length === 0) { // <-- QUITE EL !esSoloLectura
+    if(diasSel.length === 0) {
       showToast('Seleccione al menos 1 día', 'error');
       return
     }
     setLoadingW2(true)
 
-    // Validaciones...
     const { data: existeEnNrc } = await supabase.from('horario').select('idhorario').eq('idmatricula', idMatriculaSel).eq('idcargaacad', dataWizard1.idcargaacad).eq('estado', 'ACTIVO').maybeSingle()
     if(existeEnNrc) { showToast('Este estudiante ya está registrado en este NRC', 'error'); setIdMatriculaSel(null); setLoadingW2(false); return }
 
     const { data: existeEnAsignatura } = await supabase.from('horario').select(`idhorario, cargaacademica!inner(idasignatura, horariodocente!inner(campoclinico!inner(idpa)))`).eq('idmatricula', idMatriculaSel).eq('cargaacademica.idasignatura', dataWizard1.idasignatura).eq('cargaacademica.horariodocente.campoclinico.idpa', dataWizard1.idpa).eq('estado', 'ACTIVO').maybeSingle()
     if(existeEnAsignatura) { showToast('Este estudiante ya está matriculado en esta Asignatura', 'error'); setIdMatriculaSel(null); setLoadingW2(false); return }
 
-    // 1. INSERTAR CABECERA HORARIO
     const { data: horInsert, error: errHor } = await supabase.from('horario').insert({ idcargaacad: dataWizard1.idcargaacad, idmatricula: idMatriculaSel, estado: 'ACTIVO' }).select().single()
     if(errHor) { showToast(errHor.message, 'error'); setLoadingW2(false); return }
 
-    // 2. SIEMPRE INSERTAR DETALLE, SEA REUTILIZADO O NO
     const detalleToInsert = diasSel.map(d => ({ 
       idhorario: horInsert.idhorario, 
       dia_semana: d.dia, 
@@ -137,20 +148,23 @@ const handleGrabar = async () => {
     const { error: errDet } = await supabase.from('detallehorario').insert(detalleToInsert)
     if(errDet) { showToast(errDet.message, 'error'); setLoadingW2(false); return }
 
-    // 3. RECARGAR TABLA
-    let idsACargar = [dataWizard1.idcargaacad]
-    if(esSoloLectura && dataWizard1.idcargaacad_referencia){
-      idsACargar.push(dataWizard1.idcargaacad_referencia)
-    }
+    // RECARGAR AMBOS TOTALES
+const { data: cargasNrc } = await supabase.from('cargaacademica')
+ .select(`idcargaacad, horariodocente:idhorariod!inner(campoclinico:idcampocli!inner(idpa))`)
+ .eq('nrc', dataWizard1.nrc)
+ .eq('idasignatura', dataWizard1.idasignatura)
+ .eq('estado', 'ACTIVO')
+ .eq('horariodocente.campoclinico.idpa', dataWizard1.idpa)
 
-    const { data: horRecarga } = await supabase.from('horario')
-      .select(`*, matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres))), cargaacademica!inner(horariodocente!inner(campoclinico!inner(idpa)))`)
-      .in('idcargaacad', idsACargar)
-      .eq('estado', 'ACTIVO')
-      .eq('matricula.idpa', dataWizard1.idpa)
-      
-    setHorariosRegistrados(horRecarga || [])
-    setTotalMatriculados(horRecarga?.length || 0)
+const idsCarga = cargasNrc?.map(c => c.idcargaacad) || []
+
+const { data: horGen } = idsCarga.length > 0? await supabase.from('horario').select(`*, matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`).in('idcargaacad', idsCarga).eq('estado', 'ACTIVO').eq('matricula.idpa', dataWizard1.idpa) : { data: [] }
+const { data: horDoc } = await supabase.from('horario').select(`*, matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`).eq('idcargaacad', dataWizard1.idcargaacad).eq('estado', 'ACTIVO').eq('matricula.idpa', dataWizard1.idpa)
+
+setHorariosGeneral(horGen || [])
+setHorariosDocente(horDoc || [])
+setTotalGeneral(horGen?.length || 0)
+setTotalDocente(horDoc?.length || 0)
 
     showToast('Estudiante agregado al NRC', 'success')    
     setIdMatriculaSel(null)
@@ -166,13 +180,11 @@ const handleGrabar = async () => {
         {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1rem 2rem', borderRadius: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.4rem' }}><AlertCircle size={16}/>{toast.msg}</div>}
         <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '75rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column'}}>
           
-          {/* HEADER MAS COMPACTO */}
           <div className="modal-header" style={{padding: '0.5rem 0rem'}}> 
             <p className="titulo-principal"><BookOpen size={18} /> Registro de Horario Académico</p>
             <button onClick={onClose} className="btn-cerrar-modal"><X size={16} /></button>
           </div>
 
-          {/* DATOS DE LA CARGA DENTRO DEL SCROLL Y MAS COMPACTO */}
           <div className="modal-body" style={{overflowY: 'auto', padding: '1.2rem 2rem'}}> 
            
             <fieldset className="fieldset-sgpc-section" style={{marginBottom: '1.2rem'}}>
@@ -185,22 +197,29 @@ const handleGrabar = async () => {
                     <div style={{gridColumn: '1 / 3'}}><label className="label-sgpc">Asignatura</label><p className="text-bold">{dataWizard1?.asignatura}</p></div>
                   </div>
                 </div>
-                {/* CARD NRC MAS PEQUEÑO */}
-                <div className="card-nrc-badge">
-                  <div style={{textAlign: 'center'}}><label className="label-sgpc" style={{fontSize: '1rem'}}>NRC</label><div className="nrc-box">{dataWizard1?.nrc}</div></div>
-                  <span className="badge-sgpc-primario">Estudiantes con NRC: {totalMatriculados}</span>
+                {/* NUEVO: 2 CARDS */}
+                <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem'}}>
+                  <div className="card-nrc-badge">
+                    <div style={{textAlign: 'center'}}><label className="label-sgpc" style={{fontSize: '1rem'}}>NRC</label><div className="nrc-box">{dataWizard1?.nrc}</div></div>
+                    <span className="badge-sgpc-info">Total NRC: {totalGeneral}</span>
+                  </div>
+                  <div className="card-nrc-badge" style={{background: '#EFF6FF', border: '2px solid #BFDBFE'}}>
+                    <div style={{textAlign: 'center'}}><label className="label-sgpc" style={{fontSize: '1rem'}}>DOCENTE</label><div className="nrc-box" style={{color: '#2563EB', borderColor: '#3B82F6', fontSize: '1.4rem'}}>{dataWizard1?.docente.split(',')[0]}</div></div>
+                    <span className="badge-sgpc-primario">A Cargo: {totalDocente}</span>
+                  </div>
                 </div>
               </div>
             </fieldset>
 
-            {horariosRegistrados.length > 0 && (
+            {/* NUEVO: LA TABLA AHORA USA horariosDocente */}
+            {horariosDocente.length > 0 && (
               <fieldset className="fieldset-sgpc-section">
-                <legend className="legend-sgpc-titulo"><Users size={16}/> Estudiantes ya registrados en este NRC</legend>
+                <legend className="legend-sgpc-titulo"><Users size={16}/> Estudiantes a cargo del Docente</legend>
                 <div className="table-responsive">
                   <table className='tabla-sgpc'>
                     <thead><tr><th>#</th><th>DNI</th><th>Estudiante</th></tr></thead>
                     <tbody>
-                      {horariosRegistrados.map((h:any,i:number)=>
+                      {horariosDocente.map((h:any,i:number)=>
                         <tr key={h.idhorario}>
                           <td>{i+1}</td>
                           <td>{h.matricula?.estudiante?.persona?.dni}</td>
@@ -253,10 +272,10 @@ const handleGrabar = async () => {
             <fieldset className="fieldset-sgpc-section">
               <legend className="legend-sgpc-titulo"><Users size={16}/> Agregar Estudiante</legend>
               <div style={{display: 'flex', alignItems: 'center', gap: '1rem'}}>
-                <div style={{flex: 1}}>
+                <div style={{flex: 3}}>
                   <SelectSGPCFieldset label="DNI + Estudiante *" value={estudiantes.find(e => e.value === idMatriculaSel) || null} onChange={(opt:any) => setIdMatriculaSel(opt?.value || null)} options={estudiantes} isDisabled={false} />
-                </div>
-                <span className="badge-sgpc-info">Matriculados: {estudiantes.length}</span>
+                </div >
+                <div style={{flex: 1}}><span className="badge-sgpc-info">Matriculados: {estudiantes.length}</span></div>
               </div>
               {estudiantes.length === 0 && <p style={{color: '#EF4444', marginTop: '0.8rem', fontSize: '1.2rem'}}>No hay estudiantes matriculados</p>}
             </fieldset>
@@ -285,15 +304,14 @@ const handleGrabar = async () => {
   .card-nrc-badge { display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 0.6rem; padding: 0.8rem; background: #FFF7ED; border: 2px solid #FED7AA; border-radius: 0.8rem; }
   .nrc-box { font-size: 1.8rem; font-weight: 800; color: #D97706; background: #fff; border: 2px dashed #F59E0B; border-radius: 0.6rem; padding: 0.4rem 1rem; min-width: 10rem; text-align: center; letter-spacing: 1px; }
   .badge-sgpc-primario { background: var(--color-primario); color: #fff; padding: 0.6rem 0.5rem; border-radius: 8px; font-size: 1.2rem; font-weight: 700; text-align: center; box-shadow: 0 2px 4px -1px rgb(0 0 0 / 0.1); width: 100%; }
-  .badge-sgpc-info { background: #dbeafe; color: '1e40af'; padding: 0.5rem 1rem; border-radius: 20px; font-size: 1.2rem; font-weight: 600; white-space: nowrap; }
-  .text-bold { font-weight: 600; font-size: 1.3rem; }
+  .badge-sgpc-info { background: #dbeafe; color: #1e40af; padding: 0.5rem 1rem; border-radius: 20px; font-size: 1.2rem; font-weight: 600; white-space: nowrap; width: 100%; text-align: center; }
+  .text-bold { font-weight: 600; fontSize: 1.3rem; }
   .label-sgpc { font-size: 1.1rem; color: #64748b; margin-bottom: 0.3rem; display: block; font-weight: 500; }
   .input-sgpc { height: 3.2rem !important; padding: 0 0.8rem !important; font-size: 1.2rem !important; }
-  .fieldset-sgpc-section { border: 1px solid #e5e7eb; border-radius: 0.8rem; padding: '1.2rem'; margin-bottom: 1.2rem; }
+  .fieldset-sgpc-section { border: 1px solid #e5e7eb; border-radius: 0.8rem; padding: 1.2rem; margin-bottom: 1.2rem; }
   
-  /* ESTO ES LO NUEVO */
   :global(.tabla-sgpc tbody td:nth-child(3)) { text-align: left !important; padding-left: 1.2rem !important; }
-:global(.tabla-sgpc thead th:nth-child(3)) { text-align: left !important; padding-left: 1.2rem !important; }
+  :global(.tabla-sgpc thead th:nth-child(3)) { text-align: left !important; padding-left: 1.2rem !important; }
 
   @media (max-width: 768px) {
     .modal-content { maxWidth: 95vw !important; }
