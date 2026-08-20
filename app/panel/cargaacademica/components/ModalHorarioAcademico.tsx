@@ -107,60 +107,50 @@ const { data: horRegistrados } = await supabase.from('horario')
 
 const handleGrabar = async () => {
     if(!idMatriculaSel) { showToast('Seleccione un estudiante', 'error'); return }
+    
     const diasSel = horarioAcad.filter(h => h.sel)
-    if(!esSoloLectura && diasSel.length === 0) {
+    if(diasSel.length === 0) { // <-- QUITE EL !esSoloLectura
       showToast('Seleccione al menos 1 día', 'error');
       return
     }
     setLoadingW2(true)
 
+    // Validaciones...
     const { data: existeEnNrc } = await supabase.from('horario').select('idhorario').eq('idmatricula', idMatriculaSel).eq('idcargaacad', dataWizard1.idcargaacad).eq('estado', 'ACTIVO').maybeSingle()
-    if(existeEnNrc) {
-      showToast('Este estudiante ya está registrado en este NRC para el periodo', 'error')
-      setIdMatriculaSel(null)
-      setLoadingW2(false)
-      return
-    }
+    if(existeEnNrc) { showToast('Este estudiante ya está registrado en este NRC', 'error'); setIdMatriculaSel(null); setLoadingW2(false); return }
 
     const { data: existeEnAsignatura } = await supabase.from('horario').select(`idhorario, cargaacademica!inner(idasignatura, horariodocente!inner(campoclinico!inner(idpa)))`).eq('idmatricula', idMatriculaSel).eq('cargaacademica.idasignatura', dataWizard1.idasignatura).eq('cargaacademica.horariodocente.campoclinico.idpa', dataWizard1.idpa).eq('estado', 'ACTIVO').maybeSingle()
-    if(existeEnAsignatura) {
-      showToast('Este estudiante ya está matriculado en esta Asignatura para el periodo', 'error')
-      setIdMatriculaSel(null)
-      setLoadingW2(false)
-      return
-    }
+    if(existeEnAsignatura) { showToast('Este estudiante ya está matriculado en esta Asignatura', 'error'); setIdMatriculaSel(null); setLoadingW2(false); return }
 
+    // 1. INSERTAR CABECERA HORARIO
     const { data: horInsert, error: errHor } = await supabase.from('horario').insert({ idcargaacad: dataWizard1.idcargaacad, idmatricula: idMatriculaSel, estado: 'ACTIVO' }).select().single()
     if(errHor) { showToast(errHor.message, 'error'); setLoadingW2(false); return }
 
-    if(!esSoloLectura) {
-      const detalleToInsert = diasSel.map(d => ({ idhorario: horInsert.idhorario, dia_semana: d.dia, hora_inicio: d.horaInicio, hora_fin: d.horaFin, estado: 'ACTIVO' }))
-      const { error: errDet } = await supabase.from('detallehorario').insert(detalleToInsert)
-      if(errDet) { showToast(errDet.message, 'error'); setLoadingW2(false); return }
-    }
+    // 2. SIEMPRE INSERTAR DETALLE, SEA REUTILIZADO O NO
+    const detalleToInsert = diasSel.map(d => ({ 
+      idhorario: horInsert.idhorario, 
+      dia_semana: d.dia, 
+      hora_inicio: d.horaInicio, 
+      hora_fin: d.horaFin, 
+      estado: 'ACTIVO' 
+    }))
+    const { error: errDet } = await supabase.from('detallehorario').insert(detalleToInsert)
+    if(errDet) { showToast(errDet.message, 'error'); setLoadingW2(false); return }
 
-    // ===== FIX: CARGAR AMBOS NRC SI ES REUTILIZABLE =====
+    // 3. RECARGAR TABLA
     let idsACargar = [dataWizard1.idcargaacad]
     if(esSoloLectura && dataWizard1.idcargaacad_referencia){
       idsACargar.push(dataWizard1.idcargaacad_referencia)
     }
 
-    // const { data: horRecarga } = await supabase.from('horario')
-    //   .select(`*, matricula!inner(idmatricula, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`)
-    //   .in('idcargaacad', idsACargar) // <-- usamos IN para traer ambos
-    //   .eq('estado', 'ACTIVO')
-
     const { data: horRecarga } = await supabase.from('horario')
-  .select(`*, 
-    matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres))),
-    cargaacademica!inner(horariodocente!inner(campoclinico!inner(idpa)))
-  `)
-  .in('idcargaacad', idsACargar)
-  .eq('estado', 'ACTIVO')
-  .eq('matricula.idpa', dataWizard1.idpa) // <-- SOLO DEL PERIODO ACTUAL
-    
+      .select(`*, matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres))), cargaacademica!inner(horariodocente!inner(campoclinico!inner(idpa)))`)
+      .in('idcargaacad', idsACargar)
+      .eq('estado', 'ACTIVO')
+      .eq('matricula.idpa', dataWizard1.idpa)
+      
     setHorariosRegistrados(horRecarga || [])
-    setTotalMatriculados(horRecarga?.length || 0) // ACTUALIZA BADGE
+    setTotalMatriculados(horRecarga?.length || 0)
 
     showToast('Estudiante agregado al NRC', 'success')    
     setIdMatriculaSel(null)

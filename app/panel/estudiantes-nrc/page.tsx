@@ -92,6 +92,7 @@ const cargarFilialesDelPeriodo = async () => {
   const {data, error} = await supabase.from('horario')
    .select(`
       matricula!inner(
+      estado,
         estudiante!inner(idfilial)
       ),
       cargaacademica!inner(
@@ -101,6 +102,7 @@ const cargarFilialesDelPeriodo = async () => {
       )
     `)
    .eq('estado', 'ACTIVO')
+   .eq('matricula.estado', 'MATRICULADO')
    .eq('cargaacademica.estado', 'ACTIVO')
    .eq('cargaacademica.horariodocente.campoclinico.idpa', Number(filtroPeriodo.value))
    .limit(1000)
@@ -119,116 +121,122 @@ const cargarFilialesDelPeriodo = async () => {
 }
 
 const loadEstudiantes = async (inputValue: string) => {
-  const {data, error} = await supabase.from('horario')
+  if(!filtroPeriodo?.value) return []
+  
+  const idpa = Number(filtroPeriodo.value)
+  const idfilial = filtroFilial?.value ? Number(filtroFilial.value) : null
+  // console.log("CARGANDO ESTUDIANTES PARA:", idpa, idfilial)
+
+  // 1. Traer todos los horarios del periodo con datos
+  const {data: horarios, error: errH} = await supabase
+    .from('horario')
     .select(`
       idmatricula,
       matricula!inner(
         idmatricula,
+        idpa,
+        estado,
         estudiante!inner(
-          idestudiante, 
-          persona:idpersona!inner(dni, apellidos, nombres)
-        )
-      ),
-      cargaacademica!inner(
-        idcargaacad,
-        horariodocente:idhorariod(
-          campoclinico:idcampocli!inner(idpa)
+          idestudiante,
+          idfilial,
+          persona!inner(dni, apellidos, nombres)
         )
       )
     `)
     .eq('estado', 'ACTIVO')
-    .eq('cargaacademica.estado', 'ACTIVO')
-    .limit(1000)
+    .eq('matricula.estado', 'MATRICULADO')
+    .eq('matricula.idpa', idpa)
+    .limit(2000)
 
-  if(error || !data) return []
+  if(errH || !horarios) { console.log("ERROR HORARIO:", errH); return [] }
+  // console.log("HORARIOS ENCONTRADOS:", horarios.length)
 
-  // 1. Filtrar por periodo en JS
-  let filtrado = data
-  if(filtroPeriodo?.value) {
-    const idpa = Number(filtroPeriodo.value)
-    filtrado = filtrado.filter(h => h.cargaacademica?.horariodocente?.campoclinico?.idpa === idpa)
-  }
-
-  if(filtroFilial?.value) {
-  const idfilial = Number(filtroFilial.value)
-  filtrado = filtrado.filter(h => h.matricula?.estudiante?.idfilial === idfilial)
-}
-
-  // 2. Quitar duplicados por idestudiante
-  const mapaEst = new Map()
-  filtrado.forEach(h => {
+  // 2. Filtrar por filial y quitar duplicados
+  const mapa = new Map()
+  horarios.forEach(h => {
     const est = h.matricula?.estudiante
-    if(est?.idestudiante && !mapaEst.has(est.idestudiante)) {
-      mapaEst.set(est.idestudiante, est)
+    if(!est) return
+    if(idfilial && est.idfilial !== idfilial) return
+    if(!mapa.has(est.idestudiante)) {
+      mapa.set(est.idestudiante, est)
     }
   })
 
-  // 3. Filtrar por texto
-  const texto = inputValue.toLowerCase().trim()
-  const lista = Array.from(mapaEst.values())
-  const filtrados = texto ? lista.filter(e => 
-    e.persona?.dni?.toLowerCase().includes(texto) || 
-    e.persona?.apellidos?.toLowerCase().includes(texto) ||
-    e.persona?.nombres?.toLowerCase().includes(texto)
-  ) : lista
+  let lista = Array.from(mapa.values())
 
-  return filtrados.map(e => ({
+  // 3. Filtro de texto
+  const texto = inputValue.toLowerCase().trim()
+  if(texto) {
+    lista = lista.filter(e => 
+      e.persona.dni.toLowerCase().includes(texto) || 
+      e.persona.apellidos.toLowerCase().includes(texto) ||
+      e.persona.nombres.toLowerCase().includes(texto)
+    )
+  }
+
+  return lista.map(e => ({
     value: e.idestudiante,
     label: `${e.persona.dni} - ${e.persona.apellidos}, ${e.persona.nombres}`
   }))
 }
 
 const loadAsignaturasFiltro = async (inputValue: string) => {
-  const {data, error} = await supabase.from('horario')
+  if(!filtroPeriodo?.value) return []
+  const idpa = Number(filtroPeriodo.value)
+  const idfilial = filtroFilial?.value ? Number(filtroFilial.value) : null
+  const idestudiante = estudianteSel?.value ? Number(estudianteSel.value) : null
+
+  // console.log("CARGANDO ASIGNATURAS PARA:", idpa, idfilial, idestudiante)
+
+  // 1. Traer horarios con todo
+  const {data: horarios, error} = await supabase
+    .from('horario')
     .select(`
-      cargaacademica!inner(
+      idmatricula,
+      cargaacademica(
+        idcargaacad,
         idasignatura,
-        asignatura:idasignatura(idasignatura, codigo, nombre),
-        horariodocente:idhorariod(
-          campoclinico:idcampocli!inner(idpa)
-        )
+        estado,
+        asignatura:idasignatura(idasignatura, codigo, nombre)
       ),
       matricula!inner(
-        estudiante!inner(idestudiante,idfilial)
+        idmatricula,
+        idpa,
+        estado,
+        estudiante!inner(idestudiante, idfilial)
       )
     `)
     .eq('estado', 'ACTIVO')
     .eq('cargaacademica.estado', 'ACTIVO')
-    .limit(1000)
+    .eq('matricula.estado', 'MATRICULADO')
+    .eq('matricula.idpa', idpa)
+    .limit(2000)
 
-  if(error || !data) return []
+  if(error || !horarios) { console.log("ERROR ASIG:", error); return [] }
+  // console.log("HORARIOS PARA ASIG:", horarios.length)
 
-  // 1. Filtrar por periodo en JS
-  let filtrado = data
-  if(filtroPeriodo?.value) {
-    const idpa = Number(filtroPeriodo.value)
-    filtrado = filtrado.filter(h => h.cargaacademica?.horariodocente?.campoclinico?.idpa === idpa)
-  }
-  if(filtroFilial?.value) {
-  const idfilial = Number(filtroFilial.value)
-  filtrado = filtrado.filter(h => h.matricula?.estudiante?.idfilial === idfilial)
-}
+  // 2. Filtrar en JS
+  const filtrado = horarios.filter(h => {
+    const pasaFilial = !idfilial || h.matricula?.estudiante?.idfilial === idfilial
+    const pasaEstudiante = !idestudiante || h.matricula?.estudiante?.idestudiante === idestudiante
+    const tieneAsignatura = !!h.cargaacademica?.asignatura
+    return pasaFilial && pasaEstudiante && tieneAsignatura
+  })
 
-  // 2. Filtrar por estudiante en JS - ESTO ES LO NUEVO
-  if(estudianteSel?.value) {
-    filtrado = filtrado.filter(h => h.matricula?.estudiante?.idestudiante === estudianteSel.value)
-  }
-
-  // 3. Quitar duplicados por idasignatura
-  const mapaAsig = new Map()
+  // 3. Sacar asignaturas únicas
+  const mapa = new Map()
   filtrado.forEach(h => {
-    const asig = h.cargaacademica?.asignatura
-    if(asig?.idasignatura && !mapaAsig.has(asig.idasignatura)) {
-      mapaAsig.set(asig.idasignatura, asig)
+    const a = h.cargaacademica?.asignatura
+    if(a?.idasignatura && !mapa.has(a.idasignatura)) {
+      mapa.set(a.idasignatura, a)
     }
   })
 
-  // 4. Filtrar por texto
+  const lista = Array.from(mapa.values())
   const texto = inputValue.toLowerCase().trim()
-  const lista = Array.from(mapaAsig.values())
   const filtrados = texto ? lista.filter(a => 
-    a.nombre?.toLowerCase().includes(texto) || 
-    a.codigo?.toLowerCase().includes(texto)
+    a.codigo.toLowerCase().includes(texto) || 
+    a.nombre.toLowerCase().includes(texto)
   ) : lista
 
   return filtrados.map(a => ({
@@ -236,7 +244,6 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
     label: `${a.codigo} - ${a.nombre}`
   }))
 }
-
   const fetchData = async () => {
   setLoading(true)
   const {data: per} = await supabase.from('periodoacademico').select('*').order('fecha_inicio', {ascending: false})
@@ -350,7 +357,15 @@ const confirmarBaja = async () => {
         <div className="grid-filtros-nrc">
           <SelectSGPCFieldset label="Filtrar por Periodo" value={filtroPeriodo} onChange={(opt) => { setFiltroPeriodo(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))]} />
              <SelectSGPCFieldset label="Filial" value={filtroFilial} onChange={(opt) => { setFiltroFilial(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))]} isDisabled={!filtroPeriodo?.value} />
-          <SelectSGPCFieldset label="Estudiante" value={estudianteSel} onChange={(opt) => {setEstudianteSel(opt); setPaginaActual(1)}} isAsync loadOptions={loadEstudiantes} isDisabled={!filtroPeriodo?.value} />
+          {/* <SelectSGPCFieldset label="Estudiante" value={estudianteSel} onChange={(opt) => {setEstudianteSel(opt); setPaginaActual(1)}} isAsync loadOptions={loadEstudiantes}  /> */}
+          <SelectSGPCFieldset 
+  key={`est-${filtroPeriodo?.value}-${filtroFilial?.value}`} // <-- AGREGA ESTO
+  label="Estudiante" 
+  value={estudianteSel} 
+  onChange={(opt) => {setEstudianteSel(opt); setPaginaActual(1)}} 
+  isAsync 
+  loadOptions={loadEstudiantes}  
+/>
           <SelectSGPCFieldset  
   key={`asig-${filtroPeriodo?.value || 'todos'}-${filtroFilial?.value || 'todos'}-${estudianteSel?.value || 'todos'}`}
   label="Asignatura"
