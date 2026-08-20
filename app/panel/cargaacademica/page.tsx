@@ -127,9 +127,11 @@ const [cargaVer, setCargaVer] = useState<CargaAcademica | null>(null)
 
 // 2. FUNCION NUEVA
 const handleVerCarga = (carga: CargaAcademica) => {
-  // Primero armamos el dataWizard2 para que ModalHorarioAcademico funcione
+  // Le pasamos idcargaacad_referencia = el mismo idcargaacad
+  // Así el modal piensa que es "herencia" y jala el horario solo
   setDataWizard2({
     idcargaacad: carga.idcargaacad,
+    idcargaacad_referencia: carga.idcargaacad, // <-- CLAVE: AQUI ESTA EL TRUCO
     nrc: carga.nrc,
     idhorariod: carga.idhorariod,
     iddocente: carga.horariodocente?.campoclinico?.docente?.iddocente,
@@ -138,7 +140,7 @@ const handleVerCarga = (carga: CargaAcademica) => {
     docente: `${carga.horariodocente?.campoclinico?.docente?.persona?.apellidos}, ${carga.horariodocente?.campoclinico?.docente?.persona?.nombres}`,
     dni: carga.horariodocente?.campoclinico?.docente?.persona?.dni,
     asignatura: `${carga.asignatura?.codigo} - ${carga.asignatura?.nombre}`,
-    esSoloLectura: false
+    esSoloLectura: false // <-- Permitir editar para agregar estudiante
   })
   
   setCargaVer(carga)

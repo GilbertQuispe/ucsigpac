@@ -181,7 +181,11 @@ setTotalDocente(horDoc?.length || 0)
         <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '75rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column'}}>
           
           <div className="modal-header" style={{padding: '0.5rem 0rem'}}> 
-            <p className="titulo-principal"><BookOpen size={18} /> Registro de Horario Académico</p>
+            {/* <p className="titulo-principal"><BookOpen size={18} /> Registro de Horario Académico</p> */}
+            <h2>
+  <BookOpen size={22} /> 
+  {dataWizard1?.idcargaacad_referencia ? 'Registro de Horario Académico' : ' Agregar Estudiante - Horario'}
+</h2>
             <button onClick={onClose} className="btn-cerrar-modal"><X size={16} /></button>
           </div>
 
