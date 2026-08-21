@@ -22,8 +22,8 @@ type CargaAcademica = any
 
 const SelectSGPCFieldset = ({label, value, onChange, options, isDisabled = false, isAsync = false, loadOptions}:any) => {
   const Component = isAsync? AsyncSelect : Select
-  const selectedOption = isAsync? value : options.find((o:any) => o.value === value?.value) || value || null
-
+  // const selectedOption = isAsync? value : options.find((o:any) => o.value === value?.value) || value || null
+const selectedOption = isAsync? value : options?.find((o:any) => o.value === value?.value) || value || null
   return (
     <fieldset className="fieldset-sgpc">
       <legend>{label}</legend>
@@ -60,7 +60,18 @@ export default function CargaAcademicaPage() {
   const [showModal, setShowModal] = useState(false)
   const [cargaEdit, setCargaEdit] = useState<CargaAcademica | null>(null)
 
-  const [form, setForm] = useState<any>({idpa: null, idhorariod: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: '' })
+  //const [form, setForm] = useState<any>({idpa: null, idhorariod: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: '' })
+  const [form, setForm] = useState<any>({
+  idpa: null, 
+  idhorariod: null, 
+  idcampocli: null, // <-- NUEVO
+  idasignatura: null, 
+  nrc: '', 
+  docenteData: null, 
+  planacademico: '', 
+  carrera: '',
+  camposDelDocente: [] // <-- NUEVO
+})
 const [showModalHorarioAcad, setShowModalHorarioAcad] = useState(false)
 const [dataWizard2, setDataWizard2] = useState<any>(null)
 
@@ -266,7 +277,67 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
     distrito: h.campoclinico.eps?.distrito?.nombredt
   }))
 }
- 
+
+// const loadCamposPorDocente = async (iddocente: number) => {
+//   if(!iddocente || !form.idpa) return []
+
+//   const {data, error} = await supabase
+//     .from('campoclinico') // <-- OJO: ahora jalamos directo de campoclinico
+//     .select(`
+//       idcampocli,
+//       idservicios,
+//       eps:ideps!inner(razonsocial, distrito:iddistrito!inner(nombredt)),
+//       serviciosalud:idservicios(nombre)
+//     `)
+//     .eq('iddocente', iddocente)
+//     .eq('idpa', form.idpa.value) // <-- CLAVE: filtrar por periodo
+//     .eq('estado', 'ACTIVO')
+
+//   if(error || !data) return []
+
+//   // Quitamos duplicados por si acaso
+//   const unicos = Array.from(new Map(data.map(c => [c.idcampocli, c])).values())
+
+//   return unicos.map(c => ({
+//     value: c.idcampocli,
+//     label: `${c.eps.razonsocial} - ${c.eps.distrito.nombredt}`,
+//     idservicios: c.idservicios,
+//     servicio: c.serviciosalud?.nombre
+//   }))
+// }
+
+const loadCamposPorDocente = async (iddocente: number) => {
+  if(!iddocente || !form.idpa) return []
+
+  console.log("Buscando campos para:", iddocente, "Periodo:", form.idpa.value)
+
+  const {data, error} = await supabase
+    .from('campoclinico')
+    .select(`
+      idcampocli,
+      estado,
+      idservicios,
+      eps:ideps!inner(razonsocial, distrito:iddistrito!inner(nombredt)),
+      serviciosalud:idservicios(nombre)
+    `)
+    .eq('iddocente', iddocente)
+    .eq('idpa', form.idpa.value)
+
+  console.log("Respuesta cruda de BD:", data) // <-- ESTO
+  console.log("Error:", error)
+
+  if(error || !data) return []
+
+  const activos = data.filter(c => c.estado === 'ACTIVO') // <-- Quitamos el filtro de supabase para ver todos
+  console.log("Solo activos:", activos)
+
+  return activos.map(c => ({
+    value: c.idcampocli,
+    label: `${c.eps.razonsocial} - ${c.eps.distrito.nombredt} [${c.estado}]`,
+    servicio: c.serviciosalud?.nombre
+  }))
+}
+
 const fetchData = async () => {
     setLoading(true)
     const [perRes] = await Promise.all([
@@ -318,10 +389,17 @@ const fetchData = async () => {
 
   useEffect(() => { fetchData() }, [paginaActual, filtroPeriodo, docenteSel, asignaturaSel, search])
 
-  useEffect(() => {
-  if(!showModal){ // cuando se cierra
-    setForm({idpa: null, idhorariod: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: ''})
-    setCargaEdit(null) // <-- AGREGA ESTO
+//   useEffect(() => {
+//   if(!showModal){ // cuando se cierra
+//     setForm({idpa: null, idhorariod: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: ''})
+//     setCargaEdit(null) // <-- AGREGA ESTO
+//   }
+// }, [showModal])
+
+useEffect(() => {
+  if(!showModal){ 
+    setForm({idpa: null, idhorariod: null, idcampocli: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: '', camposDelDocente: []})
+    setCargaEdit(null)
   }
 }, [showModal])
 
@@ -332,6 +410,9 @@ const handleGuardar = async () => {
     setLoading(true)
 
     const idasignatura = form.idasignatura.value
+
+    const idcampocli = form.idcampocli?.value
+    
     const idhorariod = form.idhorariod.value
     const nrc = form.nrc.trim().toUpperCase()
     const iddocente = form.idhorariod.iddocente
@@ -364,10 +445,12 @@ const handleGuardar = async () => {
     let esReutilizado = false
     if(existeCargaNRC) esReutilizado = true
 
-    const { data, error } = cargaEdit
- ? await supabase.from('cargaacademica').update({ idasignatura, idhorariod, nrc, estado: 'ACTIVO' }).eq('idcargaacad', cargaEdit.idcargaacad).select().single()
-      : await supabase.from('cargaacademica').insert({ idasignatura, idhorariod, nrc, estado: 'ACTIVO' }).select().single()
-
+//     const { data, error } = cargaEdit
+//  ? await supabase.from('cargaacademica').update({ idasignatura, idhorariod, nrc, estado: 'ACTIVO' }).eq('idcargaacad', cargaEdit.idcargaacad).select().single()
+//       : await supabase.from('cargaacademica').insert({ idasignatura, idhorariod, nrc, estado: 'ACTIVO' }).select().single()
+const { data, error } = cargaEdit
+ ? await supabase.from('cargaacademica').update({ idasignatura, idhorariod, idcampocli, nrc, estado: 'ACTIVO' }).eq('idcargaacad', cargaEdit.idcargaacad).select().single()
+  : await supabase.from('cargaacademica').insert({ idasignatura, idhorariod, idcampocli, nrc, estado: 'ACTIVO' }).select().single()
     setLoading(false)
 
     if(error) { showToast(error.message, 'error'); return }
@@ -398,6 +481,12 @@ const handleGuardar = async () => {
   setCargaEdit(carga) 
   
   setForm({
+    idcampocli: carga.horariodocente?.campoclinico ? {
+  value: carga.horariodocente.campoclinico.idcampocli,
+  label: `${carga.horariodocente.campoclinico.eps?.razonsocial} - ${carga.horariodocente.campoclinico.eps?.distrito?.nombredt}`
+} : null,
+servicio: carga.horariodocente?.campoclinico?.serviciosalud?.nombre,
+camposDelDocente: [],
     idpa: carga.horariodocente?.campoclinico?.periodoacademico? {
       value: carga.horariodocente.campoclinico.periodoacademico.idpa,
       label: `${carga.horariodocente.campoclinico.periodoacademico.codigo} - ${carga.horariodocente.campoclinico.periodoacademico.nombre}`
@@ -560,23 +649,43 @@ const handleGuardar = async () => {
                       isSearchable
                       styles={{ control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', marginTop: '0.4rem' }), menu: (base) => ({...base, zIndex: 9999 }) }}
                     />
+                   <SelectSGPCFieldset
+  label="DNI + Docente *"
+  value={form.idhorariod}
+  onChange={async (opt:any) => {
+    setForm({...form, idhorariod: opt, docenteData: opt, idcampocli: null, servicio: '', camposDelDocente: []})
+    
+    // Al elegir docente, cargamos todos sus campos
+    if(opt?.iddocente){
+      const campos = await loadCamposPorDocente(opt.iddocente)
+      setForm(prev => ({...prev, camposDelDocente: campos}))
+    }
+  }}
+  isAsync
+  loadOptions={loadDocentesPorPeriodo}
+  isDisabled={!form.idpa}
+  key={form.idpa?.value}
+/>
                     <SelectSGPCFieldset
-                      label="DNI + Docente *"
-                      value={form.idhorariod}
-                      onChange={(opt:any) => setForm({...form, idhorariod: opt, docenteData: opt})}
-                      isAsync
-                      loadOptions={loadDocentesPorPeriodo}
-                      isDisabled={!form.idpa}
-                      key={form.idpa?.value}
-                    />
-                    <fieldset className="fieldset-sgpc">
-                      <legend>Servicio de Salud</legend>
-                      <input className="input-sgpc" value={form.docenteData?.servicio || ''} readOnly disabled style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} />
-                    </fieldset>
-                    <fieldset className="fieldset-sgpc">
-                      <legend>EPS + Distrito</legend>
-                      <input className="input-sgpc" value={form.docenteData? `${form.docenteData.eps || ''} - ${form.docenteData.distrito || ''}` : ''} readOnly disabled style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} />
-                    </fieldset>
+  label="EPS + Distrito *"
+  value={form.idcampocli}
+  onChange={async (opt:any) => {
+    setForm({...form, idcampocli: opt, servicio: opt?.servicio})
+    
+    // JALAMOS HORARIO LABORAL DE ESE CAMPO
+    if(opt?.value){
+      const {data: horLab} = await supabase.from('horariodocente').select('idhorariod').eq('idcampocli', opt.value).limit(1).single()
+      setForm(prev => ({...prev, idhorariod: {...prev.idhorariod, value: horLab?.idhorariod}}))
+    }
+  }}
+  options={form.camposDelDocente}
+  isDisabled={!form.docenteData}
+/>
+
+<fieldset className="fieldset-sgpc">
+  <legend>Servicio de Salud</legend>
+  <input className="input-sgpc" value={form.servicio || ''} readOnly disabled style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} />
+</fieldset>
                   </div>
                 </fieldset>
                 <fieldset className="fieldset-sgpc-section">
@@ -590,17 +699,25 @@ const handleGuardar = async () => {
                 </fieldset>
             </div>
            <div className="modal-footer" style={{justifyContent: 'center', gap: '1.6rem'}}>
-              <button className="btn-secundario btn-outline-azul" onClick={() => setForm({idpa: null, idhorariod: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: ''})} style={{minWidth: '18rem'}}><Eraser size={16} />Limpiar</button>
+              <button className="btn-secundario btn-outline-azul" onClick={() => setForm({idpa: null, idhorariod: null, idcampocli: null, idasignatura: null, nrc: '', docenteData: null, planacademico: '', carrera: '', camposDelDocente: []})} style={{minWidth: '18rem'}}><Eraser size={16} />Limpiar</button>
               <button className="btn-primario btn-azul-solido" onClick={handleGuardar} disabled={!puedeGuardar} style={{minWidth: '18rem'}}><Save size={16} />Guardar</button>
            </div>
           </div>
         </div>
       )}
-<ModalHorarioAcademico
+{/* <ModalHorarioAcademico
         show={showModalHorarioAcad}
         onClose={() => setShowModalHorarioAcad(false)}
         dataWizard1={dataWizard2}
-      />
+      /> */}
+
+      <ModalHorarioAcademico
+  show={showModalHorarioAcad}
+  onClose={() => setShowModalHorarioAcad(false)}
+  dataWizard1={dataWizard2}
+  idcampocli={dataWizard2?.idcampocli || null} // <-- AGREGA ESTA LINEA
+/>
+
 <ModalVerCargaDocente
   show={showModalVerCarga}
   onClose={() => setShowModalVerCarga(false)}

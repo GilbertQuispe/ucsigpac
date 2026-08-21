@@ -25,7 +25,8 @@ const SelectSGPCFieldset = ({label, value, onChange, options, isDisabled = false
   )
 }
 
-const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
+// const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
+const ModalHorarioAcademico = ({ show, onClose, dataWizard1, idcampocli = null }: any) => {
   const [loadingW2, setLoadingW2] = useState(false)
   const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
   const [estudiantes, setEstudiantes] = useState<any[]>([])
@@ -45,7 +46,8 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
   const getHorasLaboralesDia = (dia: string) => { const reg = horarioLaboralDoc.find(h => h.dia_semana === dia); return reg? { inicio: reg.hora_inicio, fin: reg.hora_fin } : null }
 
   // const esSoloLectura = dataWizard1?.esSoloLectura || false
-  const esSoloLectura = dataWizard1?.esSoloLectura || !!dataWizard1?.idcargaacad_referencia
+  //const esSoloLectura = dataWizard1?.esSoloLectura || !!dataWizard1?.idcargaacad_referencia
+  const esSoloLectura = dataWizard1?.esSoloLectura || !!dataWizard1?.idcargaacad_referencia || horariosDocente.length > 0
 
 useEffect(() => {
   const cargar = async () => {
@@ -61,8 +63,58 @@ useEffect(() => {
     // 0. FORZAR SOLO LECTURA SI VIENE REFERENCIA
     const esReferencia = !!dataWizard1.idcargaacad_referencia
 
-    const { data: horLab } = await supabase.from('horariodocente').select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`).eq('campoclinico.iddocente', dataWizard1.iddocente).eq('campoclinico.idpa', dataWizard1.idpa)
-    setHorarioLaboralDoc(horLab || [])
+    // const { data: horLab } = await supabase.from('horariodocente').select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`).eq('campoclinico.iddocente', dataWizard1.iddocente).eq('campoclinico.idpa', dataWizard1.idpa)
+//     let queryHorLab = supabase
+//   .from('horariodocente')
+//   .select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`)
+//   .eq('campoclinico.iddocente', dataWizard1.iddocente)
+//   .eq('campoclinico.idpa', dataWizard1.idpa)
+
+// if(idcampocli) { // <-- SOLO FILTRA SI VIENE EL CAMPO
+//   queryHorLab = queryHorLab.eq('idcampocli', idcampocli)
+// }
+
+// const { data: horLab } = await queryHorLab
+
+// const { data: horLab } = await supabase
+//   .from('horariodocente')
+//   .select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`)
+//   .eq('campoclinico.iddocente', dataWizard1.iddocente)
+//   .eq('campoclinico.idpa', dataWizard1.idpa)
+//   .eq('idcampocli', idcampocli) 
+
+// // NUEVO: LIMPIAR DUPLICADOS Y SETEAR SOLO 1 VEZ
+// const horLabLimpio = Array.from(
+//   new Map((horLab || []).map(h => [`${h.dia_semana}-${h.hora_inicio}-${h.hora_fin}`, h])).values()
+// )
+
+// setHorarioLaboralDoc(horLabLimpio) // <-- usa el limpio
+
+// REEMPLAZA TU CONSULTA ACTUAL POR ESTA
+let queryHorLab = supabase
+  .from('horariodocente')
+  .select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`)
+  .eq('campoclinico.iddocente', dataWizard1.iddocente)
+  .eq('campoclinico.idpa', dataWizard1.idpa)
+
+if(idcampocli) { // <-- SOLO agrega el filtro si tiene valor
+  queryHorLab = queryHorLab.eq('idcampocli', idcampocli)
+}
+
+const { data: horLab, error: errHorLab } = await queryHorLab
+
+if(errHorLab) {
+  console.error("Error horLab:", errHorLab)
+}
+
+// NUEVO: LIMPIAR DUPLICADOS
+const horLabLimpio = Array.from(
+  new Map((horLab || []).map(h => [`${h.dia_semana}-${h.hora_inicio}-${h.hora_fin}`, h])).values()
+)
+
+setHorarioLaboralDoc(horLabLimpio)
+
+    //setHorarioLaboralDoc(horLab || [])
 
     const { data: mat } = await supabase.from('matricula').select('idmatricula, idestudiante').eq('idpa', Number(dataWizard1.idpa)).eq('estado', 'MATRICULADO')
     if(mat && mat.length > 0) {
@@ -103,38 +155,141 @@ useEffect(() => {
     setTotalGeneral(horGen?.length || 0)
     setTotalDocente(horDoc?.length || 0)
 
-    // 4. HEREDAR HORARIO SI VIENE REFERENCIA
+
+        // VALIDACIÓN NUEVA: QUE EL HORARIO SEA DEL CAMPO ACTUAL
+    let horDocValido = horDoc
+    if(horDoc && horDoc.length > 0 && idcampocli) {
+      const { data: validaCampo } = await supabase
+      .from('cargaacademica')
+      .select('idhorariod, horariodocente!inner(idcampocli)')
+      .eq('idcargaacad', dataWizard1.idcargaacad)
+      .single()
+
+      if(validaCampo?.horariodocente?.idcampocli !== idcampocli) {
+        horDocValido = []
+        setHorariosDocente([])
+        setTotalDocente(0)
+        showToast('Esta carga pertenece a otro campo. Debe registrar horario nuevo.', 'error')
+      }
+    }
+//     // NUEVO: SI YA EXISTE HORARIO EN ESTA CARGA, LO CARGAMOS Y BLOQUEAMOS
+//     if(horDoc && horDoc.length > 0) {
+//       const { data: detalle } = await supabase
+//        .from('horario')
+//        .select(`detallehorario(*)`)
+//        .eq('idhorario', horDoc[0].idhorario) // agarra el primero
+//        .single()
+
+//   if(detalle?.detallehorario && detalle.detallehorario.length > 0) {
+//   const nuevoHorario = DIAS_SEMANA.map(d => {
+//     const det = detalle.detallehorario.find((x:any) => x.dia_semana === d)
+//     return det? { 
+//       dia: d, 
+//       sel: true, // <-- ESTO LO MARCA
+//       horaInicio: det.hora_inicio.substring(0,5), 
+//       horaFin: det.hora_fin.substring(0,5) 
+//     } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
+//   })
+//   setHorarioAcad(nuevoHorario)
+//   showToast('Horario ya registrado. Solo puede agregar estudiantes.', 'success')
+// }
+//     } else {
+//       // SI NO HAY NADA, LO DEJA EN BLANCO COMO SIEMPRE
+//       setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
+//     } 
+
+// NUEVO: CARGAR HORARIO EXISTENTE - PRIORIDAD 1: REFERENCIA, PRIORIDAD 2: CARGA ACTUAL
+    let horarioCargado = false
+
+    // 1. PRIMERO: SI VIENE HERENCIA
     if(esReferencia) {
       const { data: detalle } = await supabase
-        .from('horario')
-        .select(`idhorario, detallehorario(*)`)
-        .eq('idcargaacad', dataWizard1.idcargaacad_referencia)
-        .eq('estado', 'ACTIVO')
-        .limit(1)
-        .single()
+       .from('horario')
+       .select(`idhorario, detallehorario(*)`)
+       .eq('idcargaacad', dataWizard1.idcargaacad_referencia)
+       .eq('estado', 'ACTIVO')
+       .limit(1)
+       .single()
 
       if(detalle?.detallehorario && detalle.detallehorario.length > 0) {
         const nuevoHorario = DIAS_SEMANA.map(d => {
           const det = detalle.detallehorario.find((x:any) => x.dia_semana === d)
           return det? { 
             dia: d, 
-            sel: true, // LO MARCA
+            sel: true, 
             horaInicio: det.hora_inicio.substring(0,5), 
             horaFin: det.hora_fin.substring(0,5) 
           } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
         })
         setHorarioAcad(nuevoHorario)
         showToast('Horario heredado del NRC. Solo puede agregar estudiantes.', 'success')
-      } else {
-        setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
+        horarioCargado = true
       }
-    } else {
+    } 
+    
+    // 2. SEGUNDO: SI NO ES HERENCIA PERO YA HAY ALUMNOS EN ESTA CARGA
+   // if(!horarioCargado && horDoc && horDoc.length > 0) {
+      if(!horarioCargado && horDocValido && horDocValido.length > 0) {
+      const { data: detalle } = await supabase
+      .from('horario')
+      .select(`detallehorario(*)`)
+      //.eq('idhorario', horDoc[0].idhorario) 
+      .eq('idhorario', horDocValido[0].idhorario)
+      .single()
+
+      if(detalle?.detallehorario && detalle.detallehorario.length > 0) {
+        const nuevoHorario = DIAS_SEMANA.map(d => {
+          const det = detalle.detallehorario.find((x:any) => x.dia_semana === d)
+          return det? { 
+            dia: d, 
+            sel: true, 
+            horaInicio: det.hora_inicio.substring(0,5), 
+            horaFin: det.hora_fin.substring(0,5) 
+          } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
+        })
+        setHorarioAcad(nuevoHorario)
+        showToast('Horario ya registrado. Solo puede agregar estudiantes.', 'success')
+        horarioCargado = true
+      }
+    }
+
+    // 3. TERCERO: SI NO HAY NADA, BLANCO
+    if(!horarioCargado) {
       setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
     }
 
+    // 4. HEREDAR HORARIO SI VIENE REFERENCIA
+    // if(esReferencia) {
+    //   const { data: detalle } = await supabase
+    //     .from('horario')
+    //     .select(`idhorario, detallehorario(*)`)
+    //     .eq('idcargaacad', dataWizard1.idcargaacad_referencia)
+    //     .eq('estado', 'ACTIVO')
+    //     .limit(1)
+    //     .single()
+
+    //   if(detalle?.detallehorario && detalle.detallehorario.length > 0) {
+    //     const nuevoHorario = DIAS_SEMANA.map(d => {
+    //       const det = detalle.detallehorario.find((x:any) => x.dia_semana === d)
+    //       return det? { 
+    //         dia: d, 
+    //         sel: true, // LO MARCA
+    //         horaInicio: det.hora_inicio.substring(0,5), 
+    //         horaFin: det.hora_fin.substring(0,5) 
+    //       } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
+    //     })
+    //     setHorarioAcad(nuevoHorario)
+    //     showToast('Horario heredado del NRC. Solo puede agregar estudiantes.', 'success')
+    //   } else {
+    //     setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
+    //   }
+    // } else {
+    //   setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
+    // }
+
   }
   cargar()
-}, [show, dataWizard1])
+}, [show, dataWizard1, idcampocli])
 
   const totalSemanal = useMemo(() => horarioAcad.reduce((acc, h) => acc + (h.sel? calcularHoras(h.horaInicio, h.horaFin) : 0), 0), [horarioAcad])
 
