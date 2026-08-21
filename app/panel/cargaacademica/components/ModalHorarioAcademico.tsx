@@ -44,7 +44,8 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
   const diaEstaEnLaboral = (dia: string) => horarioLaboralDoc.some(h => h.dia_semana === dia)
   const getHorasLaboralesDia = (dia: string) => { const reg = horarioLaboralDoc.find(h => h.dia_semana === dia); return reg? { inicio: reg.hora_inicio, fin: reg.hora_fin } : null }
 
-  const esSoloLectura = dataWizard1?.esSoloLectura || false
+  // const esSoloLectura = dataWizard1?.esSoloLectura || false
+  const esSoloLectura = dataWizard1?.esSoloLectura || !!dataWizard1?.idcargaacad_referencia
 
 useEffect(() => {
   const cargar = async () => {
@@ -56,6 +57,9 @@ useEffect(() => {
       setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
       return
     }
+
+    // 0. FORZAR SOLO LECTURA SI VIENE REFERENCIA
+    const esReferencia = !!dataWizard1.idcargaacad_referencia
 
     const { data: horLab } = await supabase.from('horariodocente').select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`).eq('campoclinico.iddocente', dataWizard1.iddocente).eq('campoclinico.idpa', dataWizard1.idpa)
     setHorarioLaboralDoc(horLab || [])
@@ -80,14 +84,14 @@ useEffect(() => {
 
     const idsCarga = cargasNrc?.map(c => c.idcargaacad) || []
 
-    // 2. CARGAR TOTAL GENERAL: Todos los docentes con ese NRC
+    // 2. CARGAR TOTAL GENERAL
     const { data: horGen } = idsCarga.length > 0? await supabase.from('horario')
      .select(`*, matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`)
      .in('idcargaacad', idsCarga)
      .eq('estado', 'ACTIVO')
      .eq('matricula.idpa', dataWizard1.idpa) : { data: [] }
 
-    // 3. CARGAR SOLO DOCENTE: Solo los del docente actual
+    // 3. CARGAR SOLO DOCENTE
     const { data: horDoc } = await supabase.from('horario')
      .select(`*, matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`)
      .eq('idcargaacad', dataWizard1.idcargaacad)
@@ -99,16 +103,31 @@ useEffect(() => {
     setTotalGeneral(horGen?.length || 0)
     setTotalDocente(horDoc?.length || 0)
 
-    // Para heredar horario usamos el primero que encuentre del NRC
-    if(esSoloLectura && horGen && horGen.length > 0) {
-      const primerHorario = horGen[0]
-      const { data: detalle } = await supabase.from('detallehorario').select('*').eq('idhorario', primerHorario.idhorario)
-      const nuevoHorario = DIAS_SEMANA.map(d => {
-        const det = detalle?.find((x:any) => x.dia_semana === d)
-        return det? { dia: d, sel: true, horaInicio: det.hora_inicio, horaFin: det.hora_fin } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
-      })
-      setHorarioAcad(nuevoHorario)
-      showToast('Horario heredado del NRC. Solo puede agregar estudiantes.', 'success')
+    // 4. HEREDAR HORARIO SI VIENE REFERENCIA
+    if(esReferencia) {
+      const { data: detalle } = await supabase
+        .from('horario')
+        .select(`idhorario, detallehorario(*)`)
+        .eq('idcargaacad', dataWizard1.idcargaacad_referencia)
+        .eq('estado', 'ACTIVO')
+        .limit(1)
+        .single()
+
+      if(detalle?.detallehorario && detalle.detallehorario.length > 0) {
+        const nuevoHorario = DIAS_SEMANA.map(d => {
+          const det = detalle.detallehorario.find((x:any) => x.dia_semana === d)
+          return det? { 
+            dia: d, 
+            sel: true, // LO MARCA
+            horaInicio: det.hora_inicio.substring(0,5), 
+            horaFin: det.hora_fin.substring(0,5) 
+          } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
+        })
+        setHorarioAcad(nuevoHorario)
+        showToast('Horario heredado del NRC. Solo puede agregar estudiantes.', 'success')
+      } else {
+        setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
+      }
     } else {
       setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
     }
@@ -176,7 +195,7 @@ setTotalDocente(horDoc?.length || 0)
 
   return (
     <>
-      <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-overlay" >
         {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1rem 2rem', borderRadius: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.4rem' }}><AlertCircle size={16}/>{toast.msg}</div>}
         <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '75rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column'}}>
           
@@ -184,7 +203,7 @@ setTotalDocente(horDoc?.length || 0)
             {/* <p className="titulo-principal"><BookOpen size={18} /> Registro de Horario Académico</p> */}
             <h2>
   <BookOpen size={22} /> 
-  {dataWizard1?.idcargaacad_referencia ? 'Registro de Horario Académico' : ' Agregar Estudiante - Horario'}
+  {dataWizard1?.idcargaacad_referencia ? ' Registro de Horario Académico' : ' Agregar Estudiante - Horario'}
 </h2>
             <button onClick={onClose} className="btn-cerrar-modal"><X size={16} /></button>
           </div>

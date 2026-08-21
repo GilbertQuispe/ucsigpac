@@ -12,54 +12,79 @@ const ModalVerCargaDocente = ({ show, onClose, carga, onAbrirAgregarEstudiante, 
   const [estudiantes, setEstudiantes] = useState<any[]>([])
 
   useEffect(() => {
-    const cargar = async () => {
-      if(!show || !carga) return
-      setLoading(true)
+  const cargar = async () => {
+    if(!show || !carga) return
+    setLoading(true)
 
-      // Tabla 1: Horario Académico
-      const { data: horData } = await supabase
-        .from('horario')
-        .select(`idhorario, detallehorario(*)`)
-        .eq('idcargaacad', carga.idcargaacad)
-        .eq('estado', 'ACTIVO')
-      
-      const detalles = horData?.flatMap(h => h.detallehorario?.map((d:any) => ({...d, idhorario: h.idhorario})) ) || []
-      setHorarios(detalles)
+    // Tabla 1: Horario Académico - AGARRAR DE CUALQUIER HORARIO DE LA CARGA
+    const { data: horData } = await supabase
+      .from('horario')
+      .select(`idhorario, detallehorario(*)`)
+      .eq('idcargaacad', carga.idcargaacad)
+      .eq('estado', 'ACTIVO')
+      .limit(1) // <-- CLAVE: solo 1, porque todos tienen el mismo horario
+      .single()
+    
+    setHorarios(horData?.detallehorario || []) // ya no usamos flatMap
 
-      // Tabla 2: Estudiantes
-      const { data: estData } = await supabase
-        .from('horario')
-        .select(`*, matricula!inner(idmatricula, estado, idestudiante, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`)
-        .eq('idcargaacad', carga.idcargaacad)
-        .eq('estado', 'ACTIVO')
-        .eq('matricula.estado', 'MATRICULADO')
-      
-      setEstudiantes(estData || [])
-      setLoading(false)
-    }
-    cargar()
-  }, [show, carga])
+    // Tabla 2: Estudiantes - ESTO SI ESTA BIEN
+    const { data: estData } = await supabase
+      .from('horario')
+      .select(`*, matricula!inner(idmatricula, estado, idestudiante, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`)
+      .eq('idcargaacad', carga.idcargaacad)
+      .eq('estado', 'ACTIVO')
+      .eq('matricula.estado', 'MATRICULADO')
+    
+    setEstudiantes(estData || [])
+    setLoading(false)
+  }
+  cargar()
+}, [show, carga])
 
   if(!show) return null
 
   const handleImprimir = () => window.print()
 
-  const handleAgregarEstudiante = () => {
-    const dataWizard = {
-      idcargaacad: carga.idcargaacad,
-      nrc: carga.nrc,
-      idhorariod: carga.idhorariod,
-      iddocente: carga.horariodocente?.campoclinico?.docente?.iddocente,
-      idpa: carga.horariodocente?.campoclinico?.idpa,
-      idasignatura: carga.idasignatura,
-      docente: `${carga.horariodocente?.campoclinico?.docente?.persona?.apellidos}, ${carga.horariodocente?.campoclinico?.docente?.persona?.nombres}`,
-      dni: carga.horariodocente?.campoclinico?.docente?.persona?.dni,
-      asignatura: `${carga.asignatura?.codigo} - ${carga.asignatura?.nombre}`,
-      esSoloLectura: false
-    }
-    setDataWizard2(dataWizard)
-    onAbrirAgregarEstudiante()
+  const handleAgregarEstudiante = async () => {
+  setLoading(true)
+  
+  // 1. BUSCAR SI EXISTE OTRA CARGA CON EL MISMO NRC
+  const { data: otraCarga } = await supabase
+    .from('cargaacademica')
+    .select(`
+      idcargaacad,
+      horariodocente!inner(
+        idhorariod,
+        campoclinico!inner(idpa, docente:iddocente)
+      )
+    `)
+    .eq('nrc', carga.nrc)
+    .eq('idasignatura', carga.idasignatura)
+    .eq('estado', 'ACTIVO')
+    .neq('idcargaacad', carga.idcargaacad) // que sea distinta a la actual
+    .eq('horariodocente.campoclinico.idpa', carga.horariodocente?.campoclinico?.idpa)
+    .limit(1)
+    .single()
+
+  const dataWizard = {
+    idcargaacad: carga.idcargaacad, // La nueva carga
+    idcargaacad_referencia: otraCarga?.idcargaacad || null, // <-- CLAVE: La que tiene el horario
+    nrc: carga.nrc,
+    idhorariod: carga.idhorariod,
+    iddocente: carga.horariodocente?.campoclinico?.docente?.iddocente,
+    idpa: carga.horariodocente?.campoclinico?.idpa,
+    idasignatura: carga.idasignatura,
+    docente: `${carga.horariodocente?.campoclinico?.docente?.persona?.apellidos}, ${carga.horariodocente?.campoclinico?.docente?.persona?.nombres}`,
+    dni: carga.horariodocente?.campoclinico?.docente?.persona?.dni,
+    asignatura: `${carga.asignatura?.codigo} - ${carga.asignatura?.nombre}`,
+    esSoloLectura: !!otraCarga // Si encontró referencia, es solo lectura
   }
+  
+  console.log('ENVIANDO AL MODAL:', dataWizard) // para debug
+  setDataWizard2(dataWizard)
+  setLoading(false)
+  onAbrirAgregarEstudiante()
+}
 
   const datos = {
     periodo: carga?.horariodocente?.campoclinico?.periodoacademico?.nombre,
@@ -74,7 +99,7 @@ const ModalVerCargaDocente = ({ show, onClose, carga, onAbrirAgregarEstudiante, 
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" >
       <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '95rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column'}}>
         
         <div className="modal-header">
