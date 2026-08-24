@@ -93,12 +93,19 @@ const fetchData = async () => {
 
   let query = supabase
   .from("eps")
+  // .select(`
+  //     ideps, ruc, razonsocial, estado, iddistrito, idnivela, idtipoeps,
+  //     distrito!inner(nombredt,idprovincia,provincia!inner(nombrep,iddepartamento,departamento!inner(nombred))),
+  //     nivelatencion!inner(codigo,nombre),
+  //     tipoeps!inner(nombretipoeps)
+  //   `, { count: 'exact' })
+
   .select(`
-      ideps, ruc, razonsocial, estado, iddistrito, idnivela, idtipoeps,
-      distrito!inner(nombredt,idprovincia,provincia!inner(nombrep,iddepartamento,departamento!inner(nombred))),
-      nivelatencion!inner(codigo,nombre),
-      tipoeps!inner(nombretipoeps)
-    `, { count: 'exact' })
+  ideps, ruc, razonsocial, direccion, telefono, contacto, estado, iddistrito, idnivela, idtipoeps,
+  distrito!inner(nombredt,idprovincia,provincia!inner(nombrep,iddepartamento,departamento!inner(nombred))),
+  nivelatencion!inner(codigo,nombre),
+  tipoeps!inner(nombretipoeps)
+`, { count: 'exact' })
   .eq('estado', 'ACTIVO')
 
   if(search) query = query.or(`razonsocial.ilike.%${search}%,ruc.ilike.%${search}%`)
@@ -115,23 +122,64 @@ const fetchData = async () => {
 
   // Maestras solo 1 vez
   if(distritos.length === 0){
-    const [{data: distData}, {data: provData}, {data: deptoData}, {data: nivData}, {data: tipoData}] = await Promise.all([
+    const [{data: distData}, {data: provData}, {data: nivData}, {data: tipoData}] = await Promise.all([
       supabase.from("distrito").select("iddistrito, nombredt, idprovincia").eq("estado", "ACTIVO").order("nombredt"),
       supabase.from("provincia").select("idprovincia, nombrep, iddepartamento").eq("estado", "ACTIVO").order("nombrep"),
-      supabase.from("departamento").select("iddepartamento, nombred").eq("estado", "ACTIVO").order("nombred"),
+      // supabase.from("departamento").select("iddepartamento, nombred").eq("estado", "ACTIVO").order("nombred"),
       supabase.from("nivelatencion").select("idnivela, codigo, nombre").order("idnivela"),
       supabase.from("tipoeps").select("*").order("nombretipoeps")
     ])
     setDistritos(distData || []); 
     setProvincias(provData || []); 
-    setDepartamentos(deptoData || []); 
+    //setDepartamentos(deptoData || []); 
     setNiveles(nivData || []); 
     setTipos(tipoData || [])
   }
 
   setEps((epsData as Eps[]) || []); 
+  await fetchDepartamentosDeEps()
   setTotalRegistros(count || 0)
   setLoading(false)
+}
+
+const fetchDepartamentosDeEps = async () => {
+  try {
+    // Truco: sacamos los departamentos directo desde EPS con join
+    const { data, error } = await supabase
+      .from("eps")
+      .select(`
+        distrito!inner(
+          idprovincia,
+          provincia!inner(
+            iddepartamento,
+            departamento!inner(iddepartamento, nombred)
+          )
+        )
+      `)
+      .eq("estado", "ACTIVO")
+      .not("iddistrito", "is", null)
+
+    if (error) throw error
+
+    // Sacar departamentos únicos
+    const deptosMap = new Map()
+    data?.forEach((eps: any) => {
+      const depto = eps.distrito?.provincia?.departamento
+      if (depto) {
+        deptosMap.set(depto.iddepartamento, {
+          iddepartamento: depto.iddepartamento,
+          nombred: depto.nombred
+        })
+      }
+    })
+
+    const deptosUnicos = Array.from(deptosMap.values()).sort((a,b) => a.nombred.localeCompare(b.nombred))
+    setDepartamentos(deptosUnicos)
+
+  } catch (err) {
+    console.error("Error cargando departamentos de EPS:", err)
+    setDepartamentos([])
+  }
 }
 
   useEffect(() => { fetchData() }, [])
@@ -363,7 +411,7 @@ useEffect(() => { fetchData() }, [paginaActual, search, filtroDepto, filtroProv,
       )}
 
       {showModal && (
-        <div className="modal-overlay" onClick={handleClose}>
+        <div className="modal-overlay" >
           <div className="modal-content card-sgpc" style={{maxWidth: "78rem"}} onClick={(e) => e.stopPropagation()}>
             {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
             <div className="modal-header"><h2><Building size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar EPS" : "Nueva EPS"}</h2><button onClick={handleClose} className="btn-cerrar"><X size={20} /></button></div>

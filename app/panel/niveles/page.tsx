@@ -160,8 +160,13 @@ export default function NivelesPage() {
       <div className="card-sgpc" style={{ overflowX: 'auto' }}>
         {loading? <p>Cargando...</p> : (
           <table className='tabla-sgpc'>
-            <thead><>{/* Fix Hydration */}<tr style={{ borderBottom: '0.2rem solid var(--color-borde)', textAlign: 'left' }}><th style={{ padding: '1rem', width: '6rem' }}>Nro.</th><th style={{ padding: '1rem' }}>Código</th><th style={{ padding: '1rem' }}>Nombre</th><th style={{ padding: '1rem' }}>Acciones</th></tr></></thead>
-            <tbody><>{nivelesPaginados.map((n, index) => (<tr key={n.idnivela} style={{ borderBottom: '1px solid var(--color-borde)' }}><td style={{ padding: '1rem', fontWeight: 600 }}>{indiceInicio + index + 1}</td><td style={{ padding: '1rem', fontWeight: 600 }}>{n.codigo}</td><td style={{ padding: '1rem' }}>{n.nombre}</td><td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}><button className="btn-icon btn-icon-editar" onClick={() => openModal(n)}><Edit size={15} /></button><button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(n.idnivela)}><Trash2 size={15} /></button></td></tr>))}</></tbody>
+            <thead><>{/* Fix Hydration */}<tr style={{ borderBottom: '0.2rem solid var(--color-borde)', textAlign: 'left' }}><th style={{ padding: '1rem', width: '6rem' }}>Nro.</th><th style={{ padding: '1rem' }}>Código</th><th style={{ padding: '1rem' }}>Nombre</th><th style={{ padding: '1rem', width: '11rem', textAlign: 'center' }}>Acciones</th></tr></></thead>
+            <tbody><>{nivelesPaginados.map((n, index) => (<tr key={n.idnivela} style={{ borderBottom: '1px solid var(--color-borde)' }}><td style={{ padding: '1rem', fontWeight: 600 }}>{indiceInicio + index + 1}</td><td style={{ padding: '1rem', fontWeight: 600 }}>{n.codigo}</td><td style={{ padding: '1rem' }}>{n.nombre}</td><td style={{ padding: '1rem' }}>
+  <div style={{ display: 'flex', gap: '0.8rem', justifyContent: 'center' }}>
+    <button className="btn-icon btn-icon-editar" onClick={() => openModal(n)}><Edit size={15} /></button>
+    <button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(n.idnivela)}><Trash2 size={15} /></button>
+  </div>
+</td></tr>))}</></tbody>
           </table>
         )}
       </div>
@@ -227,6 +232,7 @@ export default function NivelesPage() {
        .btn-pag:disabled { opacity: 0.5; cursor: not-allowed; }
        .btn-pag-primario { background: var(--color-primario); color: var(--color-blanco); border: 1px solid var(--color-primario); }
        .btn-pag-primario:hover:not(:disabled) { opacity: 0.9; }
+       
        .paginacion-pagina { padding: 0.8rem 1.2rem; font-weight: 600; font-size: var(--text-sm); white-space: nowrap; }
         @media (max-width: 768px) {.paginacion-footer { flex-direction: column; padding: 1.2rem; }.paginacion-controles { width: 100%; justify-content: space-between; }.btn-pag { padding: 0.6rem 1rem; font-size: 1.2rem; flex: 1; justify-content: center; }.paginacion-pagina { padding: 0.6rem 0.8rem; font-size: 1.2rem; }.paginacion-info { text-align: center; width: 100%; }
       `}</style>

@@ -60,59 +60,38 @@ useEffect(() => {
       return
     }
 
-    // 0. FORZAR SOLO LECTURA SI VIENE REFERENCIA
-    const esReferencia = !!dataWizard1.idcargaacad_referencia
+    // NUEVO: 1. PRIMERO JALAR EL IDCAMPOCLI REAL DESDE LA BD
+    let idCampoReal = idcampocli
+    if(!idCampoReal && dataWizard1.idhorariod) {
+      const { data: horData } = await supabase
+        .from('horariodocente')
+        .select('idcampocli')
+        .eq('idhorariod', dataWizard1.idhorariod)
+        .single()
+      idCampoReal = horData?.idcampocli
+      //console.log("IDCAMPOLI JALADO DE BD:", idCampoReal)
+    }
+    
+    //console.log("Filtro idcampocli final:", idCampoReal)
 
-    // const { data: horLab } = await supabase.from('horariodocente').select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`).eq('campoclinico.iddocente', dataWizard1.iddocente).eq('campoclinico.idpa', dataWizard1.idpa)
-//     let queryHorLab = supabase
-//   .from('horariodocente')
-//   .select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`)
-//   .eq('campoclinico.iddocente', dataWizard1.iddocente)
-//   .eq('campoclinico.idpa', dataWizard1.idpa)
+    // 2. AHORA SI CARGAR HORARIO LABORAL CON EL ID REAL
+    if(!idCampoReal) {
+      setHorarioLaboralDoc([])
+    } else {
+      const { data: horLab, error: errHorLab } = await supabase
+        .from('horariodocente')
+        .select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`)
+        .eq('campoclinico.iddocente', dataWizard1.iddocente)
+        .eq('campoclinico.idpa', dataWizard1.idpa)
+        .eq('idcampocli', idCampoReal) // <-- USAMOS EL ID REAL
 
-// if(idcampocli) { // <-- SOLO FILTRA SI VIENE EL CAMPO
-//   queryHorLab = queryHorLab.eq('idcampocli', idcampocli)
-// }
+      if(errHorLab) console.error("Error horLab:", errHorLab)
 
-// const { data: horLab } = await queryHorLab
-
-// const { data: horLab } = await supabase
-//   .from('horariodocente')
-//   .select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`)
-//   .eq('campoclinico.iddocente', dataWizard1.iddocente)
-//   .eq('campoclinico.idpa', dataWizard1.idpa)
-//   .eq('idcampocli', idcampocli) 
-
-// // NUEVO: LIMPIAR DUPLICADOS Y SETEAR SOLO 1 VEZ
-// const horLabLimpio = Array.from(
-//   new Map((horLab || []).map(h => [`${h.dia_semana}-${h.hora_inicio}-${h.hora_fin}`, h])).values()
-// )
-
-// setHorarioLaboralDoc(horLabLimpio) // <-- usa el limpio
-
-// REEMPLAZA TU CONSULTA ACTUAL POR ESTA
-let queryHorLab = supabase
-  .from('horariodocente')
-  .select(`*, campoclinico:idcampocli!inner(iddocente, idpa)`)
-  .eq('campoclinico.iddocente', dataWizard1.iddocente)
-  .eq('campoclinico.idpa', dataWizard1.idpa)
-
-if(idcampocli) { // <-- SOLO agrega el filtro si tiene valor
-  queryHorLab = queryHorLab.eq('idcampocli', idcampocli)
-}
-
-const { data: horLab, error: errHorLab } = await queryHorLab
-
-if(errHorLab) {
-  console.error("Error horLab:", errHorLab)
-}
-
-// NUEVO: LIMPIAR DUPLICADOS
-const horLabLimpio = Array.from(
-  new Map((horLab || []).map(h => [`${h.dia_semana}-${h.hora_inicio}-${h.hora_fin}`, h])).values()
-)
-
-setHorarioLaboralDoc(horLabLimpio)
+      const horLabLimpio = Array.from(
+        new Map((horLab || []).map(h => [`${h.dia_semana}-${h.hora_inicio}-${h.hora_fin}`, h])).values()
+      )
+      setHorarioLaboralDoc(horLabLimpio)
+    }
 
     //setHorarioLaboralDoc(horLab || [])
 
@@ -202,7 +181,8 @@ setHorarioLaboralDoc(horLabLimpio)
     let horarioCargado = false
 
     // 1. PRIMERO: SI VIENE HERENCIA
-    if(esReferencia) {
+    const esReferencia = !!dataWizard1.idcargaacad_referencia
+if(esReferencia) {
       const { data: detalle } = await supabase
        .from('horario')
        .select(`idhorario, detallehorario(*)`)
@@ -311,6 +291,14 @@ const handleGrabar = async () => {
 
     const { data: horInsert, error: errHor } = await supabase.from('horario').insert({ idcargaacad: dataWizard1.idcargaacad, idmatricula: idMatriculaSel, estado: 'ACTIVO' }).select().single()
     if(errHor) { showToast(errHor.message, 'error'); setLoadingW2(false); return }
+
+    // VALIDACION NUEVA: QUE EL DIA ACADEMICO ESTE EN LABORAL
+const diasInvalidos = diasSel.filter(d => !diaEstaEnLaboral(d.dia))
+if(diasInvalidos.length > 0) {
+  showToast(`Error: El docente no labora ${diasInvalidos.map(d=>d.dia).join(', ')}`, 'error')
+  setLoadingW2(false)
+  return
+}
 
     const detalleToInsert = diasSel.map(d => ({ 
       idhorario: horInsert.idhorario, 

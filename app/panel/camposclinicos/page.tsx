@@ -61,6 +61,26 @@ export default function CamposClinicosPage() {
   const [distritos, setDistritos] = useState<Distrito[]>([])
   const [tiposEps, setTiposEps] = useState<TipoEps[]>([])
 
+  // NUEVO: Departamentos que SI tienen EPS
+const departamentosConEps = useMemo(() => {
+  const idsDistritosConEps = [...new Set(eps.map(e => e.iddistrito))]
+  const idsProvinciasConEps = [...new Set(distritos.filter(d => idsDistritosConEps.includes(d.iddistrito)).map(d => d.idprovincia))]
+  const idsDeptoConEps = [...new Set(provincias.filter(p => idsProvinciasConEps.includes(p.idprovincia)).map(p => p.iddepartamento))]
+  return departamentos.filter(d => idsDeptoConEps.includes(d.iddepartamento))
+}, [eps, departamentos, provincias, distritos])
+
+// NUEVO: Provincias que SI tienen EPS
+const provinciasConEps = useMemo(() => {
+  const idsDistritosConEps = [...new Set(eps.map(e => e.iddistrito))]
+  return provincias.filter(p => distritos.some(d => d.idprovincia === p.idprovincia && idsDistritosConEps.includes(d.iddistrito)))
+}, [eps, provincias, distritos])
+
+// NUEVO: Distritos que SI tienen EPS
+const distritosConEps = useMemo(() => {
+  const idsDistritosConEps = [...new Set(eps.map(e => e.iddistrito))]
+  return distritos.filter(d => idsDistritosConEps.includes(d.iddistrito))
+}, [eps, distritos])
+
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [filtroPeriodo, setFiltroPeriodo] = useState<number | ''>('')
@@ -193,7 +213,8 @@ const [dataParaHorario, setDataParaHorario] = useState<any>(null)
     setLoading(true)
     try {
       // 1. Cargar maestros
-      const [tipoRes, perRes, filRes, servRes, docRes, deptoRes, provRes, distRes] = await Promise.all([
+      //const [tipoRes, perRes, filRes, servRes, docRes, deptoRes, provRes, distRes] = await Promise.all([
+      const [tipoRes, perRes, filRes, servRes, docRes, deptoRes, provRes, distRes, epsRes] = await Promise.all([
         supabase.from("tipoeps").select("*").order("nombretipoeps"),
         supabase.from('periodoacademico').select('*').order('fecha_inicio', {ascending: false}),
         supabase.from('filial').select('*'),
@@ -202,12 +223,14 @@ const [dataParaHorario, setDataParaHorario] = useState<any>(null)
         supabase.from("departamento").select("iddepartamento, nombred").eq("estado", "ACTIVO").order("nombred"),
         supabase.from("provincia").select("idprovincia, nombrep, iddepartamento").eq("estado", "ACTIVO").order("nombrep"),
         supabase.from("distrito").select("iddistrito, nombredt, idprovincia").eq("estado", "ACTIVO").order("nombredt"),
+        supabase.from("eps").select("ideps, iddistrito").eq("estado","ACTIVO"),
       ])
 
       setTiposEps(tipoRes.data || [])
       setPeriodos(perRes.data || []); setFiliales(filRes.data || []); setServicios(servRes.data || [])
       setDocentes(docRes.data || []); 
       setDepartamentos(deptoRes.data || []); setProvincias(provRes.data || []); setDistritos(distRes.data || [])
+      setEps(epsRes.data || [])
 
       // 2. ARMAR FILTRO DE IDs
       let idsFinales: number[] | null = null
@@ -306,17 +329,46 @@ const [dataParaHorario, setDataParaHorario] = useState<any>(null)
     setLoading(false)
   }
 
-  const openModal = (campo: CampoClinico | null = null) => {
-    setCampoEdit(campo)
-    setForm(campo? {...campo} : {estado: 'ACTIVO', ideps: null, idservicios: null, iddocente: null, idpa: null, idfilial: null})
+  // const openModal = (campo: CampoClinico | null = null) => {
+  //   setCampoEdit(campo)
+  //   setForm(campo? {...campo} : {estado: 'ACTIVO', ideps: null, idservicios: null, iddocente: null, idpa: null, idfilial: null})
     
-    // NUEVO 5: Si es edicion, precargar la EPS actual
-    if(campo?.eps) {
-      setEpsOptions([{value: campo.eps.ideps, label: `${campo.eps.razonsocial} - ${campo.eps.ruc || 'S/RUC'}`}])
-    }
+  //   // NUEVO 5: Si es edicion, precargar la EPS actual
+  //   if(campo?.eps) {
+  //     setEpsOptions([{value: campo.eps.ideps, label: `${campo.eps.razonsocial} - ${campo.eps.ruc || 'S/RUC'}`}])
+  //   }
     
-    setShowModal(true)
+  //   setShowModal(true)
+  // }
+
+const openModal = (campo: CampoClinico | null = null) => {
+  setCampoEdit(campo)
+  setForm(campo? {...campo} : {estado: 'ACTIVO', ideps: null, idservicios: null, iddocente: null, idpa: null, idfilial: null})
+  
+  if(campo?.eps) {
+    // 1. PRIMERO: Precargar la EPS actual en el AsyncSelect
+    setEpsOptions([{
+      value: campo.eps.ideps, 
+      label: `${campo.eps.razonsocial} - ${campo.eps.distrito?.nombredt || 'S/DISTRITO'}`
+    }])
+    
+    // 2. DESPUES: Setear la cascada con un pequeño delay para que no resetee el key
+    setTimeout(() => {
+      const idDist = campo.eps.iddistrito
+      setIdDistSel(idDist)
+      
+      const provDelDist = distritos.find(d => d.iddistrito === idDist)?.idprovincia || null
+      setIdProvSel(provDelDist)
+      
+      const deptoDeLaProv = provincias.find(p => p.idprovincia === provDelDist)?.iddepartamento || null
+      setIdDeptoSel(deptoDeLaProv)
+      
+      setIdTipoEpsSel(campo.eps.idtipoeps)
+    }, 50)
   }
+  
+  setShowModal(true)
+}
 
   const puedeGuardar = useMemo(() =>
     form.idpa && form.ideps && form.idservicios && form.iddocente
@@ -472,20 +524,20 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
   setIdTipoEpsSel(null); 
   setForm({...form, ideps: null}); // <-- NUEVO
   setEpsOptions([]) // <-- NUEVO
-}} options={[{value: null, label: 'Todos'},...departamentos.map(d=>({value:d.iddepartamento, label:d.nombred}))]} />
+}} options={[{value: null, label: 'Todos'},...departamentosConEps.map(d=>({value:d.iddepartamento, label:d.nombred}))]} />
 
 <SelectSGPCFieldset label="Provincia" value={idProvSel} onChange={(val:any) => {
   setIdProvSel(val); 
   setIdDistSel(null); 
   setForm({...form, ideps: null}); // <-- NUEVO
   setEpsOptions([]) // <-- NUEVO
-}} options={[{value: null, label: 'Todos'},...provinciasFiltradas.map(p=>({value:p.idprovincia, label:p.nombrep}))]} isDisabled={!idDeptoSel} />
+}} options={[{value: null, label: 'Todos'},...provinciasConEps.filter(p => !idDeptoSel || p.iddepartamento === idDeptoSel).map(p=>({value:p.idprovincia, label:p.nombrep}))]} isDisabled={!idDeptoSel} />
 
 <SelectSGPCFieldset label="Distrito" value={idDistSel} onChange={(val:any) => {
   setIdDistSel(val); 
   setForm({...form, ideps: null}); // <-- NUEVO
   setEpsOptions([]) // <-- NUEVO
-}} options={[{value: null, label: 'Todos'},...distritosFiltrados.map(d=>({value:d.iddistrito, label:d.nombredt}))]} isDisabled={!idProvSel} />
+}} options={[{value: null, label: 'Todos'},...distritosConEps.filter(d => !idProvSel || d.idprovincia === idProvSel).map(d=>({value:d.iddistrito, label:d.nombredt}))]} isDisabled={!idProvSel} />
     </div>
 
     {/* LINEA 2: Tipo EPS + EPS - EPS es mas ancha */}
@@ -502,7 +554,9 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
         <AsyncSelect 
         key={`${idDeptoSel}-${idProvSel}-${idDistSel}-${idTipoEpsSel}`}
           cacheOptions
-          defaultOptions
+          //defaultOptions
+          defaultOptions={true}
+          defaultInputValue={epsOptions.find(o => o.value === form.ideps)?.label || ''} // <-- AGREGA ESTO
           loadOptions={loadEpsOptions}
           value={epsOptions.find(o => o.value === form.ideps) || null}
           onChange={(opt:any) => setForm({...form, ideps: opt?.value || null})}

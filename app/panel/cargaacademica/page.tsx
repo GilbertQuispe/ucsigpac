@@ -148,6 +148,7 @@ const handleVerCarga = (carga: CargaAcademica) => {
     iddocente: carga.horariodocente?.campoclinico?.docente?.iddocente,
     idpa: carga.horariodocente?.campoclinico?.idpa,
     idasignatura: carga.idasignatura,
+    idcampocli: carga.horariodocente?.campoclinico?.idcampocli, //Agrega soloe esta
     docente: `${carga.horariodocente?.campoclinico?.docente?.persona?.apellidos}, ${carga.horariodocente?.campoclinico?.docente?.persona?.nombres}`,
     dni: carga.horariodocente?.campoclinico?.docente?.persona?.dni,
     asignatura: `${carga.asignatura?.codigo} - ${carga.asignatura?.nombre}`,
@@ -309,7 +310,7 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
 const loadCamposPorDocente = async (iddocente: number) => {
   if(!iddocente || !form.idpa) return []
 
-  console.log("Buscando campos para:", iddocente, "Periodo:", form.idpa.value)
+  //console.log("Buscando campos para:", iddocente, "Periodo:", form.idpa.value)
 
   const {data, error} = await supabase
     .from('campoclinico')
@@ -323,13 +324,13 @@ const loadCamposPorDocente = async (iddocente: number) => {
     .eq('iddocente', iddocente)
     .eq('idpa', form.idpa.value)
 
-  console.log("Respuesta cruda de BD:", data) // <-- ESTO
-  console.log("Error:", error)
+  //console.log("Respuesta cruda de BD:", data) // <-- ESTO
+  //console.log("Error:", error)
 
   if(error || !data) return []
 
   const activos = data.filter(c => c.estado === 'ACTIVO') // <-- Quitamos el filtro de supabase para ver todos
-  console.log("Solo activos:", activos)
+  //console.log("Solo activos:", activos)
 
   return activos.map(c => ({
     value: c.idcampocli,
@@ -467,6 +468,7 @@ const { data, error } = cargaEdit
         iddocente: iddocente,
         idpa: idpa,
         idasignatura: idasignatura,
+        idcampocli: idcampocli, // <-- AGREGA SOLO ESTA LINEA
         docente: `${form.idhorariod.label.split(' - ')[1] || form.idhorariod.label}`,
         dni: `${form.idhorariod.label.split(' - ')[0] || ''}`,
         asignatura: form.idasignatura.label,
