@@ -161,7 +161,7 @@ useEffect(() => {
               
               {/* <-- CAMBIO 3: 2 LINEAS SEPARADAS */}
               <div style={{gridColumn: '1 / 3'}}><b>Campo Clínico:</b> <Hospital size={14}/> {datos.campo}</div>
-              <div style={{gridColumn: '1 / 3', paddingLeft: '2rem', color: 'var(--color-texto-secundario)'}}><b>Dirección:</b> <MapPin size={14}/> {datos.direccion || 'S/DIRECCION'}, {datos.distrito} - {datos.provincia} - {datos.departamento}</div>
+              <div style={{gridColumn: '1 / 3', paddingLeft: '0rem', color: 'var(--color-texto-secundario)'}}><b>Dirección:</b> <MapPin size={14}/> {datos.direccion || 'S/DIRECCION'}, {datos.distrito} - {datos.provincia} - {datos.departamento}</div>
             </div>
           </fieldset>
 
@@ -199,7 +199,7 @@ useEffect(() => {
                     <tr key={h.idhorario}>
                       <td>{i+1}</td>
                       <td>{h.matricula?.estudiante?.persona?.dni}</td>
-                      <td>{h.matricula?.estudiante?.persona?.apellidos}, {h.matricula?.estudiante?.persona?.nombres}</td>
+                      <td style={{textAlign:'left', paddingLeft: '0rem'}}>{h.matricula?.estudiante?.persona?.apellidos}, {h.matricula?.estudiante?.persona?.nombres}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -223,6 +223,83 @@ useEffect(() => {
   }} 
 />
       </div>
+    <style jsx global>{`
+  @media print {
+    /* 1. Fondo blanco y empezar arriba */
+    body, html {
+      background: white !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    /* 2. Esconder todo menos el modal */
+    body * { visibility: hidden; }
+    .modal-overlay, .modal-overlay * { visibility: visible; }
+    
+    .modal-overlay {
+      position: absolute !important;
+      left: 0 !important;
+      top: 0 !important; /* <-- FORZAR ARRIBA */
+      background: white !important;
+      width: 100% !important;
+      height: auto !important;
+      display: block !important;
+      align-items: flex-start !important; /* <-- ESTA ES LA CLAVE */
+      justify-content: flex-start !important;
+      padding: 0cm !important; /* Margen para impresión */
+    }
+
+    .modal-content {
+      position: static !important;
+      box-shadow: none !important;
+      border: none !important;
+      max-width: 100% !important;
+      max-height: none !important; /* <-- QUITAR LIMITE DE ALTURA */
+      height: auto !important;
+      overflow: visible !important;
+      margin: 0 !important;
+    }
+
+    /* 3. Esconder botones y X */
+    .modal-header button, .modal-footer {
+      display: none !important;
+    }
+
+    /* 4. Tablas para imprimir */
+    .tabla-sgpc {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 10pt;
+      page-break-inside: auto;
+    }
+    .tabla-sgpc th, .tabla-sgpc td {
+      border: 1px solid #000 !important;
+      padding: 5px 8px;
+      text-align: left;
+    }
+    .tabla-sgpc thead {
+      background: #e0e0e0 !important;
+      -webkit-print-color-adjust: exact;
+    }
+    .tabla-sgpc tr { page-break-inside: avoid; }
+    
+    fieldset {
+      border: 1px solid #ccc;
+      margin-bottom: 1rem;
+      page-break-inside: avoid;
+    }
+    legend {
+      font-weight: bold;
+      font-size: 11pt;
+    }
+
+    /* 5. Quitar scroll del body */
+    .modal-body {
+      overflow: visible !important;
+      padding: 0 !important;
+    }
+  }
+`}</style>
     </div>
   )
 }

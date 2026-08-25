@@ -493,13 +493,14 @@ select.input-sgpc {
 /* FIX PARA QUE LA ULTIMA COLUMNA TENGA LA MISMA LINEA */
 .tabla-sgpc tbody td:last-child {
   border-bottom: 1px solid var(--tabla-borde) !important;
+   
 }
 
 /* Y centramos los botones sin romper el borde */
 .tabla-sgpc tbody td:last-child {
   display: flex !important;
   gap: 0.8rem;
-  justify-content: center; /* o flex-start si quieres a la izquierda */
+  justify-content: start; /* o flex-start si quieres a la izquierda */
   align-items: center;
   border-bottom: none !important;
 }

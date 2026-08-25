@@ -36,7 +36,7 @@ export default function PersonasPage() {
   const [search, setSearch] = useState('')
   const [filtroRol, setFiltroRol] = useState<number | null>(null) // NUEVO
 const [filtroSexo, setFiltroSexo] = useState('')
- 
+ const [totalRegistros, setTotalRegistros] = useState(0)
   const [dniInputBloqueado, setDniInputBloqueado] = useState(true)
   const [camposBloqueados, setCamposBloqueados] = useState(true)
   const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
@@ -105,27 +105,62 @@ const SelectSGPC = ({label, value, onChange, options, placeholder, isDisabled = 
   const toTitleCase = (str: string) =>
     str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
 
-  const fetchPersonas = async () => {
-    setLoading(true)
-    const { data: personasData } = await supabase
+//   const fetchPersonas = async () => {
+//     setLoading(true)
+//     const { data: personasData } = await supabase
+//     .from('persona')
+//     .select('*')
+//     .eq('estado', 'ACTIVO')
+//     .order('idpersona')
+//     const { data: rolesData } = await supabase.from('rol').select('idrol, nombrerol')
+
+//     const personasConRol = (personasData || []).map(p => ({
+//   ...p,
+//       rol: rolesData?.find(r => Number(r.idrol) === Number(p.idrol))
+//     }))
+
+//     setPersonas(personasConRol)
+//     setRoles(rolesData || [])
+//     console.log("PERSONAS:", personasConRol)
+// console.log("ROLES:", rolesData)
+//     setLoading(false)
+//     setPaginaActual(1) // <- Reinicia a pag 1 al recargar
+//   }
+const fetchPersonas = async () => {
+  setLoading(true)
+  const desde = (paginaActual - 1) * registrosPorPagina
+  const hasta = desde + registrosPorPagina - 1
+
+  // 1. Traer solo la página + contar total
+  let query = supabase
     .from('persona')
-    .select('*')
+    .select('*, rol(nombrerol)', { count: 'exact' }) // <-- JOIN directo
     .eq('estado', 'ACTIVO')
-    .order('idpersona')
-    const { data: rolesData } = await supabase.from('rol').select('idrol, nombrerol')
 
-    const personasConRol = (personasData || []).map(p => ({
-  ...p,
-      rol: rolesData?.find(r => Number(r.idrol) === Number(p.idrol))
-    }))
-
-    setPersonas(personasConRol)
-    setRoles(rolesData || [])
-    setLoading(false)
-    setPaginaActual(1) // <- Reinicia a pag 1 al recargar
+  if(search) {
+    query = query.or(`dni.ilike.%${search}%,nombres.ilike.%${search}%,apellidos.ilike.%${search}%`)
   }
+  if(filtroSexo) query = query.eq('sexo', filtroSexo)
+  if(filtroRol) query = query.eq('idrol', filtroRol)
 
-  useEffect(() => { fetchPersonas() }, [])
+  const { data, count, error } = await query
+    .order('idpersona', { ascending: false }) // <-- Mas nuevo primero
+    .range(desde, hasta)
+
+  if(error) {
+    showToast(error.message, 'error')
+    console.error(error)
+  } else {
+    setPersonas(data as Persona[] || []) // ya viene con rol
+    setTotalRegistros(count || 0) // <-- NUEVO ESTADO
+  }
+  
+  const { data: rolesData } = await supabase.from('rol').select('idrol, nombrerol')
+  setRoles(rolesData || [])
+  setLoading(false)
+}
+  //useEffect(() => { fetchPersonas() }, [])
+  useEffect(() => { fetchPersonas() }, [paginaActual, search, filtroSexo, filtroRol])
 
   const validarDNI = async (dniValue: string) => {
     if (!dniValue || dniValue.length!== 8) return
@@ -186,23 +221,25 @@ const SelectSGPC = ({label, value, onChange, options, placeholder, isDisabled = 
       && (form.sexo === 'M' || form.sexo === 'F')
   }, [camposBloqueados, form])
 
-const personasFiltradas = useMemo(() => {
-  return personas.filter(p => {
-    const matchSearch =
-      p.dni.toLowerCase().includes(search.toLowerCase()) ||
-      p.nombres.toLowerCase().includes(search.toLowerCase()) ||
-      p.apellidos.toLowerCase().includes(search.toLowerCase())
-    const matchSexo = filtroSexo? p.sexo === filtroSexo : true
-    const matchRol = filtroRol? p.idrol === filtroRol : true // NUEVO
-    return matchSearch && matchSexo && matchRol // ACTUALIZADO
-  })
-}, [personas, search, filtroSexo, filtroRol]) // ACTUALIZADO
+// const personasFiltradas = useMemo(() => {
+//   return personas.filter(p => {
+//     const matchSearch =
+//       p.dni.toLowerCase().includes(search.toLowerCase()) ||
+//       p.nombres.toLowerCase().includes(search.toLowerCase()) ||
+//       p.apellidos.toLowerCase().includes(search.toLowerCase())
+//     const matchSexo = filtroSexo? p.sexo === filtroSexo : true
+//     const matchRol = filtroRol? p.idrol === filtroRol : true // NUEVO
+//     return matchSearch && matchSexo && matchRol // ACTUALIZADO
+//   })
+// }, [personas, search, filtroSexo, filtroRol]) // ACTUALIZADO
 
   // 2. LOGICA DE PAGINACION
-  const totalPaginas = Math.ceil(personasFiltradas.length / registrosPorPagina)
+  //const totalPaginas = Math.ceil(personasFiltradas.length / registrosPorPagina)
   const indiceInicio = (paginaActual - 1) * registrosPorPagina
-  const indiceFin = indiceInicio + registrosPorPagina
-  const personasPaginadas = personasFiltradas.slice(indiceInicio, indiceFin)
+  const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina)
+const indiceFin = indiceInicio + registrosPorPagina
+  //const indiceFin = indiceInicio + registrosPorPagina
+  //const personasPaginadas = personasFiltradas.slice(indiceInicio, indiceFin)
 
  useEffect(() => { // Reinicia pag al buscar/filtrar
   setPaginaActual(1)
@@ -414,7 +451,7 @@ const personasFiltradas = useMemo(() => {
       <div className="header-responsive">
         <div>
           <h1>Registro de Personas</h1>
-          <p>Total: {personasFiltradas.length} registros ACTIVOS</p>
+          <p>Total: {totalRegistros} registros ACTIVOS</p>
         </div>
         <div style={{ display: 'flex', gap: '1.2rem' }}>
           <label htmlFor="import-excel" className="btn-secundario" style={{ cursor: 'pointer' }}>
@@ -493,7 +530,7 @@ const personasFiltradas = useMemo(() => {
               </tr>
             </thead>
             <tbody>
-              <>{personasPaginadas.map((p, index) => (<tr key={p.idpersona} style={{ borderBottom: '1px solid var(--color-borde)' }}><td style={{ padding: '1rem', fontWeight: 600 }}>{indiceInicio + index + 1}</td><td style={{ padding: '1rem' }}>{p.dni}</td><td style={{ padding: '1rem' }}>{p.apellidos}</td><td style={{ padding: '1rem' }}>{p.nombres}</td><td style={{ padding: '1rem' }}>{p.telefono || '-'}</td><td style={{ padding: '1rem' }}>{p.sexo === 'M'? 'Masculino' : p.sexo === 'F'? 'Femenino' : '-'}</td><td style={{ padding: '1rem', fontWeight: 600 }}>{p.rol?.nombrerol || 'Sin Rol'}</td><td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}><button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button><button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button></td></tr>))}</>
+              <>{personas.map((p, index) => (<tr key={p.idpersona} style={{ borderBottom: '1px solid var(--color-borde)' }}><td style={{ padding: '1rem', fontWeight: 600 }}>{indiceInicio + index + 1}</td><td style={{ padding: '1rem' }}>{p.dni}</td><td style={{ padding: '1rem' }}>{p.apellidos}</td><td style={{ padding: '1rem' }}>{p.nombres}</td><td style={{ padding: '1rem' }}>{p.telefono || '-'}</td><td style={{ padding: '1rem' }}>{p.sexo === 'M'? 'Masculino' : p.sexo === 'F'? 'Femenino' : '-'}</td><td style={{ padding: '1rem', fontWeight: 600 }}>{p.rol?.nombrerol || 'Sin Rol'}</td><td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}><button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button><button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button></td></tr>))}</>
             </tbody>
           </table>
         )}
@@ -502,9 +539,15 @@ const personasFiltradas = useMemo(() => {
       {/* 3. FOOTER DE PAGINACION NUEVO */}
       {totalPaginas > 1 && (
         <div className="paginacion-footer">
-          <p className="paginacion-info">
+          {/* <p className="paginacion-info">
             Mostrando {indiceInicio + 1} al {Math.min(indiceFin, personasFiltradas.length)} de {personasFiltradas.length} registros
-          </p>
+          </p> */}
+          <p className="paginacion-info">
+  Mostrando {indiceInicio + 1} al {Math.min(indiceFin, totalRegistros)} de {totalRegistros} registros
+</p>
+{/* <span className="paginacion-pagina">
+  Pág {paginaActual} de {totalPaginas}
+</span> */}
           <div className="paginacion-controles">
             <button
               className="btn-pag"
