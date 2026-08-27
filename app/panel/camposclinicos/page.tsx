@@ -371,7 +371,8 @@ const openModal = (campo: CampoClinico | null = null) => {
 }
 
   const puedeGuardar = useMemo(() =>
-    form.idpa && form.ideps && form.idservicios && form.iddocente
+    //form.idpa && form.ideps && form.idservicios && form.iddocente
+  form.idpa && form.ideps && form.iddocente
 , [form])
 
   const handleGuardar = async () => {
@@ -381,7 +382,7 @@ const openModal = (campo: CampoClinico | null = null) => {
     const dataToSave = {
       idpa: form.idpa,
       ideps: form.ideps,
-      idservicios: form.idservicios,
+      // idservicios: form.idservicios,
       iddocente: form.iddocente,
       idfilial: form.idfilial,
       estado: form.estado
@@ -459,15 +460,16 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
         <table className='tabla-sgpc'>
           <thead>
             <tr>
-              <th>#</th><th>EPS / CLÍNICA</th><th>SERVICIO</th><th>DOCENTE RESPONSABLE</th><th>PERIODO</th><th>FILIAL</th><th>ESTADO</th><th>ACCIONES</th>
+              {/* <th>#</th><th>EPS / CLÍNICA</th><th>SERVICIO</th><th>DOCENTE RESPONSABLE</th><th>PERIODO</th><th>FILIAL</th><th>ESTADO</th><th>ACCIONES</th> */}
+              <th>#</th><th>EPS / CLÍNICA</th><th>DOCENTE RESPONSABLE</th><th>PERIODO</th><th>FILIAL</th><th>ESTADO</th><th>ACCIONES</th>
             </tr>
           </thead>
           <tbody>
-            {loading? <tr><td colSpan={8} style={{textAlign: 'center', padding: '2rem'}}>Cargando...</td></tr> : campos.map((c,i) => (
+            {loading? <tr><td colSpan={7} style={{textAlign: 'center', padding: '2rem'}}>Cargando...</td></tr> : campos.map((c,i) => (
               <tr key={c.idcampocli}>
                 <td>{(paginaActual-1)*registrosPorPagina + i + 1}</td>
                 <td>{c.eps?.razonsocial} <br/><span style={{fontSize: '1.1rem', opacity: 0.7}}>{c.eps?.distrito?.nombredt} - {c.eps?.distrito?.provincia?.nombrep}</span></td>
-                <td>{c.serviciosalud?.nombre}</td>
+                {/* <td>{c.serviciosalud?.nombre}</td> */}
                 <td>
   <div style={{fontWeight: 600}}>{c.docente?.persona?.dni}</div>
   <div>{c.docente?.persona?.apellidos}, {c.docente?.persona?.nombres}</div>
@@ -571,9 +573,9 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
     </div>
 
     {/* LINEA 3: Servicio */}
-    <div style={{marginTop: '1.6rem'}}>
+    {/* <div style={{marginTop: '1.6rem'}}>
       <SelectSGPCFieldset label="Servicio de Salud *" value={form.idservicios} onChange={(val:any) => setForm({...form, idservicios: val})} options={servicios.map(s=>({value:s.idservicios, label:s.nombre}))} />
-    </div>
+    </div> */}
   </fieldset>
 
   {/* SECCION 2: DOCENTE - TODO EN 1 LINEA */}

@@ -927,9 +927,15 @@ select.input-sgpc {
 
 /* 5. LOS ITEMS DE LA LISTA DESPLEGABLE - ESTO ES LO NUEVO */
 .fieldset-sgpc .react-select__option {
-  font-size: var(--text-sm); /* 12px */
-  padding: 0.8rem 1.2rem !important; /* más compacto */
+ padding: 0.6rem 1rem !important;
+  font-size: 1.3rem !important;
+  line-height: 1.6rem !important;
 }
+
+.react-select__single-value {
+  font-size: 1.4rem !important;
+}
+
 
 /* 6. Hover y seleccionado de la lista */
 .fieldset-sgpc .react-select__option--is-focused {
@@ -946,7 +952,9 @@ select.input-sgpc {
   font-size: var(--text-sm);
   color: var(--color-placeholder);
 }
-
+.react-select__menu-portal {
+  z-index: 9999 !important;
+}
 /* Botones para estudiantes-nrc */
 
 /* ===== BOTONES DESHABILITADOS SGPC - VERSION FUERTE ===== */

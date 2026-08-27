@@ -80,9 +80,35 @@ const [cargaVer, setCargaVer] = useState<CargaAcademica | null>(null)
 
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
-  const loadAsignaturas = async (inputValue: string) => {
-    const {data, error} = await supabase.from('asignatura').select(`idasignatura, codigo, nombre, carrera:idcarrera(nombrecarrera), planasignatura:idplan(nombre)`).ilike('nombre', `%${inputValue}%`).limit(50)
-    return data?.map(a => ({value: a.idasignatura, label: `${a.codigo} - ${a.nombre}`, carrera: a.carrera?.nombrecarrera, planacademico:a.planasignatura?.nombre})) || []
+  // const loadAsignaturas = async (inputValue: string) => {
+  //   const {data, error} = await supabase.from('asignatura').select(`idasignatura, codigo, nombre, carrera:idcarrera(nombrecarrera), planasignatura:idplan(nombre)`).ilike('nombre', `%${inputValue}%`).limit(50)
+  //   return data?.map(a => ({value: a.idasignatura, label: `${a.codigo} - ${a.nombre}`, carrera: a.carrera?.nombrecarrera, planacademico:a.planasignatura?.nombre})) || []
+  // }
+
+const loadAsignaturas = async (inputValue: string) => {
+    let query = supabase
+      .from('asignatura')
+      .select(`idasignatura, codigo, nombre, carrera:idcarrera(nombrecarrera), planasignatura:idplan(nombre)`)
+      .limit(50)
+      .order('codigo')
+
+    if(inputValue){
+      query = query.or(`codigo.ilike.%${inputValue}%,nombre.ilike.%${inputValue}%`) // <-- BUSCA EN LOS 2
+    }
+
+    const {data, error} = await query
+    
+    if(error) {
+      console.error("Error loadAsignaturas:", error)
+      return []
+    }
+
+    return data?.map(a => ({
+      value: a.idasignatura, 
+      label: `${a.codigo} - ${a.nombre}`, 
+      carrera: a.carrera?.nombrecarrera, 
+      planacademico: a.planasignatura?.nombre
+    })) || []
   }
 
   const loadDocentesPorFiltro = async (inputValue: string) => {
@@ -224,16 +250,33 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
 
   const {data, error} = await supabase
  .from('horariodocente')
- .select(`
+//  .select(`
+//       idhorariod,
+//       campoclinico:idcampocli!inner(
+//         idcampocli,
+//         idpa,
+//         estado,
+//         iddocente,
+//         //idservicios,
+//         ideps,
+//         //serviciosalud:idservicios!inner(nombre),
+//         eps:ideps!inner(razonsocial, distrito:iddistrito!inner(nombredt)),
+//         docente:iddocente!inner(
+//           iddocente,
+//           persona:idpersona!inner(dni, apellidos, nombres)
+//         )
+//       )
+//     `)
+.select(`
       idhorariod,
       campoclinico:idcampocli!inner(
         idcampocli,
         idpa,
         estado,
         iddocente,
-        idservicios,
+       
         ideps,
-        serviciosalud:idservicios!inner(nombre),
+       
         eps:ideps!inner(razonsocial, distrito:iddistrito!inner(nombredt)),
         docente:iddocente!inner(
           iddocente,
@@ -262,18 +305,20 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
     const dni = h.campoclinico?.docente?.persona?.dni?.toLowerCase() || ''
     const apellidos = h.campoclinico?.docente?.persona?.apellidos?.toLowerCase() || ''
     const nombres = h.campoclinico?.docente?.persona?.nombres?.toLowerCase() || ''
-    const servicio = h.campoclinico?.serviciosalud?.nombre?.toLowerCase() || ''
-    return dni.includes(texto) || apellidos.includes(texto) || nombres.includes(texto) || servicio.includes(texto)
+    //const servicio = h.campoclinico?.serviciosalud?.nombre?.toLowerCase() || ''
+    //return dni.includes(texto) || apellidos.includes(texto) || nombres.includes(texto) || servicio.includes(texto)
+    return dni.includes(texto) || apellidos.includes(texto) || nombres.includes(texto)
   })
 
   const listaFinal = texto? filtrados : registrosUnicos
 
   return listaFinal.map(h => ({
     value: h.idhorariod,
-    label: `${h.campoclinico.docente.persona.dni} - ${h.campoclinico.docente.persona.apellidos}, ${h.campoclinico.docente.persona.nombres} | ${h.campoclinico.serviciosalud.nombre}`,
+    //label: `${h.campoclinico.docente.persona.dni} - ${h.campoclinico.docente.persona.apellidos}, ${h.campoclinico.docente.persona.nombres} | ${h.campoclinico.serviciosalud.nombre}`,
+    label: `${h.campoclinico.docente.persona.dni} - ${h.campoclinico.docente.persona.apellidos}, ${h.campoclinico.docente.persona.nombres}`,
     iddocente: h.campoclinico.docente.iddocente,
     idcampocli: h.campoclinico.idcampocli,
-    servicio: h.campoclinico.serviciosalud.nombre,
+    //servicio: h.campoclinico.serviciosalud.nombre,
     eps: h.campoclinico.eps?.razonsocial,
     distrito: h.campoclinico.eps?.distrito?.nombredt
   }))
@@ -668,7 +713,7 @@ camposDelDocente: [],
   isDisabled={!form.idpa}
   key={form.idpa?.value}
 />
-                    <SelectSGPCFieldset
+  <div className="col-span-2"><SelectSGPCFieldset
   label="EPS + Distrito *"
   value={form.idcampocli}
   onChange={async (opt:any) => {
@@ -683,11 +728,12 @@ camposDelDocente: [],
   options={form.camposDelDocente}
   isDisabled={!form.docenteData}
 />
+</div>
 
-<fieldset className="fieldset-sgpc">
+{/* <fieldset className="fieldset-sgpc">
   <legend>Servicio de Salud</legend>
   <input className="input-sgpc" value={form.servicio || ''} readOnly disabled style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} />
-</fieldset>
+</fieldset> */}
                   </div>
                 </fieldset>
                 <fieldset className="fieldset-sgpc-section">
@@ -696,7 +742,23 @@ camposDelDocente: [],
                     <SelectSGPCFieldset label="Asignatura *" value={form.idasignatura} onChange={(opt:any) => setForm({...form, idasignatura: opt, planacademico: opt?.planacademico || '', carrera: opt?.carrera || ''})} isAsync loadOptions={loadAsignaturas} />
                     <fieldset className="fieldset-sgpc"><legend>Plan Académico</legend><input type="text" value={form.planacademico || ''} readOnly disabled className="input-sgpc" style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} /></fieldset>
                     <fieldset className="fieldset-sgpc"><legend>Carrera</legend><input type="text" value={form.carrera || ''} readOnly disabled className="input-sgpc" style={{marginTop: '0.4rem', paddingLeft:'1rem', background: '#F1F5F9'}} /></fieldset>
-                    <fieldset className="fieldset-sgpc"><legend>NRC *</legend><input className="input-sgpc" value={form.nrc} onChange={e => setForm({...form, nrc: e.target.value})} style={{marginTop: '0.4rem'}} /></fieldset>
+                    {/* <fieldset className="fieldset-sgpc"><legend>NRC *</legend><input className="input-sgpc" value={form.nrc} onChange={e => setForm({...form, nrc: e.target.value})} style={{marginTop: '0.4rem'}} /></fieldset> */}
+                    <fieldset className="fieldset-sgpc">
+  <legend>NRC *</legend>
+  <input 
+    type="text" 
+    inputMode="numeric"  // <-- Para que salga teclado numérico en celular
+    pattern="[0-9]*"     // <-- Validación HTML
+    maxLength={10}       // <-- Opcional: ponle el máximo de dígitos que usa tu NRC
+    className="input-sgpc" 
+    value={form.nrc} 
+    onChange={e => {
+      const soloNumeros = e.target.value.replace(/\D/g, '') // <-- Quita todo lo que no sea número
+      setForm({...form, nrc: soloNumeros})
+    }} 
+    style={{marginTop: '0.4rem'}} 
+  />
+</fieldset>
                   </div>
                 </fieldset>
             </div>
@@ -737,6 +799,10 @@ camposDelDocente: [],
           grid-template-columns: 1fr 2fr;
           gap: 1.6rem;
         }
+          .col-span-2 {  /* <-- NUEVO */
+          grid-column: 1 / -1;
+        }
+
      .grid-2.sgpc-fieldset {
           margin: 0;
           padding-left:0;
@@ -744,6 +810,9 @@ camposDelDocente: [],
         @media (max-width: 1024px) {
        .grid-2 {
             grid-template-columns: repeat(1, 1fr);
+          }
+        .col-span-2 { /* <-- Para que en móvil vuelva a 1 col */
+            grid-column: 1;
           }
         }
         @media (max-width: 600px) {

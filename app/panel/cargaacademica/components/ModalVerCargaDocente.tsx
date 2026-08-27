@@ -179,7 +179,16 @@ useEffect(() => {
                       <td>{h.dia_semana}</td>
                       <td>{h.hora_inicio}</td>
                       <td>{h.hora_fin}</td>
-                      <td>{( (new Date(`1970-01-01T${h.hora_fin}`)).getHours() - (new Date(`1970-01-01T${h.hora_inicio}`)).getHours() ).toFixed(1)}h</td>
+                      {/* <td>{( (new Date(`1970-01-01T${h.hora_fin}`)).getHours() - (new Date(`1970-01-01T${h.hora_inicio}`)).getHours() ).toFixed(1)}h</td> */}
+                      <td>
+  {(() => {
+    const inicio = new Date(`1970-01-01T${h.hora_inicio}`)
+    const fin = new Date(`1970-01-01T${h.hora_fin}`)
+    const diffMinutos = (fin.getTime() - inicio.getTime()) / 1000 / 60 // diferencia en minutos
+    const horas = diffMinutos / 60 // convertir a horas con decimales
+    return `${horas.toFixed(1)}h` // <-- Aquí ya sale 1.0h, 1.5h, 2.0h
+  })()}
+</td>
                     </tr>
                   ))}
                 </tbody>
