@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, Upload, Phone, User, IdCard, Users, Shield, AlertTriangle, Check, Ban, ChevronLeft, ChevronRight, Eraser } from 'lucide-react' // <- Agregue 2 iconos
+import { Plus, Edit, Trash2, X, Search, Upload, Phone, User, IdCard, Users, Shield, AlertTriangle, Check, Ban, ChevronLeft, ChevronRight, Eraser, Save } from 'lucide-react' // <- Agregue 2 iconos
 import * as XLSX from 'xlsx'
 import Select from 'react-select'
 
@@ -22,6 +22,44 @@ type Rol = {
   idrol: number
   nombrerol: string
 }
+
+const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
+  const selectedOption = options.find((o:any) => o.value === value) || null
+  return (
+    <fieldset className="fieldset-sgpc">
+      <legend>{label}</legend>
+      <Select options={options} value={selectedOption} onChange={(opt:any) => onChange(opt?.value || null)} placeholder="Seleccione..." isSearchable maxMenuHeight={200} classNamePrefix="react-select" styles={{ control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), input: (base) => ({...base, margin: 0, padding: 0 }), indicatorsContainer: (base) => ({...base, height: '4.4rem' }), option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }), menu: (base) => ({...base, zIndex: 9999, marginTop: '0.4rem' }) }} />
+    </fieldset>
+  )
+}
+
+// const SelectSGPCFieldset = ({label, value, onChange, options, isAsync = false, loadOptions, isDisabled = false}:any) => {
+//   const Component = isAsync? AsyncSelect : Select
+//   return (
+//     <fieldset className="fieldset-sgpc">
+//       <legend>{label}</legend>
+//       <Component
+//         options={isAsync? undefined : options}
+//         loadOptions={isAsync? loadOptions : undefined}
+//         defaultOptions={isAsync}
+//         cacheOptions={isAsync}
+//         value={value}
+//         onChange={onChange}
+//         isDisabled={isDisabled}
+//         placeholder="Seleccione..." isSearchable maxMenuHeight={200}
+//         classNamePrefix="react-select"
+//         menuPortalTarget={typeof document !== 'undefined' ? document.body : null} // <-- ESTO ES CLAVE
+//         menuPosition="fixed"
+//         styles={{ 
+//           //control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem' }), 
+//           control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), input: (base) => ({...base, margin: 0, padding: 0 }), indicatorsContainer: (base) => ({...base, height: '4.4rem' }), option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }),
+//           menuPortal: (base) => ({...base, zIndex: 99999 }), // <-- ESTO ES CLAVE
+//           menu: (base) => ({...base, zIndex: 9999 }) 
+//         }}
+//       />
+//     </fieldset>
+//   )
+// }
 
 export default function PersonasPage() {
   const supabase = createClient()
@@ -475,7 +513,7 @@ const indiceFin = indiceInicio + registrosPorPagina
     <div className="card-sgpc" style={{ marginBottom: '2.4rem', padding: '2rem' }}>
   <div className="grid-filtros-personas">
     
-    <SelectSGPC 
+    <SelectSGPCFieldset 
       label="Sexo"
       value={filtroSexo || ""}
       onChange={(val:any) => setFiltroSexo(val)}
@@ -486,7 +524,7 @@ const indiceFin = indiceInicio + registrosPorPagina
       ]}
     />
 
-    <SelectSGPC 
+    <SelectSGPCFieldset 
       label="Rol"
       value={filtroRol || ""}
       onChange={(val:any) => setFiltroRol(val)}
@@ -576,7 +614,8 @@ const indiceFin = indiceInicio + registrosPorPagina
             {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
            <div className="modal-header">
   <h2><User size={20} style={{marginRight: "0.8rem"}}/>{editing? 'Editar Persona' : 'Nueva Persona'}</h2>
-  <button onClick={closeModal} className="btn-cerrar"><X size={20} /></button>
+  <button onClick={closeModal} className="btn-cerrar-modal"><X size={20} /></button>
+   {/* <button onClick={() => setShowPreviewModal(false)} className="btn-cerrar-modal"><X size={20} /></button> */}
 </div>
             <div className="modal-body">
   <div className="grid-2">
@@ -669,7 +708,7 @@ const indiceFin = indiceInicio + registrosPorPagina
   }}>
     <Eraser size={16} style={{marginRight: "0.5rem"}} />Limpiar
   </button>
-  <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>
+  <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}> <Save size={16} />
     Guardar
   </button>
 </div>
@@ -682,7 +721,7 @@ const indiceFin = indiceInicio + registrosPorPagina
           <div className="modal-content card-sgpc" style={{ maxWidth: '40rem' }}>
             <div className="modal-header">
               <h2><AlertTriangle size={20} style={{ marginRight: '0.8rem', color: '#f59e0b' }} />Confirmar Anulación</h2>
-              <button onClick={() => setShowConfirm(false)} className="btn-cerrar"><X size={20} /></button>
+              <button onClick={() => setShowConfirm(false)} className="btn-cerrar-modal"><X size={20} /></button>
             </div>
             <div className="modal-body">
               <p style={{ textAlign: 'center', fontSize: 'var(--text-base)', color: 'var(--color-texto)' }}>
@@ -752,14 +791,15 @@ const indiceFin = indiceInicio + registrosPorPagina
       </div>
 
       <div className="modal-footer">
-        <button className="btn-secundario" onClick={() => setShowPreviewModal(false)}>Cancelar</button>
-        <button 
+        {/* <button className="btn-secundario" onClick={() => setShowPreviewModal(false)}>Cancelar</button> */}
+        <button style={{margin: '0rem 5rem'}}
           className="btn-primario" 
           onClick={handleConfirmImport}
           disabled={previewData.filter(p=>p.estado==='ok').length === 0}
         >
-          <Check size={18} /> Grabar {previewData.filter(p=>p.estado==='ok').length} Registros
+          <Save size={18} /> Grabar {previewData.filter(p=>p.estado==='ok').length} Registros
         </button>
+        
       </div>
     </div>
   </div>
