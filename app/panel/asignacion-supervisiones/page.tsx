@@ -96,74 +96,6 @@ export default function MatrizSupervisionPage() {
     await fetchDataHorario()
   }
 
-// const fetchDataHorario = async () => {
-//     setLoading(true)
-    
-//     // 1. JALO CAMPOC + CARGA + DOCENTE
-//     const { data: ccData, error: err1 } = await supabase.from('campoclinico').select(`
-//         idcampocli, idpa, idfilial, ideps, iddocente,
-//         cargaacademica(idcargaacad, nrc, idasignatura, asignatura!inner(nombre)),
-//         docente!inner(persona!inner(dni, apellidos, nombres)), 
-//         eps(ideps, razonsocial),
-//         filial(nombrefilial)
-//       `).eq('estado', 'ACTIVO')
-//     if(err1) console.log("ERR CAMPOC:", err1)
-
-//     // 2. JALO HORARIO ACADEMICO: horario -> detallehorario
-//     const { data: horarioData, error: err2 } = await supabase.from('horario').select(`
-//         idhorario, idcargaacad,
-//         detallehorario!inner(iddh, dia_semana, hora_inicio, hora_fin, estado)
-//       `)
-//     if(err2) console.log("ERR HORARIO:", err2)
-
-//     // 3. JALO ASIGNACIONES
-//     const { data: asigData, error: err3 } = await supabase.from('asignacionsupervision').select(`
-//         idasignacions, iddh, estado, idsupervisor,
-//         supervisor(persona(apellidos, nombres))
-//       `)
-//     if(err3) console.log("ERR ASIG:", err3)
-
-//     if(!ccData || !horarioData){
-//       setDataRaw([])
-//       setLoading(false)
-//       return
-//     } 
-
-// // CRUCE EN JS
-//     const dataAplanada: any[] = []
-//     const idsVistos = new Set<number>() // <-- CLAVE NUEVA
-
-//     horarioData.forEach(h => {
-//       h.detallehorario?.forEach((dh:any) => {
-//         if(dh.estado !== 'INACTIVO'){
-//           // SI YA VI ESTE IDDH, LO IGNORO
-//           if(idsVistos.has(dh.iddh)) return; 
-//           idsVistos.add(dh.iddh);
-
-//           const carga = ccData.flatMap(cc => cc.cargaacademica).find(c => c.idcargaacad === h.idcargaacad)
-//           const cc = ccData.find(c => c.cargaacademica?.some(ca => ca.idcargaacad === h.idcargaacad))
-          
-//           if(cc && carga){
-//             const asign = asigData?.filter(a => a.iddh === dh.iddh) || []
-//             dataAplanada.push({
-//               iddh: dh.iddh,
-//               dia_semana: dh.dia_semana,
-//               hora_inicio: dh.hora_inicio,
-//               hora_fin: dh.hora_fin,
-//               campoclinico: cc,
-//               cargaacademica: carga,
-//               asignacionsupervision: asign
-//             })
-//           }
-//         }
-//       })
-//     })
-    
-//     console.log("DATA APLANADA FINAL:", dataAplanada, "TOTAL UNICOS:", dataAplanada.length)
-//     setDataRaw(dataAplanada)
-//     setLoading(false)
-//   }
-
 const fetchDataHorario = async () => {
     setLoading(true)
     const { data: ccData, error: err1 } = await supabase.from('campoclinico').select(`
@@ -234,6 +166,28 @@ const dataFiltrada = useMemo(() => {
     )
   }, [dataRaw, filtroPeriodo, filtroFilial, filtroEps, filtroDocente])
 
+// 1. SACAR HORA MIN Y MAX REALES DE LOS DATOS
+const rangoHoras = useMemo(() => {
+  if(dataFiltrada.length === 0) return { min: 7, max: 21 }
+  
+  const horasInicio = dataFiltrada.map(d => Number(d.hora_inicio.split(':')[0]))
+  const horasFin = dataFiltrada.map(d => Number(d.hora_fin.split(':')[0]))
+  
+  const min = Math.min(...horasInicio)
+  const max = Math.max(...horasFin) + 1 // +1 para que se vea la última hora completa
+  
+  return { min, max }
+}, [dataFiltrada])
+
+// 2. GENERAR LOS SLOTS DE HORA DINAMICOS
+const slotsHora = useMemo(() => {
+  const slots = []
+  for(let i = rangoHoras.min; i <= rangoHoras.max; i++){
+    slots.push(`${String(i).padStart(2,'0')}:00`)
+  }
+  return slots
+}, [rangoHoras])
+
  // 1. PERIODO: Solo los que tienen campoclinico
 const opcionesPeriodo = useMemo(() => {
     const ids = [...new Set(dataRaw.map(d => Number(d.campoclinico?.idpa)).filter(Boolean))]
@@ -277,33 +231,6 @@ const opcionesPeriodo = useMemo(() => {
 
   const opcionesSupervisor = useMemo(() => supervisores.map(s=>({value:s.idsupervisor, label:`${s.persona?.dni} - ${s.persona?.apellidos}, ${s.persona?.nombres}`})), [supervisores])
 
-//   useEffect(() => {
-//     console.log("DATA FILTRADA:", dataFiltrada)
-//     const dias = { 'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6 }
-//     const eventosMapeados = dataFiltrada.filter(h => h.campoclinico && h.campoclinico.cargaacademica?.[0]).map((h:any) => {
-//       const diaNum = dias[h.dia_semana?.toUpperCase()] || 1
-//       const [hora, min] = h.hora_inicio.split(':')
-//       const start = moment().day(diaNum).hour(Number(hora)).minute(Number(min)).toDate()
-//       const [horaF, minF] = h.hora_fin.split(':')
-//       const end = moment().day(diaNum).hour(Number(horaF)).minute(Number(minF)).toDate()
-//       const asign = h.asignacionsupervision?.[0]      
-//       const supNombre = asign?.supervisor?.persona ? `${asign.supervisor.persona.apellidos}` : 'Sin Asignar'
-//       //const carga = h.campoclinico.cargaacademica[0]
-//       const carga = h.cargaacademica
-//       const epsNombre = h.campoclinico.eps?.razonsocial || 'Sin EPS' // <-- NUEVO      
-//       return { 
-//   id: h.iddh,
-//   //h.idhorariod, 
-
-//   start, 
-//   end,   
-//   title: `${carga?.asignatura?.nombre} - NRC:${carga?.nrc}\nEPS: ${epsNombre}\nDoc: ${h.campoclinico.docente.persona.apellidos}\nSup: ${supNombre}`, // <-- Mas compacto
-//   resource: {...h, asignacion: asign }
-// }
-//     })
-//     setEventos(eventosMapeados)
-//   }, [dataFiltrada])
-
 useEffect(() => {
     console.log("DATA FILTRADA:", dataFiltrada)
     const dias = { 'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6 }
@@ -321,12 +248,12 @@ useEffect(() => {
         const supNombre = asign?.supervisor?.persona? `${asign.supervisor.persona.apellidos}` : 'Sin Asignar'
         const carga = h.cargaacademica // AHORA ES OBJETO, NO ARRAY
         const epsNombre = h.campoclinico.eps?.razonsocial || 'Sin EPS'
-        
+        const rangoHora = `${h.hora_inicio} - ${h.hora_fin}`
         return { 
           id: h.iddh, // CLAVE PARA DEDUPLICAR
           start, 
           end, 
-          title: `${carga?.asignatura?.nombre} - NRC:${carga?.nrc}\nEPS: ${epsNombre}\nDoc: ${h.campoclinico.docente.persona.apellidos}\nSup: ${supNombre}`,
+          title: `${rangoHora}\n${carga?.asignatura?.nombre} - NRC:${carga?.nrc}\nEPS: ${epsNombre}\nDoc: ${h.campoclinico.docente.persona.apellidos}\nSup: ${supNombre}`,
           resource: {...h, asignacion: asign }
         }
       })
@@ -396,6 +323,7 @@ useEffect(() => {
       <div className="card-sgpc" style={{ height: '70vh', padding: '1rem' }}>
         {!filtroFilial? <p style={{textAlign:'center', paddingTop:'5rem'}}>Seleccione Periodo, Filial y EPS para ver el horario</p> : loading? <p style={{textAlign:'center', paddingTop:'5rem'}}>Cargando matriz...</p> :         
 <Calendar 
+  key={`${rangoHoras.min}-${rangoHoras.max}`} // <-- AGREGA ESTA LINEA
   localizer={localizer} 
   events={eventos} 
   startAccessor="start" 
@@ -405,8 +333,11 @@ useEffect(() => {
   step={60} 
   timeslots={1} 
   
-  min={new Date(2025, 1, 0, 7, 0, 0)} 
-  max={new Date(2025, 1, 0, 21, 0, 0)} 
+  min={new Date(2025, 1, 0, rangoHoras.min, 0, 0)} // <-- DINAMICO
+  max={new Date(2025, 1, 0, rangoHoras.max, 0, 0)} // <-- DINAMICO
+  step={60} 
+  timeslots={1}
+
   onSelectEvent={handleSelectEvent} 
   eventPropGetter={eventPropGetter} 
   
@@ -426,6 +357,21 @@ useEffect(() => {
         <div style={{whiteSpace: 'pre-line', fontSize: '1rem', lineHeight: '1.3'}}>
           {event.title}
         </div>)
+//         <div 
+//   key={event.id} 
+//   onClick={() => handleSelectEvent(event)}
+//   style={{ 
+//     background: color.bg, border: `2px solid ${color.border}`, color: color.text,
+//     padding: '0.4rem', borderRadius: '0.4rem', fontSize: '1rem', 
+//     whiteSpace: 'pre-line', cursor: 'pointer', marginBottom: '0.3rem'
+//   }}
+// >
+//   {ev.title.split('\n').map((linea, i) => (
+//     <div key={i} style={{fontWeight: i === 0? 700 : 400}}>
+//       {linea}
+//     </div>
+//   ))}
+// </div>)
   },
   timeGutterHeader: () => <div>Hora</div>
 }}
