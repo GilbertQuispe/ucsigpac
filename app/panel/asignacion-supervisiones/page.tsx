@@ -1,48 +1,64 @@
 'use client'
-import { useEffect, useState, useMemo, useCallback } from 'react'
+//import { useEffect, useState, useMemo, useCallback, Fragment as ReactFragment } from 'react'
+import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar'
 import moment from 'moment'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { createClient } from '@/lib/client'
 import { Check, X, UserCheck, Hospital } from 'lucide-react'
-import Select from 'react-select'
+import Select, { components } from 'react-select'
 
 moment.locale('es') 
 const localizer = momentLocalizer(moment)
 const ESTADO_COLORES: any = { null: { bg: '#fff', border: '#cbd5e1', text: '#000' }, 'PROGRAMADO': { bg: '#3B82F6', border: '#2563EB', text: '#fff' }, 'EN_PROCESO': { bg: '#F59E0B', border: '#D97706', text: '#fff' }, 'SUPERVISADO': { bg: '#22C55E', border: '#16A34A', text: '#fff' } }
 
-const SelectSGPCFieldset = ({label, value, onChange, options, disabled}:any) => {
-  const selectedOption = options.find((o:any) => o.value === value) || null
+const SelectSGPCFieldset = ({label, value, onChange, options, disabled, isMulti = false}:any) => {
+  const selectedOption = isMulti 
+    ? options.filter((o:any) => value.includes(o.value))
+    : options.find((o:any) => o.value === value) || null
+  
   return (
     <fieldset className="fieldset-sgpc">
       <legend>{label}</legend>
       <Select
         options={options}
         value={selectedOption}
-        onChange={(opt:any) => onChange(opt?.value?? '')}
+        onChange={(opt:any) => isMulti ? onChange(opt?.map((o:any) => o.value) ?? []) : onChange(opt?.value?? '')}
         placeholder="Seleccione..."
         isSearchable
         isDisabled={disabled}
+        isMulti={isMulti} // <-- NUEVO
+        closeMenuOnSelect={!isMulti} // <-- NUEVO: no se cierra al seleccionar
+        hideSelectedOptions={false} // <-- NUEVO: para ver los checks
         maxMenuHeight={200}
         classNamePrefix="react-select"
         menuPortalTarget={typeof window !== 'undefined' ? document.body : null}
         menuPosition="fixed"
+        components={{ Option: CustomOption }} // <-- NUEVO: para pintar el checkbox
         styles={{ 
-          control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), 
-          valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), 
+          control: (base, state) => ({...base, minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), 
+          valueContainer: (base) => ({...base, padding: '0 1.2rem' }), 
           input: (base) => ({...base, margin: 0, padding: 0 }), 
-          indicatorsContainer: (base) => ({...base, height: '4.4rem' }), 
-          
-          // <-- CAMBIA ESTO
+          indicatorsContainer: (base) => ({...base, minHeight: '4.4rem' }), 
           menu: (base) => ({...base, zIndex: 9999, marginTop: '0.4rem' }), 
-          
           menuList: (base) => ({...base, maxHeight: '200px'}), 
-          option: (base, state) => ({...base, whiteSpace: 'normal', wordWrap: 'break-word', backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '0.6rem 1rem',fontSize: '1.3rem' })
+          option: (base, state) => ({...base, display: 'flex', alignItems: 'center', gap: '0.8rem', whiteSpace: 'normal', wordWrap: 'break-word', backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '0.6rem 1rem',fontSize: '1.3rem' })
         }}
       />
     </fieldset>
   )
 }
+
+// NUEVO: Componente para pintar el checkbox
+const CustomOption = (props: any) => {
+  const { data, isSelected } = props;
+  return (
+    <components.Option {...props}>
+      <input type="checkbox" checked={isSelected} readOnly style={{marginRight: '0.5rem'}} />
+      {data.label}
+    </components.Option>
+  );
+};
 
 const CustomHeader = ({ label, date }: any) => {
   const diaIndex = date.getDay();
@@ -70,12 +86,15 @@ export default function MatrizSupervisionPage() {
   const [filtroPeriodo, setFiltroPeriodo] = useState<number | ''>('')
   const [filtroFilial, setFiltroFilial] = useState<number | ''>('')
   const [filtroEps, setFiltroEps] = useState<number | ''>('')
-  const [filtroDocente, setFiltroDocente] = useState<number | ''>('')
+  //const [filtroDocente, setFiltroDocente] = useState<number | ''>('')
+  const [filtroDocente, setFiltroDocente] = useState<number[]>([])
 
   const [eventos, setEventos] = useState<any[]>([])
   const [showAsignarModal, setShowAsignarModal] = useState(false)
   const [celdaSeleccionada, setCeldaSeleccionada] = useState<any>(null)
   const [formAsignar, setFormAsignar] = useState({ idsupervisor: null as number | null })
+
+  const [showAsignarModalMasivo, setShowAsignarModalMasivo] = useState(false)
 
   useEffect(() => { fetchDataMaestra() }, [])
 
@@ -158,23 +177,44 @@ const fetchDataHorario = async () => {
   }
 
 const dataFiltrada = useMemo(() => {
+  
     return dataRaw.filter(d => 
       (filtroPeriodo === '' || d.campoclinico?.idpa === filtroPeriodo) &&
       (filtroFilial === '' || d.campoclinico?.idfilial === filtroFilial) &&
       (filtroEps === '' || Number(d.campoclinico?.ideps) === Number(filtroEps)) && // <-- CONVERTIR A NUMBER
-      (filtroDocente === '' || d.campoclinico?.iddocente === filtroDocente)
+      //(filtroDocente === '' || d.campoclinico?.iddocente === filtroDocente)
+      (filtroDocente.length === 0 || filtroDocente.includes(Number(d.campoclinico?.iddocente))) // <-- CAMBIO AQUI
     )
   }, [dataRaw, filtroPeriodo, filtroFilial, filtroEps, filtroDocente])
 
+  const horasConCarga = useMemo(() => {
+  if(dataFiltrada.length === 0) return []
+  const setHoras = new Set<number>()
+
+  dataFiltrada.forEach(d => {
+    const hIni = Number(d.hora_inicio.split(':')[0])
+    const hFin = Number(d.hora_fin.split(':')[0])
+    for(let i = hIni; i <= hFin; i++) setHoras.add(i)
+  })
+
+  //return Array.from(setHoras).sort((a,b) => a-b)
+const horas = Array.from(setHoras).sort((a,b) => a-b)
+  const ultimaHora = horas[horas.length - 1]
+  if(ultimaHora!== undefined) horas.push(ultimaHora + 1) // <-- CLAVE: agrega 1 hora más al final
+
+  return horas
+
+}, [dataFiltrada])
+
 // 1. SACAR HORA MIN Y MAX REALES DE LOS DATOS
 const rangoHoras = useMemo(() => {
-  if(dataFiltrada.length === 0) return { min: 7, max: 21 }
+  if(dataFiltrada.length === 0) return { min: 7, max: 22 }
   
   const horasInicio = dataFiltrada.map(d => Number(d.hora_inicio.split(':')[0]))
   const horasFin = dataFiltrada.map(d => Number(d.hora_fin.split(':')[0]))
   
   const min = Math.min(...horasInicio)
-  const max = Math.max(...horasFin) + 1 // +1 para que se vea la última hora completa
+  const max = Math.max(...horasFin) + 2 // +1 para que se vea la última hora completa
   
   return { min, max }
 }, [dataFiltrada])
@@ -226,7 +266,7 @@ const opcionesPeriodo = useMemo(() => {
     if(filtroEps !== '') data = data.filter(d => Number(d.campoclinico?.ideps) === Number(filtroEps))
     
     const ids = [...new Set(data.map(d => Number(d.campoclinico?.iddocente)).filter(Boolean))]
-    return [{value: '', label: 'Todos'},...docentes.filter(d => ids.includes(Number(d.iddocente))).map(d => ({value: Number(d.iddocente), label:`${d.persona?.apellidos}, ${d.persona?.nombres}`}))]
+    return [{value: '', label: 'Todos'},...docentes.filter(d => ids.includes(Number(d.iddocente))).map(d => ({value: Number(d.iddocente), label:`${d.persona?.dni} - ${d.persona?.apellidos}, ${d.persona?.nombres}`}))]
   }, [dataRaw, docentes, filtroPeriodo, filtroFilial, filtroEps])
 
   const opcionesSupervisor = useMemo(() => supervisores.map(s=>({value:s.idsupervisor, label:`${s.persona?.dni} - ${s.persona?.apellidos}, ${s.persona?.nombres}`})), [supervisores])
@@ -253,7 +293,8 @@ useEffect(() => {
           id: h.iddh, // CLAVE PARA DEDUPLICAR
           start, 
           end, 
-          title: `${rangoHora}\n${carga?.asignatura?.nombre} - NRC:${carga?.nrc}\nEPS: ${epsNombre}\nDoc: ${h.campoclinico.docente.persona.apellidos}\nSup: ${supNombre}`,
+          //title: `${rangoHora}\n${carga?.asignatura?.nombre} - NRC:${carga?.nrc}\nEPS: ${epsNombre}\nDoc: ${h.campoclinico.docente.persona.apellidos}\nSup: ${supNombre}`,
+          title: `${rangoHora}\n${carga?.asignatura?.nombre} - NRC:${carga?.nrc}\nEPS: ${epsNombre}\nDoc: ${h.campoclinico.docente.persona.dni} - ${h.campoclinico.docente.persona.apellidos}, ${h.campoclinico.docente.persona.nombres}\nSup: ${supNombre}`,
           resource: {...h, asignacion: asign }
         }
       })
@@ -287,15 +328,60 @@ useEffect(() => {
     else { setShowAsignarModal(false); fetchDataHorario() }
   }
 
+  const handleAsignarMasivo = async () => {
+  if(!formAsignar.idsupervisor) return alert("Seleccione un supervisor");
+  
+  const eventosSinAsignar = eventos.filter(e => !e.resource.asignacion)
+  const dataParaUpsert = eventosSinAsignar.map(e => ({
+    iddh: e.resource.iddh,
+    idsupervisor: Number(formAsignar.idsupervisor),
+    estado: 'PROGRAMADO'
+  }));
+
+  const { error } = await supabase.from('asignacionsupervision').upsert(dataParaUpsert, { onConflict: 'iddh' });
+
+  if(error) alert(error.message);
+  else { 
+    setShowAsignarModalMasivo(false); 
+    alert(`Se asignaron ${dataParaUpsert.length} horas correctamente`);
+    fetchDataHorario() 
+  }
+}
+
   return (
     <div className="main-content">
-      <h1 style={{display: 'flex', alignItems: 'center', gap: '1rem'}}><Hospital size={24}/> Matriz de Asignación de Supervisión</h1>
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
+  <h1 style={{display: 'flex', alignItems: 'center', gap: '1rem', margin: 0}}>
+    <Hospital size={24}/> Matriz de Asignación de Supervisión
+  </h1>
+
+  {/* BOTON ASIGNAR MASIVO */}
+  {filtroEps && eventos.filter(e => !e.resource.asignacion).length > 0 && (
+    <button
+      className="btn-primario"
+      style={{height: '4.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#059669', whiteSpace: 'nowrap'}}
+      onClick={() => {setFormAsignar({ idsupervisor: null }); setShowAsignarModalMasivo(true)}}
+    >
+      <UserCheck size={16}/> Asignar Masivo ({eventos.filter(e => !e.resource.asignacion).length})
+    </button>
+  )}
+</div>
       <div className="card-sgpc" style={{ padding: '2rem', marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', gap: '1.2rem', alignItems: 'end' }}>
 
   <SelectSGPCFieldset label="Periodo Académico" options={opcionesPeriodo} value={filtroPeriodo} onChange={(val) => {setFiltroPeriodo(val); setFiltroFilial(''); setFiltroEps(''); setFiltroDocente('')}} disabled={loading}/>
   <SelectSGPCFieldset label="Filial" options={opcionesFilial} value={filtroFilial} onChange={(val) => {setFiltroFilial(val); setFiltroEps(''); setFiltroDocente('')}} disabled={!filtroPeriodo}/>
   <SelectSGPCFieldset label="EPS" options={opcionesEps} value={filtroEps} onChange={(val) => {setFiltroEps(val); setFiltroDocente('')}} disabled={!filtroFilial}/>
-  <SelectSGPCFieldset label="Docente" options={opcionesDocente} value={filtroDocente} onChange={(val) => setFiltroDocente(val)} disabled={!filtroEps}/>
+  {/* <SelectSGPCFieldset label="DNI + Docente" options={opcionesDocente} value={filtroDocente} onChange={(val) => setFiltroDocente(val)} disabled={!filtroEps}/> */}
+  <SelectSGPCFieldset 
+  label="DNI + Docente" 
+  options={opcionesDocente} 
+  value={filtroDocente} 
+  onChange={setFiltroDocente} 
+  disabled={!filtroEps}
+  isMulti={true} // <-- CLAVE
+/>
+
+
 
   {/* BOTON LIMPIAR NUEVO */}
   <button
@@ -320,175 +406,144 @@ useEffect(() => {
     Total Horas: {eventos.length} | Asignados: {eventos.filter(e => e.resource.asignacion).length}
   </div>
 </div>
-      <div className="card-sgpc" style={{ height: '70vh', padding: '1rem' }}>
+<div className="card-sgpc" style={{ height: '70vh', padding: '1rem' }}>
         {!filtroFilial? <p style={{textAlign:'center', paddingTop:'5rem'}}>Seleccione Periodo, Filial y EPS para ver el horario</p> : loading? <p style={{textAlign:'center', paddingTop:'5rem'}}>Cargando matriz...</p> :         
-<Calendar 
-  key={`${rangoHoras.min}-${rangoHoras.max}`} // <-- AGREGA ESTA LINEA
-  localizer={localizer} 
-  events={eventos} 
-  startAccessor="start" 
-  endAccessor="end" 
-  views={[Views.WEEK]} 
-  defaultView={Views.WEEK} 
-  step={60} 
-  timeslots={1} 
-  
-  min={new Date(2025, 1, 0, rangoHoras.min, 0, 0)} // <-- DINAMICO
-  max={new Date(2025, 1, 0, rangoHoras.max, 0, 0)} // <-- DINAMICO
-  step={60} 
-  timeslots={1}
+<div style={{overflowX: 'auto', overflowY: 'auto', maxHeight: '70vh'}}>
+  <div style={{
+    display: 'grid',
+    gridTemplateColumns: `80px repeat(6, 1fr)`, // Hora + L-V-S
+    minWidth: '1000px',
+    border: '1px solid #cbd5e1',
+    borderRadius: '0.6rem',
+    //overflow: 'hidden',
+    position: 'relative' // <-- IMPORTANTE
+  }}>
+    {/* HEADER */}
+    <div style={{background: '#004AAD', color: '#fff', padding: '1rem', fontWeight: 700, textAlign: 'center', position: 'sticky', top: 0, left:0, zIndex: 30}}>Hora</div>
+    {['LUNES','MARTES','MIERCOLES','JUEVES','VIERNES','SABADO'].map(dia => (
+      <div key={dia} style={{background: '#004AAD', color: '#fff', padding: '1rem', fontWeight: 700, textAlign: 'center', position: 'sticky', top: 0, zIndex: 20}}>{dia}</div>
+    ))}
 
-  onSelectEvent={handleSelectEvent} 
-  eventPropGetter={eventPropGetter} 
-  
-  allDayMaxRows={0}
-  showAllEvents={false}
+    {/* FILAS DE HORAS */}
+   {horasConCarga.map(hora => {
+  // Calcular que tan alto debe ser esta fila
+  const eventosEnEstaFila = eventos.filter(e => e.start.getHours() === hora || e.end.getHours() === hora)
+  const alturaFila = 60 // 1 hora = 60px base
 
-  formats={{ // <-- NUEVO: QUITA LA HORA DENTRO DEL BLOQUE
-    timeGutterFormat: 'HH:mm',
-    eventTimeRangeFormat: () => ''
-  }}
-
-  components={{
-  week: {
-    header: CustomHeader,
-    allDayHeader: () => null, 
-    event: ({ event }) => ( 
-        <div style={{whiteSpace: 'pre-line', fontSize: '1rem', lineHeight: '1.3'}}>
-          {event.title}
-        </div>)
-//         <div 
-//   key={event.id} 
-//   onClick={() => handleSelectEvent(event)}
-//   style={{ 
-//     background: color.bg, border: `2px solid ${color.border}`, color: color.text,
-//     padding: '0.4rem', borderRadius: '0.4rem', fontSize: '1rem', 
-//     whiteSpace: 'pre-line', cursor: 'pointer', marginBottom: '0.3rem'
-//   }}
-// >
-//   {ev.title.split('\n').map((linea, i) => (
-//     <div key={i} style={{fontWeight: i === 0? 700 : 400}}>
-//       {linea}
-//     </div>
-//   ))}
-// </div>)
-  },
-  timeGutterHeader: () => <div>Hora</div>
-}}
-  
-  messages={{ week: 'Semana', today: 'Hoy', previous: 'Ant', next: 'Sig' }} 
-/>
-        }
+  return (
+    <React.Fragment key={hora}>
+      {/* COLUMNA HORA - AHORA CON FLEX PARA CENTRAR */}
+      <div style={{
+        background: '#F8FAFC', 
+        borderRight: '1px solid #e2e8f0', 
+        borderBottom: '1px solid #e2e8f0', 
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontWeight: 600, 
+        color: '#004AAD',
+        height: `${alturaFila}px`,
+        position: 'sticky',
+        left: 0,
+        zIndex: 15
+      }}>
+        {String(hora).padStart(2,'0')}:00
       </div>
+      
+      {/* 6 COLUMNAS DE DIAS */}
+      {[1,2,3,4,5,6].map(diaNum => (
+        <div key={diaNum} style={{
+          borderRight: '1px solid #e2e8f0', 
+          borderBottom: '1px solid #e2e8f0', 
+          background: '#fff', 
+          position: 'relative', 
+          height: `${alturaFila}px`
+        }}>
+          {eventos
+          .filter(e => e.start.getDay() === diaNum && e.start.getHours() === hora)
+          .map(event => {
+              const estado = event.resource.asignacion?.estado || null
+              const color = ESTADO_COLORES[estado]
+              
+              const inicioMinutos = event.start.getHours() * 60 + event.start.getMinutes()
+              const finMinutos = event.end.getHours() * 60 + event.end.getMinutes()
+              const duracionMinutos = finMinutos - inicioMinutos
+              
+              const alturaPx = (duracionMinutos * 60) / 60 // 60px por hora
+              const minutosInicio = event.start.getMinutes()
+              const topOffset = (minutosInicio * 60) / 60 // Si empieza 08:30, baja 30px
+
+              return (
+                <div 
+                  key={event.id}
+                  onClick={() => handleSelectEvent(event)}
+                  style={{
+                    background: color.bg,
+                    border: `2px solid ${color.border}`,
+                    color: color.text,
+                    padding: '0.4rem',
+                    borderRadius: '0.4rem',
+                    fontSize: '1rem',
+                    whiteSpace: 'pre-line',
+                    cursor: 'pointer',
+                    position: 'absolute',
+                    top: `${topOffset + 2}px`, // <-- NUEVO: respeta los minutos
+                    left: '2px',
+                    right: '2px',
+                    height: `${alturaPx - 4}px`,
+                    zIndex: 10,
+                    overflow: 'hidden'
+                  }}
+                >
+                {event.title.split('\n').map((linea, i) => {
+  let estilo: React.CSSProperties = { fontSize: '1.1rem', lineHeight: '1.3' }
+  
+  if(i === 0) estilo = { ...estilo, fontWeight: 700, color: '#004AAD' } // HORA - Azul y Negrita
+  if(i === 1) estilo = { ...estilo, fontWeight: 600 } // ASIGNATURA - Seminegrita
+  if(i === 2) estilo = { ...estilo, fontWeight: 500, color: '#059669' } // EPS - Verde
+  if(i === 3) estilo = { ...estilo, fontStyle: 'italic', fontSize: '1rem' } // DOC - Cursiva
+  if(i === 4) estilo = { ...estilo, fontSize: '1rem', opacity: 0.8 } // SUP - Más pequeño
+
+  return <div key={i} style={estilo}>{linea}</div>
+})}
+                </div>
+              )
+          })}
+        </div>
+      ))}
+    </React.Fragment>
+  )
+})}
+  </div>
+</div>
+        }
+</div>
       {showAsignarModal && ( <div className="modal-overlay" onClick={() => setShowAsignarModal(false)}> <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '50rem'}}> <div className="modal-header"><h2 style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}><UserCheck size={20}/>Asignar Supervisor</h2><button onClick={()=>setShowAsignarModal(false)} className="btn-cerrar-modal"><X/></button></div> <div className="modal-body"> <p><b>Docente:</b> {celdaSeleccionada?.campoclinico?.docente?.persona?.apellidos}</p> <p><b>Asignatura:</b> {celdaSeleccionada?.campoclinico?.cargaacademica[0]?.asignatura?.nombre}</p> <p><b>Día/Hora:</b> {celdaSeleccionada?.dia_semana} {celdaSeleccionada?.hora_inicio} - {celdaSeleccionada?.hora_fin}</p> <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={formAsignar.idsupervisor} onChange={(val) => setFormAsignar({idsupervisor: val})} /> </div> <div className="modal-footer"><button className="btn-primario" onClick={handleAsignar} disabled={!formAsignar.idsupervisor}><Check/> Guardar</button></div> </div> </div> )}
+      {showAsignarModalMasivo && ( 
+  <div className="modal-overlay" onClick={() => setShowAsignarModalMasivo(false)}> 
+    <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '50rem'}}> 
+      <div className="modal-header">
+        <h2 style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}>
+          <UserCheck size={20}/>Asignación Masiva
+        </h2>
+        <button onClick={()=>setShowAsignarModalMasivo(false)} className="btn-cerrar-modal"><X/></button>
+      </div> 
+      <div className="modal-body"> 
+        <p><b>EPS:</b> {eps.find(e => e.ideps === filtroEps)?.razonsocial}</p> 
+        <p><b>Total horas sin supervisor:</b> {eventos.filter(e => !e.resource.asignacion).length}</p>
+        <p style={{fontSize: '1.2rem', color: '#64748b'}}>Se asignará el mismo supervisor a todas las horas filtradas que estén sin asignar</p>
+        <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={formAsignar.idsupervisor} onChange={(val) => setFormAsignar({idsupervisor: val})} /> 
+      </div> 
+      <div className="modal-footer">
+        <button className="btn-primario" onClick={handleAsignarMasivo} disabled={!formAsignar.idsupervisor}>
+          <Check/> Asignar a {eventos.filter(e => !e.resource.asignacion).length} horas
+        </button>
+      </div> 
+    </div> 
+  </div> 
+)}
 <style jsx global>{`
-
-/* 0. MATAR FILA CELESTE */
-.rbc-allday-cell,
-.rbc-row-bg {
-  display: none!important;
-}
-
-/* 1. FORZAR QUE HEADER Y BODY MIDAN IGUAL */
-.rbc-time-header.rbc-overflowing {
-  margin-right: 0!important; /* QUITA EL -1PX QUE METE RBC */
-  border-bottom: none!important;
-}
-
-/* 2. ANCHO FIJO PARA COLUMNA HORA EN AMBOS LADOS */
-.rbc-time-header-gutter,
-.rbc-time-gutter {
-  width: 60px!important;
-  min-width: 60px!important;
-  max-width: 60px!important;
-  flex: 0 0 60px!important;
-}
-
-/* 3. QUE EL CONTENIDO DEL HEADER Y BODY SE REPARTA IGUAL */
-.rbc-time-header-content,
-.rbc-time-content > div:last-child { /* el contenedor de los días */
-  width: calc(100% - 60px)!important;
-  display: flex!important;
-}
-
-/* 4. CADA COLUMNA DE DIA MIDE IGUAL: 1/7 */
-.rbc-header,
-.rbc-day-bg {
-  flex: 1 1 0%!important;
-  width: auto!important;
-}
-
-/* 5. CABECERA AZUL */
-
-.rbc-header {
-  background: var(--color-primario, #004AAD)!important;
-  color: #fff!important;
-  border: 1px solid #003A8C!important;
-  border-left: none!important;
-  height: 6rem!important;
-  padding: 0!important;
-  display: flex!important;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-}
-.rbc-time-header-gutter {
-  background: var(--color-primario, #004AAD)!important;
-  color: #fff!important;
-  font-weight: 700;
-  font-size: 1.4rem;
-  border: 1px solid #003A8C!important;
-  height: 6rem!important;
-  text-align: center!important;
-  line-height: 6rem;
-  
-}
-
-/* 6. FILAS */
-.rbc-timeslot-group {
-  //border-bottom: 1px solid #e2e8f0!important;
-  //min-height: 6rem!important;
-  //height: 6rem!important;
-  
-  min-height: 6rem!important;
-}
-.rbc-time-gutter.rbc-timeslot-group {
-  display: flex!important;
-  align-items: center!important;
-  justify-content: center!important;
-  line-height: normal!important;
-//line-height: 6rem;
-  text-align: center;
-  
-}
-
-/* 7. HOY */
-.rbc-header.rbc-today {
-  box-shadow: inset 0 -4px 0 0 #FDB813!important;
-}
-  .rbc-toolbar-label {
-  text-transform: uppercase!important;
-  font-weight: 700;
-  letter-spacing: 1px;
-}
-
-.rbc-time-gutter .rbc-label {
-  display: flex!important;
-  align-items: center!important;
-  justify-content: center!important;
-  height: 100%!important;
-  width: 100%!important;
-  font-weight: 600;
-  color: var(--color-primario, #004AAD);
-}
-
-.rbc-event-content {
-  white-space: pre-line !important;
-}
-.rbc-event {
-  padding: 2px 4px !important;
-}
-
+.react-select__menu { z-index: 9999!important; }
 `}</style>
     </div>
   )
