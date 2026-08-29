@@ -19,6 +19,7 @@
     "react-big-calendar": "^1.20.0",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "19.2.4",
+    "react-hot-toast": "^2.6.0",
     "react-select": "^5.10.2",
     "xlsx": "^0.18.5"
   },

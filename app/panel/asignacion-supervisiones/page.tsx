@@ -7,6 +7,7 @@ import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { createClient } from '@/lib/client'
 import { Check, X, UserCheck, Hospital } from 'lucide-react'
 import Select, { components } from 'react-select'
+import toast, { Toaster } from 'react-hot-toast'
 
 moment.locale('es') 
 const localizer = momentLocalizer(moment)
@@ -132,11 +133,26 @@ const fetchDataHorario = async () => {
       `)
     if(err2) console.log("ERR HORARIO:", err2)
 
-    const { data: asigData, error: err3 } = await supabase.from('asignacionsupervision').select(`
-        idasignacions, iddh, estado, idsupervisor,
-        supervisor(persona(apellidos, nombres))
-      `)
+    
+
+  //   const { data: asigData, error: err3 } = await supabase.from('asignacionsupervision').select(`
+  //   idasignacions, iddh, estado, idsupervisor,
+  //   supervisor(persona(apellidos, nombres))
+  // `)
+  const { data: asigData, error: err3 } = await supabase.from('asignacionsupervision').select(`
+    idasignacions, iddh, estado, idsupervisor,
+    supervisor(idpersona, persona!inner(apellidos, nombres))
+  `)
+// NUEVO: También leer la cabecera para saber si ya está asignado el NRC
+
+
     if(err3) console.log("ERR ASIG:", err3)
+
+      // NUEVO: Leer la cabecera para saber si el NRC ya tiene supervisor asignado
+//const { data: cabeceraData, error: err4 } = await supabase.from('asignacion_nrc_supervisor').select('idcargaacad, idsupervisor, estado, supervisor(persona(apellidos, nombres))')
+  const { data: cabeceraData, error: err4 } = await supabase.from('asignacion_nrc_supervisor').select(`idasignacion_nrc, idcargaacad, idsupervisor, estado, supervisor(idpersona, persona!inner(apellidos, nombres))
+  `)
+if(err4) console.log("ERR CABECERA:", err4)
 
     if(!ccData || !horarioData){ setDataRaw([]); setLoading(false); return } 
 
@@ -156,16 +172,29 @@ const fetchDataHorario = async () => {
             if(llavesVistas.has(llave)) return; 
             llavesVistas.add(llave);
 
+            // const asign = asigData?.filter(a => a.iddh === dh.iddh) || []
+            // dataAplanada.push({
+            //   iddh: dh.iddh, // me quedo con el primer iddh que encuentre
+            //   dia_semana: dh.dia_semana,
+            //   hora_inicio: dh.hora_inicio,
+            //   hora_fin: dh.hora_fin,
+            //   campoclinico: cc,
+            //   cargaacademica: carga,
+            //   asignacionsupervision: asign
+            // })
             const asign = asigData?.filter(a => a.iddh === dh.iddh) || []
-            dataAplanada.push({
-              iddh: dh.iddh, // me quedo con el primer iddh que encuentre
-              dia_semana: dh.dia_semana,
-              hora_inicio: dh.hora_inicio,
-              hora_fin: dh.hora_fin,
-              campoclinico: cc,
-              cargaacademica: carga,
-              asignacionsupervision: asign
-            })
+const cabecera = cabeceraData?.find(c => c.idcargaacad === carga.idcargaacad) // <-- NUEVO
+
+dataAplanada.push({
+  iddh: dh.iddh, // me quedo con el primer iddh que encuentre
+  dia_semana: dh.dia_semana,
+  hora_inicio: dh.hora_inicio,
+  hora_fin: dh.hora_fin,
+  campoclinico: cc,
+  cargaacademica: carga,
+  asignacionsupervision: asign,
+  cabeceraNRC: cabecera // <-- NUEVO: Para pintar si ya tiene supervisor por NRC
+})
           }
         }
       })
@@ -173,6 +202,7 @@ const fetchDataHorario = async () => {
     
     console.log("DATA APLANADA FINAL:", dataAplanada, "TOTAL UNICOS:", dataAplanada.length)
     setDataRaw(dataAplanada)
+    console.log("PRIMER REGISTRO:", dataAplanada[0])
     setLoading(false)
   }
 
@@ -271,43 +301,84 @@ const opcionesPeriodo = useMemo(() => {
 
   const opcionesSupervisor = useMemo(() => supervisores.map(s=>({value:s.idsupervisor, label:`${s.persona?.dni} - ${s.persona?.apellidos}, ${s.persona?.nombres}`})), [supervisores])
 
+// useEffect(() => {
+//     console.log("DATA FILTRADA:", dataFiltrada)
+//     const dias = { 'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6 }
+    
+//     // 1. MAPEO NORMAL
+//     const eventosTemp = dataFiltrada
+//      .filter(h => h.cargaacademica) // ya no es array
+//      .map((h:any) => {
+//         const diaNum = dias[h.dia_semana?.toUpperCase()] || 1
+//         const [hora, min] = h.hora_inicio.split(':')
+//         const start = moment().day(diaNum).hour(Number(hora)).minute(Number(min)).toDate()
+//         const [horaF, minF] = h.hora_fin.split(':')
+//         const end = moment().day(diaNum).hour(Number(horaF)).minute(Number(minF)).toDate()
+//         // const asign = h.asignacionsupervision?.[0] 
+//         const asign = h.asignacionsupervision?.[0] || h.cabeceraNRC // <-- Si no hay detalle por hora, usa la cabecera del NRC
+//         //const supNombre = asign?.supervisor?.persona? `${asign.supervisor.persona.apellidos}` : 'Sin Asignar'
+//         const supNombre = asign?.supervisor?.persona? `${asign.supervisor.persona.apellidos}, ${asign.supervisor.persona.nombres}` : 'Sin Asignar'
+//         const carga = h.cargaacademica // AHORA ES OBJETO, NO ARRAY
+//         const epsNombre = h.campoclinico.eps?.razonsocial || 'Sin EPS'
+//         const rangoHora = `${h.hora_inicio} - ${h.hora_fin}`
+//         return { 
+//           id: h.iddh, // CLAVE PARA DEDUPLICAR
+//           start, 
+//           end, 
+//           //title: `${rangoHora}\n${carga?.asignatura?.nombre} - NRC:${carga?.nrc}\nEPS: ${epsNombre}\nDoc: ${h.campoclinico.docente.persona.apellidos}\nSup: ${supNombre}`,
+//           title: `${rangoHora}\n${carga?.asignatura?.nombre} - NRC:${carga?.nrc}\nEPS: ${epsNombre}\nDoc: ${h.campoclinico.docente.persona.dni} - ${h.campoclinico.docente.persona.apellidos}, ${h.campoclinico.docente.persona.nombres}\nSup: ${supNombre}`,
+//           resource: {...h, asignacion: asign }
+//         }
+//       })
+
+//     // 2. DEDUPLICAR: Solo deja 1 evento por iddh
+//     const eventosUnicos = Array.from(
+//       new Map(eventosTemp.map(e => [e.id, e])).values()
+//     )
+
+//     setEventos(eventosUnicos)
+//   }, [dataFiltrada])
+
 useEffect(() => {
-    console.log("DATA FILTRADA:", dataFiltrada)
     const dias = { 'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6 }
     
-    // 1. MAPEO NORMAL
     const eventosTemp = dataFiltrada
-     .filter(h => h.cargaacademica) // ya no es array
-     .map((h:any) => {
+    .filter(h => h.cargaacademica)
+    .map((h:any) => {
         const diaNum = dias[h.dia_semana?.toUpperCase()] || 1
         const [hora, min] = h.hora_inicio.split(':')
         const start = moment().day(diaNum).hour(Number(hora)).minute(Number(min)).toDate()
         const [horaF, minF] = h.hora_fin.split(':')
         const end = moment().day(diaNum).hour(Number(horaF)).minute(Number(minF)).toDate()
-        const asign = h.asignacionsupervision?.[0] 
-        const supNombre = asign?.supervisor?.persona? `${asign.supervisor.persona.apellidos}` : 'Sin Asignar'
-        const carga = h.cargaacademica // AHORA ES OBJETO, NO ARRAY
+        
+        // CLAVE: Prioriza detalle por hora, si no hay usa cabecera
+        const asignDetalle = h.asignacionsupervision?.[0]
+        const asignCabecera = h.cabeceraNRC
+        const asign = asignDetalle || asignCabecera
+        
+        const supNombre = asign?.supervisor?.persona 
+         ? `${asign.supervisor.persona.apellidos}, ${asign.supervisor.persona.nombres}` 
+          : 'Sin Asignar'
+
+        const carga = h.cargaacademica
         const epsNombre = h.campoclinico.eps?.razonsocial || 'Sin EPS'
         const rangoHora = `${h.hora_inicio} - ${h.hora_fin}`
+        
         return { 
-          id: h.iddh, // CLAVE PARA DEDUPLICAR
+          id: h.iddh,
           start, 
           end, 
-          //title: `${rangoHora}\n${carga?.asignatura?.nombre} - NRC:${carga?.nrc}\nEPS: ${epsNombre}\nDoc: ${h.campoclinico.docente.persona.apellidos}\nSup: ${supNombre}`,
           title: `${rangoHora}\n${carga?.asignatura?.nombre} - NRC:${carga?.nrc}\nEPS: ${epsNombre}\nDoc: ${h.campoclinico.docente.persona.dni} - ${h.campoclinico.docente.persona.apellidos}, ${h.campoclinico.docente.persona.nombres}\nSup: ${supNombre}`,
-          resource: {...h, asignacion: asign }
+          resource: {...h, asignacion: asign } // <-- AQUI GUARDAMOS "asignacion"
         }
       })
 
-    // 2. DEDUPLICAR: Solo deja 1 evento por iddh
-    const eventosUnicos = Array.from(
-      new Map(eventosTemp.map(e => [e.id, e])).values()
-    )
-
+    const eventosUnicos = Array.from(new Map(eventosTemp.map(e => [e.id, e])).values())
     setEventos(eventosUnicos)
   }, [dataFiltrada])
 
-  const handleSelectEvent = (event: any) => { setCeldaSeleccionada(event.resource); setFormAsignar({ idsupervisor: event.resource.asignacion?.idsupervisor || null }); setShowAsignarModal(true) }
+  //const handleSelectEvent = (event: any) => { setCeldaSeleccionada(event.resource); setFormAsignar({ idsupervisor: event.resource.asignacion?.idsupervisor || null }); setShowAsignarModal(true) }
+    const handleSelectEvent = (event: any) => { setCeldaSeleccionada(event.resource); setFormAsignar({ idsupervisor: event.resource.asignacion?.idsupervisor || null }); setShowAsignarModal(true) }
  // const eventPropGetter = (event: any) => { const estado = event.resource.asignacion?.estado || null; const color = ESTADO_COLORES[estado]; return { style: { backgroundColor: color.bg, border: `1px solid ${color.border}`, color: color.text, fontSize: '1.1rem' }}}
  const eventPropGetter = (event: any) => {
   const estado = event.resource.asignacion?.estado || null;
@@ -315,54 +386,227 @@ useEffect(() => {
   return { style: { backgroundColor: color.bg, border: `2px solid ${color.border}`, color: color.text, fontSize: '1.1rem', fontWeight: '600', padding: '0.2rem' }}
 }
   
-  const handleAsignar = async () => {
-    if(!formAsignar.idsupervisor ||!celdaSeleccionada) return alert("Seleccione un supervisor");
-    const { error } = await supabase.from('asignacionsupervision').upsert({
-      //iddh: celdaSeleccionada.idhorariod,
-      iddh: celdaSeleccionada.iddh,
-      idsupervisor: Number(formAsignar.idsupervisor), // <-- Force number
-      estado: 'PROGRAMADO'
-    }, { onConflict: 'iddh' });
 
-    if(error) alert(error.message);
-    else { setShowAsignarModal(false); fetchDataHorario() }
-  }
-
-  const handleAsignarMasivo = async () => {
-  if(!formAsignar.idsupervisor) return alert("Seleccione un supervisor");
+// funciona con unique const handleAsignar = async () => {
+//   if(!formAsignar.idsupervisor ||!celdaSeleccionada) return toast.error("Seleccione un supervisor");
   
-  const eventosSinAsignar = eventos.filter(e => !e.resource.asignacion)
-  const dataParaUpsert = eventosSinAsignar.map(e => ({
-    iddh: e.resource.iddh,
+//   const idasignacion_nrc = celdaSeleccionada.cabeceraNRC?.idasignacion_nrc || null;
+
+//   const { error } = await supabase.from('asignacionsupervision').upsert({
+//     iddh: celdaSeleccionada.iddh,
+//     idsupervisor: Number(formAsignar.idsupervisor),
+//     estado: 'PROGRAMADO',
+//     idasignacion_nrc: idasignacion_nrc // <-- AGREGA ESTO
+//   }, { onConflict: 'iddh' });
+
+//   if(error) toast.error(error.message);
+//   else { setShowAsignarModal(false); fetchDataHorario() }
+// }
+const handleAsignar = async () => {
+  if(!formAsignar.idsupervisor ||!celdaSeleccionada) return toast.error("Seleccione un supervisor");
+  
+  const idasignacion_nrc = celdaSeleccionada.cabeceraNRC?.idasignacion_nrc || null;
+
+  // Primero borra si existe para ese iddh
+  await supabase.from('asignacionsupervision').delete().eq('iddh', celdaSeleccionada.iddh)
+
+  const { data: detalle, error } = await supabase.from('asignacionsupervision').insert({
+    iddh: celdaSeleccionada.iddh,
     idsupervisor: Number(formAsignar.idsupervisor),
-    estado: 'PROGRAMADO'
-  }));
+    estado: 'PROGRAMADO',
+    fechaasignacion: moment().format('YYYY-MM-DD'),
+    idasignacion_nrc: idasignacion_nrc
+  }).select().single();
 
-  const { error } = await supabase.from('asignacionsupervision').upsert(dataParaUpsert, { onConflict: 'iddh' });
+  if(error) return toast.error(error.message);
 
-  if(error) alert(error.message);
-  else { 
-    setShowAsignarModalMasivo(false); 
-    alert(`Se asignaron ${dataParaUpsert.length} horas correctamente`);
-    fetchDataHorario() 
-  }
+  // Opcional: Borrar visitas viejas de esa hora y generar 1 nueva
+  await supabase.from('visitasupervision').delete().eq('iddh', celdaSeleccionada.iddh)
+
+  setShowAsignarModal(false); 
+  toast.success("Supervisor asignado"); 
+  fetchDataHorario()
 }
 
+// aqui puedo agregar unique const handleAsignarMasivo = async () => {
+//   if(!formAsignar.idsupervisor) return toast.error("Seleccione un supervisor");
+//   if(!filtroPeriodo) return toast.error("Seleccione un periodo");
+
+//   const periodo = periodos.find(p => p.idpa === filtroPeriodo)
+//   if(!periodo) return toast.error("Periodo no encontrado")
+
+//   const cargasUnicas = Array.from(new Map(eventos.map(e => [e.resource.cargaacademica.idcargaacad, e.resource.cargaacademica])).values())
+//   if(cargasUnicas.length === 0) return toast.warning("No hay cargas para asignar")
+
+//   // 1. INSERTAR EN CABECERA: asignacion_nrc_supervisor
+//   const dataCabecera = cargasUnicas.map(c => ({
+//     idcargaacad: c.idcargaacad,
+//     idsupervisor: Number(formAsignar.idsupervisor),
+//     estado: 'PROGRAMADO',
+//     fechaasignacion: moment().format('YYYY-MM-DD')
+//   }))
+
+//   const { data: cabeceraInsertada, error: errCab } = await supabase
+//    .from('asignacion_nrc_supervisor')
+//    .upsert(dataCabecera, { onConflict: 'idcargaacad' })
+//    .select()
+
+//   if(errCab) return toast.error("Error Cabecera: " + errCab.message)
+
+//   // 2. CREAR DETALLE POR HORA: asignacionsupervision
+//   const dataDetalle = eventos.map(e => ({
+//     iddh: e.resource.iddh,
+//     idsupervisor: Number(formAsignar.idsupervisor),
+//     estado: 'PROGRAMADO',
+//     fechaasignacion: moment().format('YYYY-MM-DD'),
+//     idasignacion_nrc: cabeceraInsertada.find((c:any) => c.idcargaacad === e.resource.cargaacademica.idcargaacad)?.idasignacion_nrc // <-- CLAVE
+//   }))
+
+//   const { data: detalleInsertado, error: errDet } = await supabase
+//    .from('asignacionsupervision')
+//    .upsert(dataDetalle, { onConflict: 'iddh' })
+//    .select()
+
+//   if(errDet) return toast.error("Error Detalle: " + errDet.message)
+
+//   // 3. GENERAR VISITAS: visitasupervision
+//   const diasMap: any = {'DOMINGO':0,'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6}
+//   const visitasParaInsertar: any[] = []
+
+//   eventos.forEach(e => {
+//     const detalle = detalleInsertado.find((d:any) => d.iddh === e.resource.iddh) // buscamos el idasignacions recien creado
+//     if(!detalle) return
+
+//     const diaNum = diasMap[e.resource.dia_semana?.toUpperCase()]
+//     let fecha = moment(periodo.fecha_inicio)
+
+//     while(fecha.isSameOrBefore(periodo.fecha_fin)){
+//       if(fecha.day() === diaNum){
+//         visitasParaInsertar.push({
+//           idasignacions: detalle.idasignacions, // <-- AHORA SI ES EL ID CORRECTO
+//           fechavisita: fecha.format('YYYY-MM-DD'),
+//           horavisita: e.resource.hora_inicio,
+//           condicion: 'PROGRAMADO',
+//           iddh: e.resource.iddh
+//         })
+//       }
+//       fecha.add(1, 'day')
+//     }
+//   })
+
+//   if(visitasParaInsertar.length > 0){
+//     for(let i = 0; i < visitasParaInsertar.length; i += 1000){
+//       const lote = visitasParaInsertar.slice(i, i + 1000)
+//       const { error: errVis } = await supabase.from('visitasupervision').insert(lote)
+//       if(errVis) return toast.error("Error al programar visitas: " + errVis.message)
+//     }
+//   }
+
+//   setShowAsignarModalMasivo(false)
+//   toast.success(`Se asignaron ${cargasUnicas.length} NRCs y se programaron ${visitasParaInsertar.length} visitas`)
+//   fetchDataHorario()
+// }
+const handleAsignarMasivo = async () => {
+  if(!formAsignar.idsupervisor) return toast.error("Seleccione un supervisor");
+  if(!filtroPeriodo) return toast.error("Seleccione un periodo");
+
+  const periodo = periodos.find(p => p.idpa === filtroPeriodo)
+  if(!periodo) return toast.error("Periodo no encontrado")
+
+  const cargasUnicas = Array.from(new Map(eventos.map(e => [e.resource.cargaacademica.idcargaacad, e.resource.cargaacademica])).values())
+  if(cargasUnicas.length === 0) return toast.warning("No hay cargas para asignar")
+
+  // 1. INSERTAR/ACTUALIZAR EN CABECERA: asignacion_nrc_supervisor
+  const dataCabecera = cargasUnicas.map(c => ({
+    idcargaacad: c.idcargaacad,
+    idsupervisor: Number(formAsignar.idsupervisor),
+    estado: 'PROGRAMADO',
+    fechaasignacion: moment().format('YYYY-MM-DD')
+  }))
+
+  const { data: cabeceraInsertada, error: errCab } = await supabase
+   .from('asignacion_nrc_supervisor')
+   .upsert(dataCabecera, { onConflict: 'idcargaacad' }) // esta si tiene UNIQUE
+   .select()
+
+  if(errCab) return toast.error("Error Cabecera: " + errCab.message)
+
+  // 2. BORRAR DETALLE ANTERIOR Y CREAR NUEVO: asignacionsupervision
+  const dataDetalle = eventos.map(e => ({
+    iddh: e.resource.iddh,
+    idsupervisor: Number(formAsignar.idsupervisor),
+    estado: 'PROGRAMADO',
+    fechaasignacion: moment().format('YYYY-MM-DD'),
+    idasignacion_nrc: cabeceraInsertada.find((c:any) => c.idcargaacad === e.resource.cargaacademica.idcargaacad)?.idasignacion_nrc
+  }))
+
+  const iddhs = dataDetalle.map(d => d.iddh)
+  await supabase.from('asignacionsupervision').delete().in('iddh', iddhs) // <-- CLAVE: borra lo anterior
+
+  const { data: detalleInsertado, error: errDet } = await supabase
+   .from('asignacionsupervision')
+   .insert(dataDetalle) // <-- CLAVE: inserta lo nuevo
+   .select()
+
+  if(errDet) return toast.error("Error Detalle: " + errDet.message)
+
+  // 3. BORRAR VISITAS ANTERIORES Y GENERAR NUEVAS: visitasupervision
+  const idsDetalle = detalleInsertado.map((d:any) => d.idasignacions)
+  await supabase.from('visitasupervision').delete().in('idasignacions', idsDetalle) // <-- Borra visitas viejas
+
+  const diasMap: any = {'DOMINGO':0,'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6}
+  const visitasParaInsertar: any[] = []
+
+  eventos.forEach(e => {
+    const detalle = detalleInsertado.find((d:any) => d.iddh === e.resource.iddh)
+    if(!detalle) return
+
+    const diaNum = diasMap[e.resource.dia_semana?.toUpperCase()]
+    let fecha = moment(periodo.fecha_inicio)
+
+    while(fecha.isSameOrBefore(periodo.fecha_fin)){
+      if(fecha.day() === diaNum){
+        visitasParaInsertar.push({
+          idasignacions: detalle.idasignacions,
+          fechavisita: fecha.format('YYYY-MM-DD'),
+          horavisita: e.resource.hora_inicio,
+          condicion: 'PROGRAMADO',
+          iddh: e.resource.iddh
+        })
+      }
+      fecha.add(1, 'day')
+    }
+  })
+
+  if(visitasParaInsertar.length > 0){
+    for(let i = 0; i < visitasParaInsertar.length; i += 1000){
+      const lote = visitasParaInsertar.slice(i, i + 1000)
+      const { error: errVis } = await supabase.from('visitasupervision').insert(lote)
+      if(errVis) return toast.error("Error al programar visitas: " + errVis.message)
+    }
+  }
+
+  setShowAsignarModalMasivo(false)
+  toast.success(`Se asignaron ${cargasUnicas.length} NRCs y se programaron ${visitasParaInsertar.length} visitas`)
+  fetchDataHorario()
+}
   return (
     <div className="main-content">
+      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem'}}>
   <h1 style={{display: 'flex', alignItems: 'center', gap: '1rem', margin: 0}}>
     <Hospital size={24}/> Matriz de Asignación de Supervisión
   </h1>
 
   {/* BOTON ASIGNAR MASIVO */}
-  {filtroEps && eventos.filter(e => !e.resource.asignacion).length > 0 && (
+{ filtroEps && eventos.filter(e =>!e.resource.asignacion?.idsupervisor).length > 0 && (
     <button
       className="btn-primario"
       style={{height: '4.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: '#059669', whiteSpace: 'nowrap'}}
       onClick={() => {setFormAsignar({ idsupervisor: null }); setShowAsignarModalMasivo(true)}}
     >
-      <UserCheck size={16}/> Asignar Masivo ({eventos.filter(e => !e.resource.asignacion).length})
+      <UserCheck size={16}/> Asignar Masivo ({eventos.filter(e =>!e.resource.asignacion?.idsupervisor).length})
     </button>
   )}
 </div>
@@ -542,6 +786,7 @@ useEffect(() => {
     </div> 
   </div> 
 )}
+
 <style jsx global>{`
 .react-select__menu { z-index: 9999!important; }
 `}</style>
