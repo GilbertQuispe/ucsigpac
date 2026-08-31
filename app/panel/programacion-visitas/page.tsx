@@ -7,6 +7,7 @@ import { Check, X, CalendarDays, FileText, ChevronLeft, ChevronRight } from 'luc
 import Select from 'react-select'
 import { Calendar, momentLocalizer } from 'react-big-calendar'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
+import ModalFichaSupervision from './components/ModalFichaSupervision'
 
 
 moment.locale('es')
@@ -196,20 +197,37 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
    ...eps.map(e => ({value: e.ideps, label: e.razonsocial}))
   ], [eps])
 
-  const opcionesSupervisor = useMemo(() => [{value: '', label: 'Todos'},...supervisores.map(s=>({value:s.idsupervisor, label:`${s.persona?.dni} - ${s.persona?.apellidos}`}))], [supervisores])
- // const opcionesPeriodo = useMemo(() => [{value: '', label: 'Todos'},...periodos.map(p => ({value: p.idpa, label: p.codigo || p.nombre}))], [periodos])
-  //const opcionesFilial = useMemo(() => [{value: '', label: 'Todas'},...filiales.map(f => ({value: f.idfilial, label: f.nombrefilial}))], [filiales])
-  //const opcionesEps = useMemo(() => [{value: '', label: 'Todas'},...eps.map(e => ({value: e.ideps, label: e.razonsocial}))], [eps])
+  const opcionesSupervisor = useMemo(() => [{value: '', label: 'Todos'},...supervisores.map(s=>({value:s.idsupervisor, label:`${s.persona?.dni} - ${s.persona?.apellidos}`}))], [supervisores]) 
+  // const eventosCalendario = useMemo(() => visitas.map(v => ({
+  //   id: v.idvisitas,
+  //   title: `${v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.asignatura?.nombre || 'Sin Asignatura'}`,
+  //   start: moment(`${v.fechavisita} ${v.horavisita}`).toDate(),
+  //   end: moment(`${v.fechavisita} ${v.horavisita}`).add(1, 'hour').toDate(),
+  //   resource: v
+  // })), [visitas])
+  const eventosCalendario = useMemo(() => visitas.map(v => {
+  const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
+  const campoclinico = carga?.campoclinico
 
-  const eventosCalendario = useMemo(() => visitas.map(v => ({
+  const horaIni = moment(`${v.fechavisita} ${v.horavisita}`)
+  const horaFin = horaIni.clone().add(1, 'hour') // si tienes duración real cámbiala
+
+  return {
     id: v.idvisitas,
-    title: `${v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.asignatura?.nombre || 'Sin Asignatura'}`,
-    start: moment(`${v.fechavisita} ${v.horavisita}`).toDate(),
-    end: moment(`${v.fechavisita} ${v.horavisita}`).add(1, 'hour').toDate(),
-    resource: v
-  })), [visitas])
+    title: carga?.asignatura?.nombre || 'Sin Asignatura', // ya no se usa tanto
+    start: horaIni.toDate(),
+    end: horaFin.toDate(),
+    resource: {
+     ...v,
+      horaRango: `${horaIni.format('HH:mm')} - ${horaFin.format('HH:mm')}`,
+      curso: `${carga?.asignatura?.nombre || 'Sin Asignatura'} - NRC:${carga?.nrc || ''}`,
+      eps: campoclinico?.eps?.razonsocial || 'Sin EPS',
+      docente: `${campoclinico?.docente?.persona?.apellidos || ''}, ${campoclinico?.docente?.persona?.nombres || ''}`
+    }
+  }
+}), [visitas])
 
-  const visitasAgrupadasPorDia = useMemo(() => {
+ const visitasAgrupadasPorDia = useMemo(() => {
     const grupos: any = {}
     visitas.forEach(v => {
       const dia = moment(v.fechavisita).format('YYYY-MM-DD')
@@ -330,7 +348,7 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
         </div>
       ))) : (
         <div className="card-sgpc" style={{height: '70vh', padding: '1rem'}}>
-          <Calendar
+         <Calendar
             localizer={localizer}
             events={eventosCalendario}
             startAccessor="start"
@@ -340,30 +358,46 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
             date={semanaActual.toDate()}
             onNavigate={(date) => setSemanaActual(moment(date))}
             onSelectEvent={(event) => handleRegistrarVisita(event.resource)}
-            
-            min={minHora} // NUEVO: hora inicio dinámica
-            max={maxHora} // NUEVO: hora fin dinámica
-            step={30} // cada 30 min
-            timeslots={2} // 2 bloques de 30min = 1 hora
+
+            min={minHora}
+            max={maxHora}
+            step={30}
+            timeslots={2}
 
             components={{
-              header: ({ label, date }) => {
-                const dia = moment(date).format('dddd').toUpperCase() // LUN
-                const fecha = moment(date).format('DD MMM').toUpperCase() // 13 JUN
+              event: ({ event }) => ( // NUEVO: PINTAR EVENTO PERSONALIZADO
+                <div style={{ padding: '4px 6px', height: '100%', overflow: 'hidden', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  {/* <div style={{ fontSize: '1rem', fontWeight: 800 }}>{event.resource.horaRango}</div> */}
+                  <div style={{ fontSize: '1.1rem', fontWeight: 700, textTransform: 'uppercase', lineHeight: '1.2' }}>
+                    {event.resource.curso}
+                  </div>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 500, opacity: 0.95 }}>
+                    EPS: {event.resource.eps}
+                  </div>
+                  <div style={{ fontSize: '0.95rem', fontStyle: 'italic', fontWeight: 600, opacity: 0.95 }}>
+                    DOC: {event.resource.docente}
+                  </div>
+                </div>
+              ),
+              header: ({ date }) => {
+                const dia = moment(date).format('dddd').toUpperCase()
+                const fecha = moment(date).format('DD MMM').toUpperCase()
                 return (
                   <span>
                     {dia}
                     <span style={{fontSize: '1.1rem', fontWeight: 400}}>{fecha}</span>
                   </span>
-                )}}}
+                )
+              }
+            }}
 
             eventPropGetter={(event) => ({
               style: {
                 backgroundColor: ESTADO_COLORES[event.resource.condicion]?.bg || '#3B82F6',
                 borderRadius: '0.5rem',
                 color: '#fff',
-                border: 'none',
-                padding: '2px 5px'
+                border: `2px solid ${ESTADO_COLORES[event.resource.condicion]?.border || '#2563EB'}`,
+                padding: '2px'
               }
             })}
             messages={{
@@ -373,7 +407,7 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
         </div>
       )}
 
-      {showFichaModal && (
+      {/* {showFichaModal && (
         <div className="modal-overlay" onClick={() => setShowFichaModal(false)}>
           <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '60rem'}}>
             <div className="modal-header"><h2><FileText size={20}/> Registrar Visita</h2><button onClick={()=>setShowFichaModal(false)} className="btn-cerrar-modal"><X/></button></div>
@@ -389,7 +423,13 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
             <div className="modal-footer"><button className="btn-primario" onClick={handleGuardarFicha}><Check/> Marcar como Supervisado</button></div>
           </div>
         </div>
-      )}
+      )} */}
+
+       <ModalFichaSupervision
+        show={showFichaModal}
+        onClose={() => {setShowFichaModal(false); fetchVisitas(esAdmin, idSupervisorLogeado)}}
+        visita={visitaSeleccionada}
+      />
       <style jsx global>{`
         /* HEADER AZUL */
        .rbc-toolbar {
@@ -459,5 +499,7 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
        .rbc-month-view, .rbc-time-view { border: 1px solid #DBEAFE; border-radius: 0 0 0.8rem 0.8rem; }
       `}</style>
     </div>
+    
   )
+  
 }
