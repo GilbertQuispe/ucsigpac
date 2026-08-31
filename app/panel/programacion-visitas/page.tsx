@@ -1,100 +1,220 @@
 'use client'
-import React, { useEffect, useState, useMemo } from 'react'
+import React, { useEffect, useState, useMemo, useRef } from 'react' // agrega useRef
 import moment from 'moment'
 import 'moment/locale/es'
 import { createClient } from '@/lib/client'
-import { Check, X, CalendarDays, FileText } from 'lucide-react'
+import { Check, X, CalendarDays, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
 import Select from 'react-select'
+import { Calendar, momentLocalizer } from 'react-big-calendar'
+import 'react-big-calendar/lib/css/react-big-calendar.css'
+
 
 moment.locale('es')
+const localizer = momentLocalizer(moment)
+
 const ESTADO_COLORES: any = {
   'PROGRAMADO': { bg: '#3B82F6', border: '#2563EB', text: '#fff' },
   'EN_PROCESO': { bg: '#F59E0B', border: '#D97706', text: '#fff' },
   'SUPERVISADO': { bg: '#22C55E', border: '#16A34A', text: '#fff' }
 }
 
-// TU SELECT SGPC PARA QUE SEA SIMETRICO
 const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
   const selectedOption = options.find((o:any) => o.value === value) || null
   return (
     <fieldset className="fieldset-sgpc">
       <legend>{label}</legend>
-      <Select options={options} value={selectedOption} onChange={(opt:any) => onChange(opt?.value || '')} placeholder="Seleccione..." isSearchable maxMenuHeight={200} classNamePrefix="react-select" menuPortalTarget={typeof window !== 'undefined' ? document.body : null} menuPosition="fixed" styles={{ control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), input: (base) => ({...base, margin: 0, padding: 0 }), indicatorsContainer: (base) => ({...base, height: '4.4rem' }), option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }), menu: (base) => ({...base, zIndex: 9999, marginTop: '0.4rem' }) }} />
+      <Select options={options} value={selectedOption} onChange={(opt:any) => onChange(opt?.value || '')} placeholder="Todos" isSearchable maxMenuHeight={200} classNamePrefix="react-select" menuPortalTarget={typeof window!== 'undefined'? document.body : null} menuPosition="fixed" styles={{ control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), input: (base) => ({...base, margin: 0, padding: 0 }), indicatorsContainer: (base) => ({...base, height: '4.4rem' }), option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }), menu: (base) => ({...base, zIndex: 9999, marginTop: '0.4rem' }) }} />
     </fieldset>
   )
 }
+
 export default function ProgramacionVisitasPage() {
   const supabase = createClient()
+  const esAdminRef = useRef(false)
   const [loading, setLoading] = useState(true)
   const [visitas, setVisitas] = useState<any[]>([])
   const [supervisores, setSupervisores] = useState<any[]>([])
   const [periodos, setPeriodos] = useState<any[]>([])
+  const [filiales, setFiliales] = useState<any[]>([])
+  const [eps, setEps] = useState<any[]>([])
+  const [esAdmin, setEsAdmin] = useState(false)
+  const [idSupervisorLogeado, setIdSupervisorLogeado] = useState<number | null>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  const [semanaActual, setSemanaActual] = useState(moment())
+
+  const limpiarFiltros = () => {
+    setFiltroPeriodo('')
+    setFiltroFilial('')
+    setFiltroEps('')
+    setFiltroSupervisor('')
+    setSemanaActual(moment()) // NUEVO: volver a la semana de hoy
+  }
 
   const [filtroSupervisor, setFiltroSupervisor] = useState<number | ''>('')
   const [filtroPeriodo, setFiltroPeriodo] = useState<number | ''>('')
+  const [filtroFilial, setFiltroFilial] = useState<number | ''>('')
+  const [filtroEps, setFiltroEps] = useState<number | ''>('')
   const [showFichaModal, setShowFichaModal] = useState(false)
   const [visitaSeleccionada, setVisitaSeleccionada] = useState<any>(null)
   const [observacion, setObservacion] = useState('')
 
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   useEffect(() => { fetchDataMaestra() }, [])
 
-  const fetchDataMaestra = async () => {
+const fetchDataMaestra = async () => {
     setLoading(true)
-    const [sup, per] = await Promise.all([
-      supabase.from('supervisor').select('*, persona(*)').eq('estado', 'ACTIVO'),
-      supabase.from('periodoacademico').select('*').order('idpa', {ascending: false})
+    let esAdminAhora = false
+    let idSupLocal: number | null = null
+
+const [sup] = await Promise.all([
+      supabase.from('supervisor').select('idsupervisor, persona(dni, apellidos, nombres)').eq('estado', 'ACTIVO')
     ])
     setSupervisores(sup.data || [])
-    setPeriodos(per.data || [])
-    await fetchVisitas()
-  }
 
-  const fetchVisitas = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if(user){
+      // CLAVE: JALAR TODO EN 1 SOLA CONSULTA DESDE USUARIO
+      const { data: usuarioData, error } = await supabase.from('usuario')
+       .select('idpersona, persona!inner(idrol, rol!inner(nombrerol))')
+       .eq('id', user.id).single()
+      
+      if(error) console.log("ERROR ROL:", error)
+
+      const rol = usuarioData?.persona?.rol?.nombrerol
+      //esAdminAhora = rol === 'ADMINISTRADOR' || rol === 'GESTOR'
+
+      const rolLower = rol?.toLowerCase().trim()
+esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower === 'supervisor'
+
+      console.log("ROL ENCONTRADO:", rol, "ES ADMIN:", esAdminAhora)
+      esAdminRef.current = esAdminAhora
+      setEsAdmin(esAdminAhora)
+      
+      if(!esAdminAhora && usuarioData?.idpersona){
+        const { data: supData } = await supabase.from('supervisor').select('idsupervisor').eq('idpersona', usuarioData.idpersona).single()
+        idSupLocal = supData?.idsupervisor || null
+        setIdSupervisorLogeado(idSupLocal)
+      }
+    }
+    await fetchVisitas(esAdminAhora, idSupLocal)
+  }
+  const fetchVisitas = async (forzarEsAdmin?: boolean, forzarIdSup?: number | null) => {
     setLoading(true)
+    
+    const esAdminParaQuery = forzarEsAdmin !== undefined ? forzarEsAdmin : esAdmin // Usar el que me pasen
+    console.log("CONSULTANDO COMO ADMIN:", esAdminParaQuery)
+    const idSupParaQuery = forzarIdSup !== undefined ? forzarIdSup : idSupervisorLogeado // NUEVO
+    console.log("CONSULTANDO COMO ADMIN:", esAdminParaQuery)
+    
+    const inicioSemana = semanaActual.clone().startOf('week').format('YYYY-MM-DD')
+    const finSemana = semanaActual.clone().endOf('week').format('YYYY-MM-DD')
+
+    // QUERY SIMPLE SIN TANTO!INNER PARA EVITAR 406
     let query = supabase.from('visitasupervision').select(`
       idvisitas, fechavisita, horavisita, condicion, observaciones,
-      asignacionsupervision!inner(
-        idasignacions,
-        asignacion_nrc_supervisor!inner(
-          idcargaacad,
-          supervisor(persona(apellidos, nombres)),
+      asignacionsupervision(
+        idasignacions, idsupervisor,
+        asignacion_nrc_supervisor(
+          idcargaacad, idsupervisor,
           cargaacademica(
             nrc,
             asignatura(nombre),
             campoclinico(
               idpa, idfilial, ideps,
-              docente(persona(dni, apellidos, nombres)),
+              filial(nombrefilial),
               eps(razonsocial),
-              filial(nombrefilial)
+              docente(persona(apellidos, nombres))
             )
           )
         )
       )
     `)
+   .gte('fechavisita', inicioSemana)
+   .lte('fechavisita', finSemana)
 
-    if(filtroSupervisor) query = query.eq('asignacionsupervision.asignacion_nrc_supervisor.supervisor.idsupervisor', filtroSupervisor)
-    if(filtroPeriodo) query = query.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.idpa', filtroPeriodo)
+    if(!esAdminParaQuery && idSupParaQuery){ // USAR LA VARIABLE LOCAL
+      query = query.eq('asignacionsupervision.idsupervisor', idSupParaQuery)
+    } else {
+      if(filtroSupervisor) query = query.eq('asignacionsupervision.idsupervisor', Number(filtroSupervisor))
+      if(filtroFilial) query = query.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.idfilial', Number(filtroFilial))
+      if(filtroEps) query = query.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.ideps', Number(filtroEps))
+    }
+    
+    if(filtroPeriodo) query = query.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.idpa', Number(filtroPeriodo))
 
     const { data, error } = await query.order('fechavisita', {ascending: true})
-    if(error) console.log(error)
+    if(error) {
+      console.log("ERR VISITAS:", error)
+    }
     setVisitas(data || [])
+
+    // SACAR OPCIONES DINÁMICAS DE LAS VISITAS
+    const visitasData = data || []
+    
+    const periodosUnicos = new Map()
+    const filialesUnicas = new Map()
+    const epsUnicas = new Map()
+    
+    visitasData.forEach(v => {
+      const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
+      if(carga?.campoclinico){
+        if(carga.campoclinico.idpa) periodosUnicos.set(carga.campoclinico.idpa, carga.campoclinico.idpa)
+        if(carga.campoclinico.idfilial) filialesUnicas.set(carga.campoclinico.idfilial, {id: carga.campoclinico.idfilial, nombre: carga.campoclinico.filial?.nombrefilial})
+        if(carga.campoclinico.ideps) epsUnicas.set(carga.campoclinico.ideps, {id: carga.campoclinico.ideps, nombre: carga.campoclinico.eps?.razonsocial})
+      }
+    })
+
+    // Convertir a array para los selects
+    setPeriodos(Array.from(periodosUnicos.keys()).map(id => ({idpa: id, codigo: `PA-${id}`}))
+     .sort((a,b) => b.idpa - a.idpa))
+    setFiliales(Array.from(filialesUnicas.values()).map(f => ({idfilial: f.id, nombrefilial: f.nombre})))
+    setEps(Array.from(epsUnicas.values()).map(e => ({ideps: e.id, razonsocial: e.nombre})))
+
     setLoading(false)
   }
+  
+  useEffect(() => { if(supervisores.length > 0) fetchVisitas(esAdminRef.current, idSupervisorLogeado) }, [filtroSupervisor, filtroPeriodo, filtroFilial, filtroEps, esAdmin, idSupervisorLogeado, semanaActual])
 
-  useEffect(() => { fetchVisitas() }, [filtroSupervisor, filtroPeriodo])
+    const opcionesPeriodo = useMemo(() => [
+    {value: '', label: 'Todos'},
+   ...periodos.map(p => ({value: p.idpa, label: p.codigo || `PA-${p.idpa}`}))
+  ], [periodos])
+  
+  const opcionesFilial = useMemo(() => [
+    {value: '', label: 'Todas'},
+   ...filiales.map(f => ({value: f.idfilial, label: f.nombrefilial}))
+  ], [filiales])
+  
+  const opcionesEps = useMemo(() => [
+    {value: '', label: 'Todas'},
+   ...eps.map(e => ({value: e.ideps, label: e.razonsocial}))
+  ], [eps])
 
-  const opcionesSupervisor = useMemo(() =>
-    supervisores.map(s=>({value:s.idsupervisor, label:`${s.persona?.dni} - ${s.persona?.apellidos}, ${s.persona?.nombres}`})), [supervisores])
+  const opcionesSupervisor = useMemo(() => [{value: '', label: 'Todos'},...supervisores.map(s=>({value:s.idsupervisor, label:`${s.persona?.dni} - ${s.persona?.apellidos}`}))], [supervisores])
+ // const opcionesPeriodo = useMemo(() => [{value: '', label: 'Todos'},...periodos.map(p => ({value: p.idpa, label: p.codigo || p.nombre}))], [periodos])
+  //const opcionesFilial = useMemo(() => [{value: '', label: 'Todas'},...filiales.map(f => ({value: f.idfilial, label: f.nombrefilial}))], [filiales])
+  //const opcionesEps = useMemo(() => [{value: '', label: 'Todas'},...eps.map(e => ({value: e.ideps, label: e.razonsocial}))], [eps])
 
-  const opcionesPeriodo = useMemo(() =>
-    [{value: '', label: 'Todos'},...periodos.map(p => ({value: p.idpa, label: p.codigo || p.nombre}))], [periodos])
+  const eventosCalendario = useMemo(() => visitas.map(v => ({
+    id: v.idvisitas,
+    title: `${v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.asignatura?.nombre || 'Sin Asignatura'}`,
+    start: moment(`${v.fechavisita} ${v.horavisita}`).toDate(),
+    end: moment(`${v.fechavisita} ${v.horavisita}`).add(1, 'hour').toDate(),
+    resource: v
+  })), [visitas])
 
-  const visitasAgrupadas = useMemo(() => {
+  const visitasAgrupadasPorDia = useMemo(() => {
     const grupos: any = {}
     visitas.forEach(v => {
-      const semana = moment(v.fechavisita).format('[Semana] W - YYYY')
-      if(!grupos[semana]) grupos[semana] = []
-      grupos[semana].push(v)
+      const dia = moment(v.fechavisita).format('YYYY-MM-DD')
+      if(!grupos[dia]) grupos[dia] = []
+      grupos[dia].push(v)
     })
     return grupos
   }, [visitas])
@@ -110,96 +230,155 @@ export default function ProgramacionVisitasPage() {
       condicion: 'SUPERVISADO',
       observaciones: observacion
     }).eq('idvisitas', visitaSeleccionada.idvisitas)
-
     if(error) alert(error.message)
-    else {
-      setShowFichaModal(false)
-      fetchVisitas()
-    }
+    //else { setShowFichaModal(false); fetchVisitas() }
+  else { setShowFichaModal(false); fetchVisitas(esAdmin, idSupervisorLogeado) }
   }
 
+  console.log("ES ADMIN:", esAdmin, "ROL DETECTADO")
+
+  const { minHora, maxHora } = useMemo(() => {
+    if(visitas.length === 0) return { minHora: new Date(2026,0,1,7,0), maxHora: new Date(2026,0,1,20,0) }
+
+    const horas = visitas.map(v => moment(`${v.fechavisita} ${v.horavisita}`))
+    const min = moment.min(horas).startOf('hour').subtract(1, 'hour') // 1 hora antes
+    const max = moment.max(horas).endOf('hour').add(1, 'hour') // 1 hora después
+
+    return {
+      minHora: min.toDate(),
+      maxHora: max.toDate()
+    }
+  }, [visitas])
+
   return (
-    <div className="main-content">
-      <h1 style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem'}}>
-        <CalendarDays size={24}/>Programación de Visitas
+    
+    <div className="main-content" style={{padding: '1rem'}}>
+      <h1 style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', fontSize: '2rem'}}>
+        <CalendarDays size={24}/> Programación de Visitas
       </h1>
 
-      <div className="card-sgpc" style={{ padding: '2rem', marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', gap: '1.2rem' }}>
-        {/* <fieldset className="fieldset-sgpc"><legend>Supervisor</legend>
-          <Select options={opcionesSupervisor} value={opcionesSupervisor.find(o=>o.value===filtroSupervisor)} onChange={(opt:any)=>setFiltroSupervisor(opt?.value||'')} placeholder="Todos"/>
-        </fieldset>
-        <fieldset className="fieldset-sgpc"><legend>Periodo</legend>
-          <Select options={opcionesPeriodo} value={opcionesPeriodo.find(o=>o.value===filtroPeriodo)} onChange={(opt:any)=>setFiltroPeriodo(opt?.value||'')} placeholder="Todos"/>
-        </fieldset> */}
-        <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={filtroSupervisor} onChange={setFiltroSupervisor} />
+      <div className="card-sgpc" style={{ padding: '1.5rem', marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1.2rem' }}>
         <SelectSGPCFieldset label="Periodo Académico" options={opcionesPeriodo} value={filtroPeriodo} onChange={setFiltroPeriodo} />
+        {esAdminRef.current ? <>
+          <SelectSGPCFieldset label="Filial" options={opcionesFilial} value={filtroFilial} onChange={setFiltroFilial} />          
+        </> : null}
+        <SelectSGPCFieldset label="EPS" options={opcionesEps} value={filtroEps} onChange={setFiltroEps} />
+  
+        {esAdminRef.current ? <>
+          
+          <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={filtroSupervisor} onChange={setFiltroSupervisor} />
+        </> : null}
+
+        {/* BOTON LIMPIAR */}
+        <button 
+          className="btn-secundario" 
+          style={{padding: '1rem', height: '4.4rem', marginTop: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'}}
+          onClick={limpiarFiltros}
+        >
+          <X size={16}/> Limpiar Filtros
+        </button>
       </div>
 
-      {/* LEYENDA */}
-      <div style={{display: 'flex', gap: '1.5rem', fontSize: '1.2rem', marginBottom: '1rem'}}>
-        {Object.entries(ESTADO_COLORES).map(([key, val]) => (
-          <div key={key} style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
-            <div style={{width: '1.6rem', height: '1.6rem', background: val.bg, border: `1px solid ${val.border}`, borderRadius: '0.3rem'}}></div>
-            <span>{key}</span>
-          </div>
-        ))}
+
+
+      <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
+        <button className="btn-secundario" style={{padding: '0.8rem 1.2rem'}} onClick={() => setSemanaActual(semanaActual.clone().subtract(1, 'week'))}>
+          <ChevronLeft size={16}/> Anterior
+        </button>
+        <h3 style={{color: '#004AAD', fontSize: '1.6rem', textAlign: 'center'}}>
+          Semana {semanaActual.format('W - YYYY')}
+        </h3>
+        <button className="btn-secundario" style={{padding: '0.8rem 1.2rem'}} onClick={() => setSemanaActual(semanaActual.clone().add(1, 'week'))}>
+          Siguiente <ChevronRight size={16}/>
+        </button>
       </div>
 
-      {loading? <p>Cargando...</p> : Object.keys(visitasAgrupadas).map(semana => (
-        <div key={semana} className="card-sgpc" style={{marginBottom: '2rem', padding: '1.5rem'}}>
-          <h3 style={{color: '#004AAD', marginBottom: '1rem'}}>{semana}</h3>
-          <div style={{overflowX: 'auto'}}>
-            <table style={{width: '100%', borderCollapse: 'collapse', fontSize: '1.3rem'}}>
-              <thead style={{background: '#F8FAFC'}}>
-                <tr>
-                  <th style={{padding: '1rem', textAlign: 'left', border: '1px solid #e2e8f0'}}>Fecha</th>
-                  <th style={{padding: '1rem', textAlign: 'left', border: '1px solid #e2e8f0'}}>Hora</th>
-                  <th style={{padding: '1rem', textAlign: 'left', border: '1px solid #e2e8f0'}}>Asignatura - NRC</th>
-                  <th style={{padding: '1rem', textAlign: 'left', border: '1px solid #e2e8f0'}}>Docente</th>
-                  <th style={{padding: '1rem', textAlign: 'left', border: '1px solid #e2e8f0'}}>EPS</th>
-                  <th style={{padding: '1rem', textAlign: 'center', border: '1px solid #e2e8f0'}}>Estado</th>
-                  <th style={{padding: '1rem', textAlign: 'center', border: '1px solid #e2e8f0'}}>Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {visitasAgrupadas[semana].map((v:any) => {
-                  const color = ESTADO_COLORES[v.condicion] || ESTADO_COLORES['PROGRAMADO']
-                  const cabecera = v.asignacionsupervision.asignacion_nrc_supervisor
-                  const carga = cabecera.cargaacademica
-                  return (
-                    <tr key={v.idvisitas}>
-                      <td style={{padding: '1rem', border: '1px solid #e2e8f0'}}>{moment(v.fechavisita).format('DD/MM/YYYY - dddd')}</td>
-                      <td style={{padding: '1rem', border: '1px solid #e2e8f0'}}>{v.horavisita}</td>
-                      <td style={{padding: '1rem', border: '1px solid #e2e8f0'}}>{carga.asignatura.nombre} - {carga.nrc}</td>
-                      <td style={{padding: '1rem', border: '1px solid #e2e8f0'}}>{carga.campoclinico.docente.persona.apellidos}</td>
-                      <td style={{padding: '1rem', border: '1px solid #e2e8f0'}}>{carga.campoclinico.eps.razonsocial}</td>
-                      <td style={{padding: '1rem', border: '1px solid #e2e8f0', textAlign: 'center'}}>
-                        <span style={{background: color.bg, color: color.text, padding: '0.4rem 0.8rem', borderRadius: '0.4rem', fontWeight: 600}}>{v.condicion}</span>
-                      </td>
-                      <td style={{padding: '1rem', border: '1px solid #e2e8f0', textAlign: 'center'}}>
-                        {v.condicion!== 'SUPERVISADO' &&
-                          <button className="btn-primario" style={{padding: '0.6rem 1rem'}} onClick={()=>handleRegistrarVisita(v)}>
-                            <FileText size={14}/> Registrar
-                          </button>
-                        }
-                        {v.condicion === 'SUPERVISADO' && <Check color="#22C55E" />}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+      {isMobile? (
+        loading? <p style={{textAlign: 'center'}}>Cargando...</p> : 
+        visitas.length === 0? <p style={{textAlign: 'center', color: '#64748b'}}>No tienes visitas programadas esta semana</p> :
+        Object.keys(visitasAgrupadasPorDia).sort().map(dia => (
+        <div key={dia} style={{marginBottom: '2rem'}}>
+          <h3 style={{color: '#004AAD', marginBottom: '1rem', fontSize: '1.5rem', borderBottom: '2px solid #E2E8F0', paddingBottom: '0.5rem'}}>
+            {moment(dia).format('dddd DD [de] MMMM')}
+          </h3>
+          <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(24rem, 1fr))', gap: '1rem'}}>
+            {visitasAgrupadasPorDia[dia].map((v:any) => {
+              const color = ESTADO_COLORES[v.condicion] || ESTADO_COLORES['PROGRAMADO']
+              const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
+              return (
+                <div key={v.idvisitas} className="card-sgpc" style={{padding: '1.5rem', borderLeft: `0.5rem solid ${color.bg}`}}>
+                  <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
+                    <span style={{fontWeight: 700, fontSize: '1.4rem'}}>{v.horavisita}</span>
+                    <span style={{background: color.bg, color: color.text, padding: '0.4rem 0.8rem', borderRadius: '2rem', fontWeight: 600, fontSize: '1.1rem'}}>{v.condicion}</span>
+                  </div>
+                  <p style={{margin: '0.4rem 0', fontSize: '1.3rem', fontWeight: 600}}>{carga?.asignatura?.nombre}</p>
+                  <p style={{margin: '0.4rem 0', fontSize: '1.2rem', color: '#475569'}}>NRC: {carga?.nrc} | {carga?.campoclinico?.filial?.nombrefilial}</p>
+                  <p style={{margin: '0.4rem 0', fontSize: '1.2rem', color: '#475569'}}>Doc: {carga?.campoclinico?.docente?.persona?.apellidos}</p>
+                  <p style={{margin: '0.4rem 0', fontSize: '1.2rem', color: '#475569'}}>EPS: {carga?.campoclinico?.eps?.razonsocial}</p>
+                  <div style={{marginTop: '1.5rem'}}>
+                    {v.condicion!== 'SUPERVISADO'?
+                      <button className="btn-primario" style={{width: '100%', padding: '1rem'}} onClick={()=>handleRegistrarVisita(v)}>
+                        <FileText size={16}/> Registrar
+                      </button>
+                      : <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#22C55E', fontWeight: 600}}><Check/> Supervisado</span>
+                    }
+                  </div>
+                </div>
+              )
+            })}
           </div>
         </div>
-      ))}
+      ))) : (
+        <div className="card-sgpc" style={{height: '70vh', padding: '1rem'}}>
+          <Calendar
+            localizer={localizer}
+            events={eventosCalendario}
+            startAccessor="start"
+            endAccessor="end"
+            defaultView="week"
+            views={['week', 'day']}
+            date={semanaActual.toDate()}
+            onNavigate={(date) => setSemanaActual(moment(date))}
+            onSelectEvent={(event) => handleRegistrarVisita(event.resource)}
+            
+            min={minHora} // NUEVO: hora inicio dinámica
+            max={maxHora} // NUEVO: hora fin dinámica
+            step={30} // cada 30 min
+            timeslots={2} // 2 bloques de 30min = 1 hora
 
-      {/* MODAL FICHA */}
+            components={{
+              header: ({ label, date }) => {
+                const dia = moment(date).format('dddd').toUpperCase() // LUN
+                const fecha = moment(date).format('DD MMM').toUpperCase() // 13 JUN
+                return (
+                  <span>
+                    {dia}
+                    <span style={{fontSize: '1.1rem', fontWeight: 400}}>{fecha}</span>
+                  </span>
+                )}}}
+
+            eventPropGetter={(event) => ({
+              style: {
+                backgroundColor: ESTADO_COLORES[event.resource.condicion]?.bg || '#3B82F6',
+                borderRadius: '0.5rem',
+                color: '#fff',
+                border: 'none',
+                padding: '2px 5px'
+              }
+            })}
+            messages={{
+              next: "Siguiente", previous: "Anterior", today: "Hoy", week: "Semana", day: "Día"
+            }}
+          />
+        </div>
+      )}
+
       {showFichaModal && (
         <div className="modal-overlay" onClick={() => setShowFichaModal(false)}>
           <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '60rem'}}>
             <div className="modal-header"><h2><FileText size={20}/> Registrar Visita</h2><button onClick={()=>setShowFichaModal(false)} className="btn-cerrar-modal"><X/></button></div>
             <div className="modal-body">
-              <p><b>Fecha:</b> {moment(visitaSeleccionada?.fechavisita).format('DD/MM/YYYY')}</p>
+              <p><b>Fecha:</b> {moment(visitaSeleccionada?.fechavisita).format('DD/MM/YYYY HH:mm')}</p>
               <p><b>Docente:</b> {visitaSeleccionada?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.campoclinico?.docente?.persona?.apellidos}</p>
               <p><b>Asignatura:</b> {visitaSeleccionada?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.asignatura?.nombre}</p>
               <fieldset className="fieldset-sgpc">
@@ -211,6 +390,74 @@ export default function ProgramacionVisitasPage() {
           </div>
         </div>
       )}
+      <style jsx global>{`
+        /* HEADER AZUL */
+       .rbc-toolbar {
+          background: #004AAD;
+          color: #fff;
+          padding: 1rem;
+          border-radius: 0.8rem 0.8rem 0 0;
+          margin-bottom: 0;
+        }
+       .rbc-toolbar button { color: #fff; border: 1px solid rgba(255,255,255,0.5); }
+       .rbc-toolbar button.rbc-active { background: #fff; color: #004AAD; }
+
+        /* HEADER DIAS - CON NEGRITA */
+       .rbc-header {
+          background: #004AAD;
+          color: #fff;
+          padding: 1rem 0.5rem;
+          font-weight: 800; /* NUEVO: NEGRITA FUERTE */
+          font-size: 1.4rem;
+          text-align: center;
+          height: 5.5rem;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          line-height: 1.4;
+          text-transform: uppercase;
+          border-bottom: 2px solid #2563EB;
+        }
+           /* Forzar que el header muestre 2 lineas */
+        .rbc-header span {
+          display: block;
+        }
+       .rbc-header span:last-child {
+          font-size: 1.2rem;
+          font-weight: 600; /* La fecha un poco menos negrita */
+        }
+
+        /* COLUMNA HORA - AZUL + TITULO "HORA" */
+       .rbc-time-header-gutter {
+          background: #004AAD !important; /* AZUL IGUAL QUE HEADER */
+          color: #fff !important;
+          font-weight: 800;
+          font-size: 1.4rem;
+          text-transform: uppercase;
+          display: flex !important;
+          align-items: center;
+          justify-content: center;
+        }
+       .rbc-time-header-gutter::before {
+          content: "HORA"; /* NUEVO: LE PONE EL TEXTO */
+        }
+       .rbc-time-gutter {
+          background: #EFF6FF; /* Fondo clarito */
+        }
+       .rbc-time-gutter .rbc-label {
+          color: #004AAD; /* Texto azul oscuro */
+          font-weight: 700; /* NEGRITA */
+          font-size: 1.2rem;
+          padding-right: 1rem;
+          text-align: right;
+        }
+
+        /* OCULTAR ALLDAY */
+       .rbc-allday-cell { display: none !important; }
+
+        /* BORDES */
+       .rbc-month-view, .rbc-time-view { border: 1px solid #DBEAFE; border-radius: 0 0 0.8rem 0.8rem; }
+      `}</style>
     </div>
   )
 }

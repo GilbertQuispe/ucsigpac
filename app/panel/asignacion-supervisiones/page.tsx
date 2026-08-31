@@ -139,9 +139,9 @@ const fetchDataHorario = async () => {
   //   idasignacions, iddh, estado, idsupervisor,
   //   supervisor(persona(apellidos, nombres))
   // `)
-  const { data: asigData, error: err3 } = await supabase.from('asignacionsupervision').select(`
+const { data: asigData, error: err3 } = await supabase.from('asignacionsupervision').select(`
     idasignacions, iddh, estado, idsupervisor,
-    supervisor(idpersona, persona!inner(apellidos, nombres))
+    supervisor:idsupervisor!inner(idpersona, persona!inner(apellidos, nombres))
   `)
 // NUEVO: También leer la cabecera para saber si ya está asignado el NRC
 
@@ -150,7 +150,9 @@ const fetchDataHorario = async () => {
 
       // NUEVO: Leer la cabecera para saber si el NRC ya tiene supervisor asignado
 //const { data: cabeceraData, error: err4 } = await supabase.from('asignacion_nrc_supervisor').select('idcargaacad, idsupervisor, estado, supervisor(persona(apellidos, nombres))')
-  const { data: cabeceraData, error: err4 } = await supabase.from('asignacion_nrc_supervisor').select(`idasignacion_nrc, idcargaacad, idsupervisor, estado, supervisor(idpersona, persona!inner(apellidos, nombres))
+const { data: cabeceraData, error: err4 } = await supabase.from('asignacion_nrc_supervisor').select(`
+    idasignacion_nrc, idcargaacad, idsupervisor, estado,
+    supervisor:idsupervisor!inner(idpersona, persona!inner(apellidos, nombres))
   `)
 if(err4) console.log("ERR CABECERA:", err4)
 
@@ -182,8 +184,10 @@ if(err4) console.log("ERR CABECERA:", err4)
             //   cargaacademica: carga,
             //   asignacionsupervision: asign
             // })
-            const asign = asigData?.filter(a => a.iddh === dh.iddh) || []
-const cabecera = cabeceraData?.find(c => c.idcargaacad === carga.idcargaacad) // <-- NUEVO
+            //const asign = asigData?.filter(a => a.iddh === dh.iddh) || []
+//const cabecera = cabeceraData?.find(c => c.idcargaacad === carga.idcargaacad) // <-- NUEVO
+const asign = asigData?.filter(a => Number(a.iddh) === Number(dh.iddh)) || []
+const cabecera = cabeceraData?.find(c => Number(c.idcargaacad) === Number(carga.idcargaacad))
 
 dataAplanada.push({
   iddh: dh.iddh, // me quedo con el primer iddh que encuentre
@@ -203,6 +207,8 @@ dataAplanada.push({
     console.log("DATA APLANADA FINAL:", dataAplanada, "TOTAL UNICOS:", dataAplanada.length)
     setDataRaw(dataAplanada)
     console.log("PRIMER REGISTRO:", dataAplanada[0])
+    console.log("ASIG CRUDO:", asigData)
+    console.log("CABECERA CRUDO:", cabeceraData)
     setLoading(false)
   }
 
@@ -343,8 +349,8 @@ useEffect(() => {
     const dias = { 'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6 }
     
     const eventosTemp = dataFiltrada
-    .filter(h => h.cargaacademica)
-    .map((h:any) => {
+   .filter(h => h.cargaacademica)
+   .map((h:any) => {
         const diaNum = dias[h.dia_semana?.toUpperCase()] || 1
         const [hora, min] = h.hora_inicio.split(':')
         const start = moment().day(diaNum).hour(Number(hora)).minute(Number(min)).toDate()
@@ -356,8 +362,11 @@ useEffect(() => {
         const asignCabecera = h.cabeceraNRC
         const asign = asignDetalle || asignCabecera
         
-        const supNombre = asign?.supervisor?.persona 
-         ? `${asign.supervisor.persona.apellidos}, ${asign.supervisor.persona.nombres}` 
+        // NUEVO: BUSCAR NOMBRE MANUALMENTE PORQUE EL JOIN FALLA
+        const supId = asign?.idsupervisor
+        const supEncontrado = supervisores.find(s => Number(s.idsupervisor) === Number(supId))
+        const supNombre = supEncontrado 
+         ? `${supEncontrado.persona.apellidos}, ${supEncontrado.persona.nombres}` 
           : 'Sin Asignar'
 
         const carga = h.cargaacademica
@@ -369,13 +378,13 @@ useEffect(() => {
           start, 
           end, 
           title: `${rangoHora}\n${carga?.asignatura?.nombre} - NRC:${carga?.nrc}\nEPS: ${epsNombre}\nDoc: ${h.campoclinico.docente.persona.dni} - ${h.campoclinico.docente.persona.apellidos}, ${h.campoclinico.docente.persona.nombres}\nSup: ${supNombre}`,
-          resource: {...h, asignacion: asign } // <-- AQUI GUARDAMOS "asignacion"
+          resource: {...h, asignacion: asign }
         }
       })
 
     const eventosUnicos = Array.from(new Map(eventosTemp.map(e => [e.id, e])).values())
     setEventos(eventosUnicos)
-  }, [dataFiltrada])
+  }, [dataFiltrada, supervisores]) // <-- AGREGAR supervisores a las dependencias
 
   //const handleSelectEvent = (event: any) => { setCeldaSeleccionada(event.resource); setFormAsignar({ idsupervisor: event.resource.asignacion?.idsupervisor || null }); setShowAsignarModal(true) }
     const handleSelectEvent = (event: any) => { setCeldaSeleccionada(event.resource); setFormAsignar({ idsupervisor: event.resource.asignacion?.idsupervisor || null }); setShowAsignarModal(true) }
@@ -647,7 +656,7 @@ const handleAsignarMasivo = async () => {
     ))}
   </div>
   <div style={{fontSize: '1.3rem', fontWeight: 'bold'}}>
-    Total Horas: {eventos.length} | Asignados: {eventos.filter(e => e.resource.asignacion).length}
+    Total Horas: {eventos.length} | Asignados: {eventos.filter(e => e.resource.asignacion?.idsupervisor).length}
   </div>
 </div>
 <div className="card-sgpc" style={{ height: '70vh', padding: '1rem' }}>
@@ -742,10 +751,12 @@ const handleAsignarMasivo = async () => {
                 {event.title.split('\n').map((linea, i) => {
   let estilo: React.CSSProperties = { fontSize: '1.1rem', lineHeight: '1.3' }
   
-  if(i === 0) estilo = { ...estilo, fontWeight: 700, color: '#004AAD' } // HORA - Azul y Negrita
-  if(i === 1) estilo = { ...estilo, fontWeight: 600 } // ASIGNATURA - Seminegrita
-  if(i === 2) estilo = { ...estilo, fontWeight: 500, color: '#059669' } // EPS - Verde
-  if(i === 3) estilo = { ...estilo, fontStyle: 'italic', fontSize: '1rem' } // DOC - Cursiva
+  //if(i === 0) estilo = { ...estilo, fontWeight: 700, color: '#004AAD' } // HORA - Azul y Negrita
+  if(i === 0) estilo = { ...estilo, fontWeight: 800 } // HORA - Azul y Negrita
+  if(i === 1) estilo = { ...estilo, fontWeight: 700 } // ASIGNATURA - Seminegrita
+  //if(i === 2) estilo = { ...estilo, fontWeight: 500, color: '#059669' } // EPS - Verde
+  if(i === 2) estilo = { ...estilo, fontWeight: 500 } // EPS - Verde
+  if(i === 3) estilo = { ...estilo, fontStyle: 'italic', fontSize: '1rem', fontWeight: 600 } // DOC - Cursiva
   if(i === 4) estilo = { ...estilo, fontSize: '1rem', opacity: 0.8 } // SUP - Más pequeño
 
   return <div key={i} style={estilo}>{linea}</div>
