@@ -43,7 +43,7 @@ const MENU_COMPLETO: MenuModule[] = [
     {name:'4.7 Matrículas', href:'/panel/matriculas', icon: FileText},
     {name:'4.8 Carga Académica', href:'/panel/cargaacademica', icon: BookOpen},
     {name:'4.9 Estudiantes con NRC', href:'/panel/estudiantes-nrc', icon: Users},
-    {name:'4.10 Horarios Académicos', href:'/panel/horarios', icon: Calendar}
+    {name:'4.10 Ficha de Encuesta', href:'/panel/ficha', icon: Calendar}
   ]},
 
   { title:'Supervisión Clínica', icon: ClipboardCheck, items:[ {name:'5.1 Asignación Supervisores', href:'/panel/asignacion-supervisiones', icon: UserCheck}, {name:'5.2 Programación Visitas', href:'/panel/programacion-visitas', icon: Calendar}, {name:'5.3 Registro Supervisiones', href:'/panel/supervisiones', icon: ClipboardCheck}, {name:'5.4 Evaluaciones', href:'/panel/evaluaciones', icon: TrendingUp}, {name:'5.5 Incidencias', href:'/panel/incidencias', icon: AlertTriangle}, {name:'5.6 Informe de Supervisión', href:'/panel/informes', icon: FileText} ]},
