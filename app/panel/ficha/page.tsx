@@ -256,7 +256,7 @@ export default function FichaPage() {
       )}
 
       {showModal && (
-        <div className="modal-overlay" onClick={handleClose}>
+        <div className="modal-overlay" >
           <div className="modal-content card-sgpc" style={{maxWidth: "60rem"}} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header"><h2><BookOpen size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar Item de Ficha" : "Nuevo Item de Ficha"}</h2><button onClick={handleClose} className="btn-cerrar"><X size={20} /></button></div>
             <div className="modal-body">

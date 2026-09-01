@@ -297,7 +297,20 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
         </button>
       </div>
 
-
+{/* LEYENDA + CONTADOR */}
+<div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem'}}>
+  <div style={{display: 'flex', gap: '1.5rem', fontSize: '1.2rem', flexWrap: 'wrap'}}>
+    {Object.entries(ESTADO_COLORES).map(([key, val]) => (
+      <div key={key} style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
+        <div style={{width: '1.6rem', height: '1.6rem', background: val.bg, border: `2px solid ${val.border}`, borderRadius: '0.3rem'}}></div>
+        <span style={{fontWeight: 600}}>{key.replace('_', ' ')}</span>
+      </div>
+    ))}
+  </div>
+  <div style={{fontSize: '1.3rem', fontWeight: 'bold', color: '#004AAD'}}>
+    Total Semanal: {visitas.length} | Programadas: {visitas.filter(v => v.condicion === 'PROGRAMADO').length} | Proceso: {visitas.filter(v => v.condicion === 'EN_PROCESO').length} | Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
+  </div>
+</div>
 
       <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem'}}>
         <button className="btn-secundario" style={{padding: '0.8rem 1.2rem'}} onClick={() => setSemanaActual(semanaActual.clone().subtract(1, 'week'))}>
