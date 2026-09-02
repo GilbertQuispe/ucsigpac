@@ -48,6 +48,7 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   const [observacion, setObservacion] = useState(visita?.observaciones || '')
 
   const idvisitas = visita?.idvisitas
+  const esSoloLectura = visita?.condicion === 'SUPERVISADO' // <-- AGREGA ESTA LINEA
 
    useEffect(() => {
     if(show && idvisitas) fetchData()
@@ -142,6 +143,8 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
 
   
  const handleGuardar = async () => {
+  if(esSoloLectura) return toast.error("Esta ficha ya está supervisada. Solo lectura")
+
     const iddocente = headerData?.campoclinico?.docente?.iddocente
     const toInsert: any[] = []
 
@@ -152,12 +155,12 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     // 2. Armar respuestas docente
     preguntasDocente.forEach(p => {
       const key = `doc-${iddocente}-${p.idficha}`
-      if(respuestas[key] > 0){ // Solo si marcó algo
+      if(respuestas[key] > 0){
         toInsert.push({
           idvisitas,
           idficha: p.idficha,
           iddocente,
-          idestudiante: null, // CLAVE: null para docente
+          idestudiante: null,
           respuestaitem: respuestas[key]
         })
       }
@@ -167,11 +170,11 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     alumnos.forEach(a => {
       preguntasAlumno.forEach(p => {
         const key = `alu-${a.idestudiante}-${p.idficha}`
-        if(respuestas[key] > 0){ // Solo si marcó algo
+        if(respuestas[key] > 0){
           toInsert.push({
             idvisitas,
             idficha: p.idficha,
-            iddocente: null, // CLAVE: null para alumno
+            iddocente: null,
             idestudiante: a.idestudiante,
             respuestaitem: respuestas[key]
           })
@@ -187,12 +190,45 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
       return toast.error("Debe calificar al menos 1 item")
     }
 
-    // 5. ACTUALIZAR ESTADO DE LA VISITA - ESTO HACE QUE CAMBIE EL COLOR
+    // 5. SUBIR FOTOS PRIMERO
+    let fotosSubidasOK = 0
+    if(fotos.length > 0){
+      for(let i = 0; i < fotos.length; i++){
+        const file = fotos[i]
+        const filePath = `${idvisitas}/${file.name}`
+        console.log("5. SUBIENDO:", filePath)
+        const { error: errUpload } = await supabase.storage.from('evidenciasSigpacuc').upload(filePath, file, {
+          upsert: true
+        })
+
+        if(errUpload) {
+          console.log("ERROR UPLOAD:", errUpload)
+          toast.error(`Error al subir ${file.name}: ${errUpload.message}`)
+        } else {
+          fotosSubidasOK++
+          const { error: errDB } = await supabase.from('archivoevidencia').insert({
+            idvisitas,
+            nombrearchivo: file.name,
+            rutaarchivo: filePath,
+            tipoarchivo: 'IMAGEN'
+          })
+          if(errDB) {
+            console.log("ERROR DB FOTO:", errDB)
+            toast.error(`Error al guardar BD ${file.name}: ${errDB.message}`)
+          }
+        }
+      }
+    }
+
+    // 6. AHORA SI ACTUALIZAMOS EL ESTADO 1 SOLA VEZ AL FINAL
     const totalPreguntas = preguntasDocente.length + (preguntasAlumno.length * alumnos.length)
     const totalRespondidas = toInsert.length
 
     let nuevoEstado = 'EN_PROCESO'
-    if(totalRespondidas >= totalPreguntas && totalPreguntas > 0) nuevoEstado = 'SUPERVISADO'
+    // Solo es SUPERVISADO si respondió todo Y tiene al menos 1 foto
+    if(totalRespondidas >= totalPreguntas && totalPreguntas > 0 && (fotosSubidasOK > 0 || fotosGuardadas.length > 0)) {
+      nuevoEstado = 'SUPERVISADO'
+    }
 
     const { error: errVisita } = await supabase.from('visitasupervision').update({
       condicion: nuevoEstado,
@@ -201,40 +237,15 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
 
     if(errVisita) return toast.error("Error al actualizar visita: " + errVisita.message)
 
-  
-    // 6. Subir fotos - NO CORTA LA FUNCION SI FALLA 1 FOTO
-if(fotos.length > 0){
-  for(let i = 0; i < fotos.length; i++){
-    const file = fotos[i]
-    const filePath = `${idvisitas}/${file.name}`
-
-    const { error: errUpload } = await supabase.storage.from('evidenciasSigpacuc').upload(filePath, file, {
-      upsert: true
+    // 7. TOAST SIEMPRE AL FINAL
+    //toast.success(`Ficha guardada. Estado: ${nuevoEstado}`)
+    toast.success(`Ficha guardada. Estado: ${nuevoEstado}`, {
+      duration: 3000,
+      position: 'top-center'
     })
-
-    if(errUpload) {
-      console.log("ERROR UPLOAD:", errUpload)
-      toast.error(`Error al subir ${file.name}: ${errUpload.message}`)
-      // NO ponemos return aquí para que siga con las demás
-    } else {
-      // Solo si se subió bien, guardamos en BD
-      const { error: errDB } = await supabase.from('archivoevidencia').insert({
-        idvisitas,
-        nombrearchivo: file.name,
-        rutaarchivo: filePath,
-        tipoarchivo: 'IMAGEN'
-      })
-      if(errDB) {
-        console.log("ERROR DB FOTO:", errDB)
-        toast.error(`Error al guardar BD ${file.name}: ${errDB.message}`)
-      }
-    }
-  }
-}
-
-    toast.success(`Ficha guardada. Estado: ${nuevoEstado}`)
     fetchData()
     setFotos([])
+    await fetchData()
   }
 
   const handleSalir = async () => {
@@ -287,13 +298,13 @@ if(fotos.length > 0){
   const cc = carga?.campoclinico
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{zIndex: 1000}}>
+    <div className="modal-overlay" style={{zIndex: 1000}}>
       <Toaster position="top-center" />
       <div className="modal-content card-sgpc" style={{maxWidth: '95vw', width: '120rem', maxHeight: '90vh', overflowY: 'auto', padding: '1rem 1rem'}} onClick={e => e.stopPropagation()}>
         
-        <div className="modal-header" style={{background: 'var(--color-primario)', color: '#fff', padding: '0rem 0rem'}}>
-          <h2 style={{marginRight: "0.8rem", color:'#fff'}}><BookOpen size={20} style={{marginRight: "0.8rem", color:'#fff'}}/>Ficha de Supervisión N° {idvisitas}</h2>
-          <button onClick={onClose} className="btn-cerrar"><X size={20} /></button>
+        <div className="modal-header" style={{padding: '0rem 0rem'}}>
+          <h2 style={{marginRight: "0.8rem", color:'var(--color-primario)'}}><BookOpen size={20} style={{marginRight: "0.8rem", color:'var(--color-primario)'}}/>Ficha de Supervisión N° {idvisitas}</h2>
+          <button onClick={onClose} className="btn-cerrar-modal"><X size={20} /></button>
         </div>
 
         <div style={{marginRight: "0.8rem", padding: '0rem 0rem'}} className="modal-body">
@@ -321,6 +332,7 @@ if(fotos.length > 0){
                             <RatingEstrellas 
                               valor={respuestas[`doc-${cc?.docente?.iddocente}-${p.idficha}`] || 0} 
                               onChange={(val) => handleRespuesta(`doc-${cc?.docente?.iddocente}-${p.idficha}`, val)} 
+                              disabled={esSoloLectura}
                             />                         
                       </td>
                     </tr>
@@ -348,6 +360,7 @@ if(fotos.length > 0){
                           <RatingEstrellas 
   valor={respuestas[`alu-${a.idestudiante}-${p.idficha}`] || 0} 
   onChange={(val) => handleRespuesta(`alu-${a.idestudiante}-${p.idficha}`, val)} 
+  disabled={esSoloLectura}
 />
 </div> 
                         </td>
@@ -382,17 +395,26 @@ if(fotos.length > 0){
     disabled={fotosGuardadas.length + fotos.length >= 5}
   />
   
-  <label htmlFor="uploadFoto" className="btn btn-outline" style={{opacity: fotosGuardadas.length + fotos.length >= 5? 0.5 : 1}}>
+  {/* <label htmlFor="uploadFoto" className="btn btn-outline" style={{opacity: fotosGuardadas.length + fotos.length >= 5? 0.5 : 1}}>
     <Camera size={16}/> Tomar fotografía
-  </label>
-  
-  <button className="btn btn-outline" onClick={limpiarFotos}> {/* <-- USAMOS limpiarFotos */}
+  </label> */}
+
+<label htmlFor="uploadFoto" className="btn btn-outline" style={{opacity: esSoloLectura || fotosGuardadas.length + fotos.length >= 5? 0.5 : 1, pointerEvents: esSoloLectura ? 'none' : 'auto'}}> 
+  <Camera size={16}/> Tomar fotografía
+</label>
+
+  <button className="btn btn-outline" onClick={limpiarFotos} disabled={esSoloLectura}>
     <Eraser size={16}/> Limpiar Fotos
   </button>
   
+  {/* <button className="btn btn-primario" onClick={handleSalir}>
+    <Check size={16}/> Guardar y Salir
+  </button> */}
+  {!esSoloLectura && ( // <-- SOLO MUESTRA EL BOTON SI NO ES SOLO LECTURA
   <button className="btn btn-primario" onClick={handleSalir}>
     <Check size={16}/> Guardar y Salir
   </button>
+)}
 </div>
 
       </div>
@@ -405,10 +427,15 @@ if(fotos.length > 0){
   .modal-header {
     display: flex; justify-content: space-between; align-items: center;
     padding: 1.5rem; border-bottom: 1px solid #e2e8f0;
-    background: var(--color-primario); flex-shrink: 0;
+     flex-shrink: 0;
   }
-  .modal-header h2 { font-size: 1.6rem; font-weight: 700; display: flex; align-items: center; color: #fff; }
-  .btn-cerrar { background: rgba(255,255,255,0.2); border: none; border-radius: 0.8rem; padding: 0.8rem; cursor: pointer; color: #fff; display: flex; }
+  .modal-header h2 { font-size: 1.8rem; font-weight: 700; display: flex; align-items: center; color: #fff; }
+  .btn-cerrar { border: none; border-radius: 0.8rem; padding: 0.8rem; cursor: pointer; color: #fff; display: flex; transition: all 0.5s ease;  background: transparent; }
+  .btn-cerrar:hover { /* 3. HOVER DEL BOTON X */
+  background: #FEE2E2; /* fondo rojo clarito */
+  color: #DC2626; /* X roja */
+  transform: scale(1.1);
+}
   .modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; min-height: 0; }
   .grid-3 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 1.5rem; }
   .card-info { background: #f8fafc; padding: 0.8rem 1rem; border-radius: 0.6rem; font-size: 1.1rem; }
