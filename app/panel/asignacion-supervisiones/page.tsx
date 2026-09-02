@@ -395,49 +395,106 @@ useEffect(() => {
   return { style: { backgroundColor: color.bg, border: `2px solid ${color.border}`, color: color.text, fontSize: '1.1rem', fontWeight: '600', padding: '0.2rem' }}
 }
   
-
-// funciona con unique const handleAsignar = async () => {
+// const handleAsignar = async () => {
 //   if(!formAsignar.idsupervisor ||!celdaSeleccionada) return toast.error("Seleccione un supervisor");
   
 //   const idasignacion_nrc = celdaSeleccionada.cabeceraNRC?.idasignacion_nrc || null;
 
-//   const { error } = await supabase.from('asignacionsupervision').upsert({
+//   // Primero borra si existe para ese iddh
+//   await supabase.from('asignacionsupervision').delete().eq('iddh', celdaSeleccionada.iddh)
+
+//   const { data: detalle, error } = await supabase.from('asignacionsupervision').insert({
 //     iddh: celdaSeleccionada.iddh,
 //     idsupervisor: Number(formAsignar.idsupervisor),
 //     estado: 'PROGRAMADO',
-//     idasignacion_nrc: idasignacion_nrc // <-- AGREGA ESTO
-//   }, { onConflict: 'iddh' });
+//     fechaasignacion: moment().format('YYYY-MM-DD'),
+//     idasignacion_nrc: idasignacion_nrc
+//   }).select().single();
 
-//   if(error) toast.error(error.message);
-//   else { setShowAsignarModal(false); fetchDataHorario() }
+//   if(error) return toast.error(error.message);
+
+//   // Opcional: Borrar visitas viejas de esa hora y generar 1 nueva
+//   await supabase.from('visitasupervision').delete().eq('iddh', celdaSeleccionada.iddh)
+
+//   setShowAsignarModal(false); 
+//   toast.success("Supervisor asignado"); 
+//   fetchDataHorario()
 // }
+
 const handleAsignar = async () => {
   if(!formAsignar.idsupervisor ||!celdaSeleccionada) return toast.error("Seleccione un supervisor");
   
-  const idasignacion_nrc = celdaSeleccionada.cabeceraNRC?.idasignacion_nrc || null;
+  const carga = celdaSeleccionada.cargaacademica;
+  const idcargaacad = carga.idcargaacad;
+  const idsupervisor = Number(formAsignar.idsupervisor);
+  const iddh = celdaSeleccionada.iddh; // <- ESTE DEBE SER UNICO POR CARD
 
-  // Primero borra si existe para ese iddh
-  await supabase.from('asignacionsupervision').delete().eq('iddh', celdaSeleccionada.iddh)
+  // 1. CREAR/ACTUALIZAR CABECERA
+  const { data: cabecera, error: errCab } = await supabase
+    .from('asignacion_nrc_supervisor')
+    .upsert({
+      idcargaacad: idcargaacad,
+      idsupervisor: idsupervisor,
+      estado: 'PROGRAMADO',
+      fechaasignacion: moment().format('YYYY-MM-DD')
+    }, { onConflict: 'idcargaacad' })
+    .select()
+    .single();
 
+  if(errCab) return toast.error("Error Cabecera: " + errCab.message);
+
+  // 2. BORRA SOLO EL DETALLE DE ESTE iddh. Igual que tu codigo anterior
+  await supabase.from('asignacionsupervision').delete().eq('iddh', iddh)
+
+  // 3. INSERTA DETALLE NUEVO CON CABECERA
   const { data: detalle, error } = await supabase.from('asignacionsupervision').insert({
-    iddh: celdaSeleccionada.iddh,
-    idsupervisor: Number(formAsignar.idsupervisor),
+    iddh: iddh,
+    idsupervisor: idsupervisor,
     estado: 'PROGRAMADO',
     fechaasignacion: moment().format('YYYY-MM-DD'),
-    idasignacion_nrc: idasignacion_nrc
+    idasignacion_nrc: cabecera.idasignacion_nrc // <- YA NO NULL
   }).select().single();
 
   if(error) return toast.error(error.message);
 
-  // Opcional: Borrar visitas viejas de esa hora y generar 1 nueva
-  await supabase.from('visitasupervision').delete().eq('iddh', celdaSeleccionada.iddh)
+  // 4. BORRA VISITAS SOLO DE ESTE DETALLE
+  await supabase.from('visitasupervision').delete().eq('idasignacions', detalle.idasignacions)
+
+  // 5. GENERA VISITAS DEL PERIODO
+  let cantidadVisitas = 0;
+  const periodo = periodos.find(p => p.idpa === celdaSeleccionada.campoclinico.idpa)
+  
+  if(periodo){
+    const diasMap: any = {'DOMINGO':0,'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6}
+    const diaNum = diasMap[celdaSeleccionada.dia_semana?.toUpperCase()]
+    const visitasParaInsertar: any[] = []
+    let fecha = moment(periodo.fecha_inicio)
+
+    while(fecha.isSameOrBefore(periodo.fecha_fin)){
+      if(fecha.day() === diaNum){
+        visitasParaInsertar.push({
+          idasignacions: detalle.idasignacions,
+          fechavisita: fecha.format('YYYY-MM-DD'),
+          horavisita: celdaSeleccionada.hora_inicio,
+          condicion: 'PROGRAMADO',
+          iddh: iddh
+        })
+      }
+      fecha.add(1, 'day')
+    }
+    
+    if(visitasParaInsertar.length > 0){
+      const { error: errVis } = await supabase.from('visitasupervision').insert(visitasParaInsertar)
+      if(errVis) return toast.error("Error Visitas: " + errVis.message)
+      cantidadVisitas = visitasParaInsertar.length;
+    }
+  }
 
   setShowAsignarModal(false); 
-  toast.success("Supervisor asignado"); 
+  toast.success(`Supervisor asignado: ${cantidadVisitas} visitas`); 
   fetchDataHorario()
 }
-
-// aqui puedo agregar unique const handleAsignarMasivo = async () => {
+// const handleAsignarMasivo = async () => {
 //   if(!formAsignar.idsupervisor) return toast.error("Seleccione un supervisor");
 //   if(!filtroPeriodo) return toast.error("Seleccione un periodo");
 
@@ -447,7 +504,7 @@ const handleAsignar = async () => {
 //   const cargasUnicas = Array.from(new Map(eventos.map(e => [e.resource.cargaacademica.idcargaacad, e.resource.cargaacademica])).values())
 //   if(cargasUnicas.length === 0) return toast.warning("No hay cargas para asignar")
 
-//   // 1. INSERTAR EN CABECERA: asignacion_nrc_supervisor
+//   // 1. INSERTAR/ACTUALIZAR EN CABECERA: asignacion_nrc_supervisor
 //   const dataCabecera = cargasUnicas.map(c => ({
 //     idcargaacad: c.idcargaacad,
 //     idsupervisor: Number(formAsignar.idsupervisor),
@@ -457,33 +514,39 @@ const handleAsignar = async () => {
 
 //   const { data: cabeceraInsertada, error: errCab } = await supabase
 //    .from('asignacion_nrc_supervisor')
-//    .upsert(dataCabecera, { onConflict: 'idcargaacad' })
+//    .upsert(dataCabecera, { onConflict: 'idcargaacad' }) // esta si tiene UNIQUE
 //    .select()
 
 //   if(errCab) return toast.error("Error Cabecera: " + errCab.message)
 
-//   // 2. CREAR DETALLE POR HORA: asignacionsupervision
+//   // 2. BORRAR DETALLE ANTERIOR Y CREAR NUEVO: asignacionsupervision
 //   const dataDetalle = eventos.map(e => ({
 //     iddh: e.resource.iddh,
 //     idsupervisor: Number(formAsignar.idsupervisor),
 //     estado: 'PROGRAMADO',
 //     fechaasignacion: moment().format('YYYY-MM-DD'),
-//     idasignacion_nrc: cabeceraInsertada.find((c:any) => c.idcargaacad === e.resource.cargaacademica.idcargaacad)?.idasignacion_nrc // <-- CLAVE
+//     idasignacion_nrc: cabeceraInsertada.find((c:any) => c.idcargaacad === e.resource.cargaacademica.idcargaacad)?.idasignacion_nrc
 //   }))
+
+//   const iddhs = dataDetalle.map(d => d.iddh)
+//   await supabase.from('asignacionsupervision').delete().in('iddh', iddhs) // <-- CLAVE: borra lo anterior
 
 //   const { data: detalleInsertado, error: errDet } = await supabase
 //    .from('asignacionsupervision')
-//    .upsert(dataDetalle, { onConflict: 'iddh' })
+//    .insert(dataDetalle) // <-- CLAVE: inserta lo nuevo
 //    .select()
 
 //   if(errDet) return toast.error("Error Detalle: " + errDet.message)
 
-//   // 3. GENERAR VISITAS: visitasupervision
+//   // 3. BORRAR VISITAS ANTERIORES Y GENERAR NUEVAS: visitasupervision
+//   const idsDetalle = detalleInsertado.map((d:any) => d.idasignacions)
+//   await supabase.from('visitasupervision').delete().in('idasignacions', idsDetalle) // <-- Borra visitas viejas
+
 //   const diasMap: any = {'DOMINGO':0,'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6}
 //   const visitasParaInsertar: any[] = []
 
 //   eventos.forEach(e => {
-//     const detalle = detalleInsertado.find((d:any) => d.iddh === e.resource.iddh) // buscamos el idasignacions recien creado
+//     const detalle = detalleInsertado.find((d:any) => d.iddh === e.resource.iddh)
 //     if(!detalle) return
 
 //     const diaNum = diasMap[e.resource.dia_semana?.toUpperCase()]
@@ -492,7 +555,7 @@ const handleAsignar = async () => {
 //     while(fecha.isSameOrBefore(periodo.fecha_fin)){
 //       if(fecha.day() === diaNum){
 //         visitasParaInsertar.push({
-//           idasignacions: detalle.idasignacions, // <-- AHORA SI ES EL ID CORRECTO
+//           idasignacions: detalle.idasignacions,
 //           fechavisita: fecha.format('YYYY-MM-DD'),
 //           horavisita: e.resource.hora_inicio,
 //           condicion: 'PROGRAMADO',
@@ -515,6 +578,7 @@ const handleAsignar = async () => {
 //   toast.success(`Se asignaron ${cargasUnicas.length} NRCs y se programaron ${visitasParaInsertar.length} visitas`)
 //   fetchDataHorario()
 // }
+/* actualizado*/
 const handleAsignarMasivo = async () => {
   if(!formAsignar.idsupervisor) return toast.error("Seleccione un supervisor");
   if(!filtroPeriodo) return toast.error("Seleccione un periodo");
@@ -525,25 +589,49 @@ const handleAsignarMasivo = async () => {
   const cargasUnicas = Array.from(new Map(eventos.map(e => [e.resource.cargaacademica.idcargaacad, e.resource.cargaacademica])).values())
   if(cargasUnicas.length === 0) return toast.warning("No hay cargas para asignar")
 
-  // 1. INSERTAR/ACTUALIZAR EN CABECERA: asignacion_nrc_supervisor
-  const dataCabecera = cargasUnicas.map(c => ({
+  const idsupervisor = Number(formAsignar.idsupervisor);
+  const idcargaacadList = cargasUnicas.map(c => c.idcargaacad);
+
+  // === CLAVE 1: VERIFICAR QUIENES YA TIEN SUPERVISOR ===
+  const { data: yaAsignados, error: errCheck } = await supabase
+    .from('asignacion_nrc_supervisor')
+    .select('idcargaacad')
+    .in('idcargaacad', idcargaacadList);
+
+  if(errCheck) return toast.error("Error al verificar: " + errCheck.message);
+
+  const idsYaAsignados = new Set(yaAsignados?.map(a => a.idcargaacad) || []);
+  
+  // Solo trabajamos con los que NO tienen supervisor
+  const cargasParaAsignar = cargasUnicas.filter(c => !idsYaAsignados.has(c.idcargaacad));
+  const cargasOmitidas = cargasUnicas.filter(c => idsYaAsignados.has(c.idcargaacad));
+
+  if(cargasParaAsignar.length === 0) {
+    return toast.warning(`Ningún NRC seleccionado está vacío. ${cargasOmitidas.length} ya tenían supervisor`);
+  }
+
+  // === CLAVE 2: FILTRAR EVENTOS SOLO DE LOS NRC VACIOS ===
+  const eventosParaAsignar = eventos.filter(e => !idsYaAsignados.has(e.resource.cargaacademica.idcargaacad));
+
+  // 1. INSERTAR SOLO EN CABECERA: asignacion_nrc_supervisor
+  const dataCabecera = cargasParaAsignar.map(c => ({
     idcargaacad: c.idcargaacad,
-    idsupervisor: Number(formAsignar.idsupervisor),
+    idsupervisor: idsupervisor,
     estado: 'PROGRAMADO',
     fechaasignacion: moment().format('YYYY-MM-DD')
   }))
 
   const { data: cabeceraInsertada, error: errCab } = await supabase
    .from('asignacion_nrc_supervisor')
-   .upsert(dataCabecera, { onConflict: 'idcargaacad' }) // esta si tiene UNIQUE
+   .insert(dataCabecera) // <- CAMBIO: insert normal, no upsert
    .select()
 
   if(errCab) return toast.error("Error Cabecera: " + errCab.message)
 
   // 2. BORRAR DETALLE ANTERIOR Y CREAR NUEVO: asignacionsupervision
-  const dataDetalle = eventos.map(e => ({
+  const dataDetalle = eventosParaAsignar.map(e => ({
     iddh: e.resource.iddh,
-    idsupervisor: Number(formAsignar.idsupervisor),
+    idsupervisor: idsupervisor,
     estado: 'PROGRAMADO',
     fechaasignacion: moment().format('YYYY-MM-DD'),
     idasignacion_nrc: cabeceraInsertada.find((c:any) => c.idcargaacad === e.resource.cargaacademica.idcargaacad)?.idasignacion_nrc
@@ -566,7 +654,7 @@ const handleAsignarMasivo = async () => {
   const diasMap: any = {'DOMINGO':0,'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6}
   const visitasParaInsertar: any[] = []
 
-  eventos.forEach(e => {
+  eventosParaAsignar.forEach(e => {
     const detalle = detalleInsertado.find((d:any) => d.iddh === e.resource.iddh)
     if(!detalle) return
 
@@ -596,9 +684,10 @@ const handleAsignarMasivo = async () => {
   }
 
   setShowAsignarModalMasivo(false)
-  toast.success(`Se asignaron ${cargasUnicas.length} NRCs y se programaron ${visitasParaInsertar.length} visitas`)
+  toast.success(`Se asignaron ${cargasParaAsignar.length} NRCs nuevos. ${cargasOmitidas.length} ya tenían supervisor. Total visitas: ${visitasParaInsertar.length}`)
   fetchDataHorario()
 }
+
   return (
     <div className="main-content">
       <Toaster position="top-right" toastOptions={{ duration: 4000 }} />

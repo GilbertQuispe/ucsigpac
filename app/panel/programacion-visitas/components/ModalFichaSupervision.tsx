@@ -6,7 +6,7 @@ import moment from 'moment'
 import toast, { Toaster } from 'react-hot-toast'
 
 export default function ModalFichaSupervision({ show, onClose, visita }: any) {
-  
+
   const RatingEstrellas = ({ valor, onChange, disabled = false }: any) => {
   return (
     <div style={{ display: 'flex', gap: '0.4rem' }}>
@@ -35,7 +35,7 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     </div>
     )
   }
-  
+
   const supabase = createClient()
   const [loading, setLoading] = useState(true)
   const [headerData, setHeaderData] = useState<any>(null)
@@ -95,7 +95,7 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
       `)
     .eq('idcargaacad', idcargaacad)
     .single()
-    
+
     if(err2){ toast.error("Error cargando datos: " + err2.message); setLoading(false); return }
     setHeaderData(carga)
 
@@ -109,7 +109,7 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
      .eq('idpa', idpa)
      .eq('estado', 'ACTIVO') // <-- SOLO ACTIVOS
      .order('idficha')
-    
+
     setPreguntasDocente(preguntas?.filter(p => p.tipoactor === 'Docente') || []) // <-- CAMBIO: Docente
     setPreguntasAlumno(preguntas?.filter(p => p.tipoactor === 'Estudiante') || []) // <-- CAMBIO: Estudiante
 
@@ -141,7 +141,7 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     setRespuestas({...respuestas, [key]: valor})
   }
 
-  
+
  const handleGuardar = async () => {
   if(esSoloLectura) return toast.error("Esta ficha ya está supervisada. Solo lectura")
 
@@ -255,14 +255,14 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   }
 
   const limpiarTodo = () => {
-    setRespuestas({}); 
+    setRespuestas({});
     setFotos([])
     toast("Formulario limpiado")
   }
 
-  
+
   if(!show) return null
-  
+
    // 1. GENERAR NOMBRE AUTOMÁTICO - USANDO headerData
   const generarNombreFoto = () => {
   if (!headerData) return `SIN_DATOS_${Date.now()}.jpg`
@@ -292,7 +292,13 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   e.target.value = '' // limpiar input
 }
 
-  const limpiarFotos = () => setFotos([])
+  // const limpiarFotos = () => setFotos([])
+
+  const limpiarFotos = () => {
+  if(esSoloLectura) return toast.error("No se puede limpiar en modo solo lectura") // <-- AGREGAR ESTO
+  setFotos([])
+  toast("Fotos nuevas limpiadas")
+}
 
   const carga = headerData
   const cc = carga?.campoclinico
@@ -301,7 +307,7 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     <div className="modal-overlay" style={{zIndex: 1000}}>
       <Toaster position="top-center" />
       <div className="modal-content card-sgpc" style={{maxWidth: '95vw', width: '120rem', maxHeight: '90vh', overflowY: 'auto', padding: '1rem 1rem'}} onClick={e => e.stopPropagation()}>
-        
+
         <div className="modal-header" style={{padding: '0rem 0rem'}}>
           <h2 style={{marginRight: "0.8rem", color:'var(--color-primario)'}}><BookOpen size={20} style={{marginRight: "0.8rem", color:'var(--color-primario)'}}/>Ficha de Supervisión N° {idvisitas}</h2>
           <button onClick={onClose} className="btn-cerrar-modal"><X size={20} /></button>
@@ -328,12 +334,12 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
                   {preguntasDocente.map(p => (
                     <tr key={p.idficha}>
                       <td className="col-item-docente" style={{fontSize:'1.1rem'}} >{p.item}</td>
-                      <td  className="col-puntaje">                         
-                            <RatingEstrellas 
-                              valor={respuestas[`doc-${cc?.docente?.iddocente}-${p.idficha}`] || 0} 
-                              onChange={(val) => handleRespuesta(`doc-${cc?.docente?.iddocente}-${p.idficha}`, val)} 
+                      <td  className="col-puntaje">
+                            <RatingEstrellas
+                              valor={respuestas[`doc-${cc?.docente?.iddocente}-${p.idficha}`] || 0}
+                              onChange={(val) => handleRespuesta(`doc-${cc?.docente?.iddocente}-${p.idficha}`, val)}
                               disabled={esSoloLectura}
-                            />                         
+                            />
                       </td>
                     </tr>
                   ))}
@@ -351,18 +357,18 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
                     <tr key={a.idestudiante}>
                       <td className="col-dni">{a.persona.dni}</td>
                       <td className="col-alumno">
-  <div style={{fontWeight: 600, fontSize: '1.1rem', paddingLeft: '0.5rem'}}>{a.persona.apellidos}</div>
-  <div style={{fontSize: '1rem', color: '#64748b',paddingLeft: '0.5rem'}}>{a.persona.nombres}</div>
-</td>
+                        <div style={{fontWeight: 600, fontSize: '1.1rem', paddingLeft: '0.5rem'}}>{a.persona.apellidos}</div>
+                        <div style={{fontSize: '1rem', color: '#64748b',paddingLeft: '0.5rem'}}>{a.persona.nombres}</div>
+                      </td>
                       {preguntasAlumno.map(p => (
                         <td className="col-item" key={p.idficha}  >
-                          <div style={{display: 'flex', justifyContent: 'center'}}>                        
-                          <RatingEstrellas 
-  valor={respuestas[`alu-${a.idestudiante}-${p.idficha}`] || 0} 
-  onChange={(val) => handleRespuesta(`alu-${a.idestudiante}-${p.idficha}`, val)} 
+                          <div style={{display: 'flex', justifyContent: 'center'}}>
+                          <RatingEstrellas
+  valor={respuestas[`alu-${a.idestudiante}-${p.idficha}`] || 0}
+  onChange={(val) => handleRespuesta(`alu-${a.idestudiante}-${p.idficha}`, val)}
   disabled={esSoloLectura}
 />
-</div> 
+</div>
                         </td>
                       ))}
                     </tr>
@@ -383,33 +389,30 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
           </>}
         </div>
 
-      
-<div className="modal-footer" style={{margin: '0rem'}}>
-  <input 
-    type="file" 
-    accept="image/*" 
+
+<div className="modal-footer" style={{margin: '0rem', justifyContent: 'center'}}>
+  <input
+    type="file"
+    accept="image/*"
     capture="environment" // <-- ESTO ABRE LA CAMARA
     onChange={handleTomarFoto} // <-- USAMOS NUESTRA FUNCION
-    id="uploadFoto" 
-    style={{display: 'none'}} 
-    disabled={fotosGuardadas.length + fotos.length >= 5}
+    id="uploadFoto"
+    style={{display: 'none'}}
+    disabled={esSoloLectura || fotosGuardadas.length + fotos.length >= 5}
   />
-  
-  {/* <label htmlFor="uploadFoto" className="btn btn-outline" style={{opacity: fotosGuardadas.length + fotos.length >= 5? 0.5 : 1}}>
-    <Camera size={16}/> Tomar fotografía
-  </label> */}
 
-<label htmlFor="uploadFoto" className="btn btn-outline" style={{opacity: esSoloLectura || fotosGuardadas.length + fotos.length >= 5? 0.5 : 1, pointerEvents: esSoloLectura ? 'none' : 'auto'}}> 
+<label htmlFor="uploadFoto" className="btn btn-outline" style={{opacity: esSoloLectura || fotosGuardadas.length + fotos.length >= 5? 0.5 : 1, pointerEvents: esSoloLectura ? 'none' : 'auto'}}>
   <Camera size={16}/> Tomar fotografía
 </label>
 
-  <button className="btn btn-outline" onClick={limpiarFotos} disabled={esSoloLectura}>
+  <button className="btn btn-outline" onClick={limpiarFotos} style={{
+    opacity: esSoloLectura ? 0.5 : 1, // solo visual
+    cursor: esSoloLectura ? 'not-allowed' : 'pointer'
+  }}>
     <Eraser size={16}/> Limpiar Fotos
   </button>
-  
-  {/* <button className="btn btn-primario" onClick={handleSalir}>
-    <Check size={16}/> Guardar y Salir
-  </button> */}
+
+
   {!esSoloLectura && ( // <-- SOLO MUESTRA EL BOTON SI NO ES SOLO LECTURA
   <button className="btn btn-primario" onClick={handleSalir}>
     <Check size={16}/> Guardar y Salir
@@ -419,10 +422,10 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
 
       </div>
 <style jsx>{`
-  .modal-overlay { 
-    position: fixed; inset: 0; background: rgba(0,0,0,0.5); 
-    display: flex; align-items: center; justify-content: center; 
-    z-index: 2000; padding: 1rem; 
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 2000; padding: 1rem;
   }
   .modal-header {
     display: flex; justify-content: space-between; align-items: center;
@@ -441,23 +444,23 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   .card-info { background: #f8fafc; padding: 0.8rem 1rem; border-radius: 0.6rem; font-size: 1.1rem; }
   .card-info b { color: var(--color-primario); }
 
-  .tabla-sgpc { 
-    width: 100%; 
+  .tabla-sgpc {
+    width: 100%;
     border-collapse: collapse !important; /* VOLVEMOS A COLLAPSE */
     border-spacing: 0 !important;
     font-size: 1.2rem; table-layout: fixed; min-width: 100rem;
   }
-  
-  .tabla-sgpc th { 
-    background: #f8fafc; padding: 1rem; text-align: left; 
+
+  .tabla-sgpc th {
+    background: #f8fafc; padding: 1rem; text-align: left;
     font-weight: 600; color: #475569; position: sticky; top: 0; z-index: 3;
     border: none !important; /* QUITAR BORDE */
   }
-  .tabla-sgpc td { 
-    padding: 1rem; 
+  .tabla-sgpc td {
+    padding: 1rem;
     outline: 1px solid #f1f5f9; /* USAR OUTLINE EN VEZ DE BORDER */
     outline-offset: -1px; /* Que no empuje */
-    vertical-align: top; 
+    vertical-align: top;
   }
 
   /* ANCHOS */
@@ -466,10 +469,10 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   .col-item { width: 20rem; white-space: normal; word-wrap: break-word; text-align: center; }
 
   /* AGREGA ESTO DEBAJO DE .col-item */
-.col-item-docente { 
-  width: 35rem; 
-  white-space: normal; 
-  word-wrap: break-word; 
+.col-item-docente {
+  width: 35rem;
+  white-space: normal;
+  word-wrap: break-word;
   text-align: left; /* mejor left para textos largos */
   padding-right: 2rem;
 }
@@ -492,13 +495,21 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   }
 
   .modal-footer {
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.8rem; 
-    padding: 1.2rem 1.5rem; border-top: 1px solid #e2e8f0;
-    background: #f8fafc; flex-shrink: 0;
+    display: flex;
+    justify-content:center;
+    gap: 0.8rem;
+    padding: 1.2rem 1.5rem;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+    flex-shrink: 0;
+    flex-wrap: wrap;
   }
   .btn {
-    display: flex; align-items: center; justify-content: center; gap: 0.8rem;
-    width: 100%; height: 4.8rem; padding: 0 2rem; border-radius: 0.8rem;
+    display: flex;
+    flex:1 1 18rem;
+    
+    align-items: center; justify-content: center; gap: 0.8rem;
+   height: 4.8rem; padding: 0 2rem; border-radius: 0.8rem;
     font-size: 1.4rem; font-weight: 600; cursor: pointer; border: 1.5px solid;
     box-sizing: border-box; white-space: nowrap;
   }
@@ -516,22 +527,34 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   .modal-content { height: 95vh; border-radius: 1rem; }
   .modal-header, .modal-body, .modal-footer { padding: 1.2rem; }
   .grid-3 { grid-template-columns: 1fr 1fr; }
-  .modal-footer { grid-template-columns: 1fr; }
-  .tabla-sgpc { table-layout: auto; min-width: 90rem; }
   
+  /* COMENTARIO CORRECTO EN CSS ES CON /* */ */
+  /* .modal-footer { grid-template-columns: 1fr; flex-wrap: wrap;} */
+  
+  .modal-footer { 
+    flex-direction: column; /* 1 debajo de otro */
+    gap: 1rem; /* espacio */
+  }
+  
+  .btn { 
+    flex: 1 1 100%; 
+    max-width: 100%;  
+    width: 100%;  
+  }
+  
+  .tabla-sgpc { table-layout: auto; min-width: 90rem; }
+
   .col-dni { width: 8.5rem; }
   .col-alumno { width: 14rem; }
 
-  
-  
   /* ESTAS 3 LINEAS NUEVAS MATAN EL FANTASMA EN CELULAR */
-  .tabla-sgpc .col-dni { 
-    width: 8.5rem !important; 
+  .tabla-sgpc .col-dni {
+    width: 8.5rem !important;
     transform: translateX(-1px); /* EMPUJA 1PX A LA DERECHA */
   }
-  .tabla-sgpc .col-alumno { 
-    left: 8.5rem !important; 
-    width: 14rem !important; 
+  .tabla-sgpc .col-alumno {
+    left: 8.5rem !important;
+    width: 14rem !important;
     transform: translateX(-12px); /* JALA 1PX A LA IZQUIERDA */
   }
   .tabla-sgpc thead .col-alumno { left: 8.5rem !important; transform: translateX(-12px); }

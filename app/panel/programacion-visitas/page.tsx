@@ -8,15 +8,24 @@ import Select from 'react-select'
 import { Calendar, momentLocalizer } from 'react-big-calendar'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import ModalFichaSupervision from './components/ModalFichaSupervision'
+import ModalConsultaVisita from './components/ModalConsultaVisita' // <-- AGREGAR ESTO
 
 
 moment.locale('es')
 const localizer = momentLocalizer(moment)
 
+// const ESTADO_COLORES: any = {
+//   'PROGRAMADO': { bg: '#3B82F6', border: '#2563EB', text: '#fff' },
+//   'EN_PROCESO': { bg: '#F59E0B', border: '#D97706', text: '#fff' },
+//   'SUPERVISADO': { bg: '#22C55E', border: '#16A34A', text: '#fff' }
+// }
 const ESTADO_COLORES: any = {
   'PROGRAMADO': { bg: '#3B82F6', border: '#2563EB', text: '#fff' },
   'EN_PROCESO': { bg: '#F59E0B', border: '#D97706', text: '#fff' },
-  'SUPERVISADO': { bg: '#22C55E', border: '#16A34A', text: '#fff' }
+  'SUPERVISADO': { bg: '#22C55E', border: '#16A34A', text: '#fff' },
+  'PENDIENTE': { bg: 'rgb(218, 220, 224)', border: 'rgb(190, 195, 206)', text: 'rgb(131, 127, 127)' }, // plomo
+  'PERMISO': { bg: 'rgb(235, 236, 143)', border: 'rgb(217, 213, 6)', text: 'rgb(59, 57, 57)' }, // Naranja
+  'INCIDENCIA': { bg: '#EF4444', border: '#DC2626', text: '#fff' } // Rojo
 }
 
 const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
@@ -50,6 +59,9 @@ export default function ProgramacionVisitasPage() {
     setFiltroSupervisor('')
     setSemanaActual(moment()) // NUEVO: volver a la semana de hoy
   }
+
+  const [showModalConsulta, setShowModalConsulta] = useState(false)
+  const [visitaParaConsulta, setVisitaParaConsulta] = useState<any>(null)
 
   const [filtroSupervisor, setFiltroSupervisor] = useState<number | ''>('')
   const [filtroPeriodo, setFiltroPeriodo] = useState<number | ''>('')
@@ -134,7 +146,8 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
             )
           )
         )
-      )
+      ),
+      solicitud_permiso(idvisitas, estado, motivo)
     `)
    .gte('fechavisita', inicioSemana)
    .lte('fechavisita', finSemana)
@@ -237,10 +250,18 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
     return grupos
   }, [visitas])
 
-  const handleRegistrarVisita = (visita: any) => {
-    setVisitaSeleccionada(visita)
-    setObservacion(visita.observaciones || '')
-    setShowFichaModal(true)
+
+  const handleClickCard = (visita: any) => {
+    // Si ya esta supervisado, permiso o incidencia → solo ver detalle
+    if(['SUPERVISADO', 'PERMISO', 'INCIDENCIA'].includes(visita.condicion)){
+      setVisitaSeleccionada(visita)
+      setShowFichaModal(true) // Abre la ficha en solo lectura
+      return
+    }
+    
+    // Si esta programado o en proceso → abre modal de consulta
+    setVisitaParaConsulta(visita)
+    setShowModalConsulta(true)
   }
 
   const handleGuardarFicha = async () => {
@@ -308,7 +329,12 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
     ))}
   </div>
   <div style={{fontSize: '1.3rem', fontWeight: 'bold', color: '#004AAD'}}>
-    Total Semanal: {visitas.length} | Programadas: {visitas.filter(v => v.condicion === 'PROGRAMADO').length} | Proceso: {visitas.filter(v => v.condicion === 'EN_PROCESO').length} | Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
+    {/* Total Semanal: {visitas.length} | Programadas: {visitas.filter(v => v.condicion === 'PROGRAMADO').length} | Proceso: {visitas.filter(v => v.condicion === 'EN_PROCESO').length} | Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length} */}
+    Total Semanal: {visitas.length} | 
+Programadas: {visitas.filter(v => ['PROGRAMADO','EN_PROCESO'].includes(v.condicion)).length} | 
+Permiso: {visitas.filter(v => v.condicion === 'PERMISO').length} | 
+Incidencia: {visitas.filter(v => v.condicion === 'INCIDENCIA').length} |
+Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
   </div>
 </div>
 
@@ -337,7 +363,7 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
               const color = ESTADO_COLORES[v.condicion] || ESTADO_COLORES['PROGRAMADO']
               const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
               return (
-                <div key={v.idvisitas} className="card-sgpc" style={{padding: '1.5rem', borderLeft: `0.5rem solid ${color.bg}`}}>
+                <div key={v.idvisitas} className="card-sgpc" onClick={() => handleClickCard(v)} style={{padding: '1.5rem', borderLeft: `0.5rem solid ${color.bg}`, cursor: 'pointer'}}>
                   <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
                     <span style={{fontWeight: 700, fontSize: '1.4rem'}}>{v.horavisita}</span>
                     <span style={{background: color.bg, color: color.text, padding: '0.4rem 0.8rem', borderRadius: '2rem', fontWeight: 600, fontSize: '1.1rem'}}>{v.condicion}</span>
@@ -346,14 +372,35 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
                   <p style={{margin: '0.4rem 0', fontSize: '1.2rem', color: '#475569'}}>NRC: {carga?.nrc} | {carga?.campoclinico?.filial?.nombrefilial}</p>
                   <p style={{margin: '0.4rem 0', fontSize: '1.2rem', color: '#475569'}}>Doc: {carga?.campoclinico?.docente?.persona?.apellidos}</p>
                   <p style={{margin: '0.4rem 0', fontSize: '1.2rem', color: '#475569'}}>EPS: {carga?.campoclinico?.eps?.razonsocial}</p>
-                  <div style={{marginTop: '1.5rem'}}>
+                  {/* <div style={{marginTop: '1.5rem'}}>
                     {v.condicion!== 'SUPERVISADO'?
                       <button className="btn-primario" style={{width: '100%', padding: '1rem'}} onClick={()=>handleRegistrarVisita(v)}>
                         <FileText size={16}/> Registrar
                       </button>
                       : <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#22C55E', fontWeight: 600}}><Check/> Supervisado</span>
                     }
-                  </div>
+                  </div> */}
+                  <div style={{marginTop: '1.5rem'}}>
+  {v.condicion!== 'SUPERVISADO'? (
+    <button
+      className="btn-primario"
+      style={{width: '100%', padding: '1rem'}}
+      onClick={(e) => {
+        e.stopPropagation() // para que no se dispare 2 veces
+        handleClickCard(v)
+      }}
+    >
+      <FileText size={16}/> Registrar
+    </button>
+  ) : (
+    <div
+      style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#22C55E', fontWeight: 600}}
+      onClick={(e) => e.stopPropagation()} // para que no haga nada al click
+    >
+      <Check/> Ver Detalle
+    </div>
+  )}
+</div>
                 </div>
               )
             })}
@@ -370,7 +417,7 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
             views={['week', 'day']}
             date={semanaActual.toDate()}
             onNavigate={(date) => setSemanaActual(moment(date))}
-            onSelectEvent={(event) => handleRegistrarVisita(event.resource)}
+            onSelectEvent={(event) => handleClickCard(event.resource)}
 
             min={minHora}
             max={maxHora}
@@ -420,28 +467,20 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
         </div>
       )}
 
-      {/* {showFichaModal && (
-        <div className="modal-overlay" onClick={() => setShowFichaModal(false)}>
-          <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '60rem'}}>
-            <div className="modal-header"><h2><FileText size={20}/> Registrar Visita</h2><button onClick={()=>setShowFichaModal(false)} className="btn-cerrar-modal"><X/></button></div>
-            <div className="modal-body">
-              <p><b>Fecha:</b> {moment(visitaSeleccionada?.fechavisita).format('DD/MM/YYYY HH:mm')}</p>
-              <p><b>Docente:</b> {visitaSeleccionada?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.campoclinico?.docente?.persona?.apellidos}</p>
-              <p><b>Asignatura:</b> {visitaSeleccionada?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.asignatura?.nombre}</p>
-              <fieldset className="fieldset-sgpc">
-                <legend>Observaciones de la Visita</legend>
-                <textarea value={observacion} onChange={(e)=>setObservacion(e.target.value)} rows={4} style={{width: '100%', padding: '1rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1'}}/>
-              </fieldset>
-            </div>
-            <div className="modal-footer"><button className="btn-primario" onClick={handleGuardarFicha}><Check/> Marcar como Supervisado</button></div>
-          </div>
-        </div>
-      )} */}
+   
 
        <ModalFichaSupervision
         show={showFichaModal}
         onClose={() => {setShowFichaModal(false); fetchVisitas(esAdmin, idSupervisorLogeado)}}
         visita={visitaSeleccionada}
+      />
+
+      <ModalConsultaVisita // <-- AGREGAR ESTE
+        show={showModalConsulta}
+        onClose={() => setShowModalConsulta(false)}
+        visita={visitaParaConsulta}
+        onAbrirFicha={(v, solo) => {setVisitaSeleccionada(v); setShowFichaModal(true)}}
+        onRefresh={() => fetchVisitas(esAdmin, idSupervisorLogeado)}
       />
       <style jsx global>{`
         /* HEADER AZUL */
