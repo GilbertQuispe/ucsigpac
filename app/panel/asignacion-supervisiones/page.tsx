@@ -5,7 +5,8 @@ import { Calendar, momentLocalizer, Views } from 'react-big-calendar'
 import moment from 'moment'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { createClient } from '@/lib/client'
-import { Check, X, UserCheck, Hospital } from 'lucide-react'
+//import { Check, X, UserCheck, Hospital } from 'lucide-react'
+import { Check, X, UserCheck, Hospital, CalendarDays, ClipboardList, Building2, GraduationCap, User } from 'lucide-react'
 import Select, { components } from 'react-select'
 import toast, { Toaster } from 'react-hot-toast'
 
@@ -864,8 +865,87 @@ const handleAsignarMasivo = async () => {
 </div>
         }
 </div>
-      {showAsignarModal && ( <div className="modal-overlay" onClick={() => setShowAsignarModal(false)}> <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '50rem'}}> <div className="modal-header"><h2 style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}><UserCheck size={20}/>Asignar Supervisor</h2><button onClick={()=>setShowAsignarModal(false)} className="btn-cerrar-modal"><X/></button></div> <div className="modal-body"> <p><b>Docente:</b> {celdaSeleccionada?.campoclinico?.docente?.persona?.apellidos}</p> <p><b>Asignatura:</b> {celdaSeleccionada?.campoclinico?.cargaacademica[0]?.asignatura?.nombre}</p> <p><b>Día/Hora:</b> {celdaSeleccionada?.dia_semana} {celdaSeleccionada?.hora_inicio} - {celdaSeleccionada?.hora_fin}</p> <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={formAsignar.idsupervisor} onChange={(val) => setFormAsignar({idsupervisor: val})} /> </div> <div className="modal-footer"><button className="btn-primario" onClick={handleAsignar} disabled={!formAsignar.idsupervisor}><Check/> Guardar</button></div> </div> </div> )}
-      {showAsignarModalMasivo && ( 
+      {/* {showAsignarModal && ( <div className="modal-overlay" onClick={() => setShowAsignarModal(false)}> <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '50rem'}}> <div className="modal-header"><h2 style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}><UserCheck size={20}/>Asignar Supervisor</h2><button onClick={()=>setShowAsignarModal(false)} className="btn-cerrar-modal"><X/></button></div> <div className="modal-body"> <p><b>Docente:</b> {celdaSeleccionada?.campoclinico?.docente?.persona?.apellidos}</p> <p><b>Asignatura:</b> {celdaSeleccionada?.campoclinico?.cargaacademica[0]?.asignatura?.nombre}</p> <p><b>Día/Hora:</b> {celdaSeleccionada?.dia_semana} {celdaSeleccionada?.hora_inicio} - {celdaSeleccionada?.hora_fin}</p> <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={formAsignar.idsupervisor} onChange={(val) => setFormAsignar({idsupervisor: val})} /> </div> <div className="modal-footer"><button className="btn-primario" onClick={handleAsignar} disabled={!formAsignar.idsupervisor}><Check/> Guardar</button></div> </div> </div> )} */}
+{showAsignarModal && ( 
+  <div className="modal-overlay" style={{zIndex: 3000}} onClick={() => setShowAsignarModal(false)}> 
+    <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '60rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden'}}> 
+      
+      {/* HEADER AZUL IGUAL A CONSULTA */}
+      <div className="modal-header" style={{background: 'var(--color-primario)', color: '#fff', padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0}}>
+          <UserCheck size={22}/> Asignar Supervisor
+        </h2>          
+        <button 
+          onClick={() => setShowAsignarModal(false)} 
+          onMouseEnter={e => {e.currentTarget.style.background = '#FEE2E2'; e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.transform = 'rotate(90deg)';}}
+          onMouseLeave={e => {e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.transform = 'rotate(0deg)';}}
+          style={{background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.8rem', borderRadius: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'all 0.2s ease'}}
+        >
+          <X size={20}/>
+        </button>
+      </div>
+
+      {/* BODY CON CARDS */}
+      <div className="modal-body" style={{padding: '2rem'}}>
+        <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '2rem'}}>
+
+          <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#EFF6FF', borderRadius: '0.8rem', borderLeft: '4px solid #3B82F6'}}>
+            <GraduationCap size={20} color="#3B82F6"/>
+            <div>
+              <div style={{fontSize: '1.1rem', color: '#64748b'}}>Asignatura</div>
+              <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>{celdaSeleccionada?.cargaacademica?.asignatura?.nombre}</div>
+            </div>
+          </div>
+
+          <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#F0FDF4', borderRadius: '0.8rem', borderLeft: '4px solid #22C55E'}}>
+            <User size={20} color="#22C55E"/>
+            <div>
+              <div style={{fontSize: '1.1rem', color: '#64748b'}}>Docente</div>
+              <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>{celdaSeleccionada?.campoclinico?.docente?.persona?.apellidos}, {celdaSeleccionada?.campoclinico?.docente?.persona?.nombres}</div>
+            </div>
+          </div>
+
+          <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#FFFBEB', borderRadius: '0.8rem', borderLeft: '4px solid #F59E0B'}}>
+            <Building2 size={20} color="#F59E0B"/>
+            <div>
+              <div style={{fontSize: '1.1rem', color: '#64748b'}}>EPS / Filial / NRC</div>
+              <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>
+                {celdaSeleccionada?.campoclinico?.eps?.razonsocial} | {celdaSeleccionada?.campoclinico?.filial?.nombrefilial} | NRC: {celdaSeleccionada?.cargaacademica?.nrc}
+              </div>
+            </div>
+          </div>
+
+          <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#F8FAFC', borderRadius: '0.8rem', borderLeft: '4px solid #94A3B8'}}>
+            <CalendarDays size={20} color="#64748b"/>
+            <div>
+              <div style={{fontSize: '1.1rem', color: '#64748b'}}>Día y Hora</div>
+              <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>{celdaSeleccionada?.dia_semana} {celdaSeleccionada?.hora_inicio} - {celdaSeleccionada?.hora_fin}</div>
+            </div>
+          </div>
+
+        </div>
+
+        <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={formAsignar.idsupervisor} onChange={(val) => setFormAsignar({idsupervisor: val})} /> 
+      </div>
+
+      {/* FOOTER BOTON */}
+      <div style={{display: 'flex', padding: '1.5rem 2rem', background: '#F8FAFC', borderTop: '1px solid #E2E8F0'}}>
+        <button 
+          className="btn-primario" 
+          onClick={handleAsignar} 
+          disabled={!formAsignar.idsupervisor}
+          onMouseEnter={e => {e.currentTarget.style.background = '#1E40AF'; e.currentTarget.style.transform = 'translateY(-2px)'}}
+          onMouseLeave={e => {e.currentTarget.style.background = 'var(--color-primario)'; e.currentTarget.style.transform = 'translateY(0)'}}
+          style={{width: '100%', height: '4.8rem', borderRadius: '0.8rem', fontSize: '1.4rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', cursor: 'pointer', transition: 'all 0.2s ease', opacity: !formAsignar.idsupervisor ? 0.6 : 1}}
+        >
+          <Check size={16}/> Guardar Asignación
+        </button>
+      </div> 
+    </div> 
+  </div> 
+)}
+
+      {/* {showAsignarModalMasivo && ( 
   <div className="modal-overlay" onClick={() => setShowAsignarModalMasivo(false)}> 
     <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '50rem'}}> 
       <div className="modal-header">
@@ -887,8 +967,50 @@ const handleAsignarMasivo = async () => {
       </div> 
     </div> 
   </div> 
-)}
+)} */}
 
+{showAsignarModalMasivo && ( 
+  <div className="modal-overlay" style={{zIndex: 3000}} onClick={() => setShowAsignarModalMasivo(false)}> 
+    <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '60rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden'}}> 
+      <div className="modal-header" style={{background: '#059669', color: '#fff', padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0}}>
+          <UserCheck size={22}/> Asignación Masiva
+        </h2>          
+        <button onClick={()=>setShowAsignarModalMasivo(false)} style={{background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.8rem', borderRadius: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff'}}><X size={20}/></button>
+      </div> 
+      <div className="modal-body" style={{padding: '2rem'}}> 
+        <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '2rem'}}>
+          <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#F0FDF4', borderRadius: '0.8rem', borderLeft: '4px solid #22C55E'}}>
+            <Building2 size={20} color="#22C55E"/>
+            <div>
+              <div style={{fontSize: '1.1rem', color: '#64748b'}}>EPS Seleccionada</div>
+              <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>{eps.find(e => e.ideps === filtroEps)?.razonsocial}</div>
+            </div>
+          </div>
+          <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#EFF6FF', borderRadius: '0.8rem', borderLeft: '4px solid #3B82F6'}}>
+            <ClipboardList size={20} color="#3B82F6"/>
+            <div>
+              <div style={{fontSize: '1.1rem', color: '#64748b'}}>Total horas sin supervisor</div>
+              <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>{eventos.filter(e =>!e.resource.asignacion?.idsupervisor).length}</div>
+            </div>
+          </div>
+        </div>
+        <p style={{fontSize: '1.2rem', color: '#64748b', marginBottom: '1.5rem'}}>Se asignará el mismo supervisor a todas las horas filtradas que estén sin asignar</p>
+        <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={formAsignar.idsupervisor} onChange={(val) => setFormAsignar({idsupervisor: val})} /> 
+      </div> 
+      <div style={{display: 'flex', padding: '1.5rem 2rem', background: '#F8FAFC', borderTop: '1px solid #E2E8F0'}}>
+        <button 
+          className="btn-primario" 
+          onClick={handleAsignarMasivo} 
+          disabled={!formAsignar.idsupervisor}
+          style={{width: '100%', height: '4.8rem', borderRadius: '0.8rem', background: '#059669', border: '1.5px solid #059669', fontSize: '1.4rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', cursor: 'pointer', opacity: !formAsignar.idsupervisor ? 0.6 : 1}}
+        >
+          <Check/> Asignar a {eventos.filter(e => !e.resource.asignacion).length} horas
+        </button>
+      </div> 
+    </div> 
+  </div> 
+)}
 <style jsx global>{`
 .react-select__menu { z-index: 9999!important; }
 `}</style>
