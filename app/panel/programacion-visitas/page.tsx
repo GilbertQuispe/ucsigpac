@@ -4,6 +4,7 @@ import moment from 'moment'
 import 'moment/locale/es'
 import { createClient } from '@/lib/client'
 import { Check, X, CalendarDays, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Check as CheckIcon } from 'lucide-react'
 import Select from 'react-select'
 import { Calendar, momentLocalizer } from 'react-big-calendar'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
@@ -130,7 +131,7 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
 
     // QUERY SIMPLE SIN TANTO!INNER PARA EVITAR 406
     let query = supabase.from('visitasupervision').select(`
-      idvisitas, fechavisita, horavisita, condicion, observaciones,
+      idvisitas, fechavisita, horavisita, horafin, condicion, observaciones,
       asignacionsupervision(
         idasignacions, idsupervisor,
         asignacion_nrc_supervisor(
@@ -211,35 +212,8 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
   ], [eps])
 
   const opcionesSupervisor = useMemo(() => [{value: '', label: 'Todos'},...supervisores.map(s=>({value:s.idsupervisor, label:`${s.persona?.dni} - ${s.persona?.apellidos}`}))], [supervisores]) 
-  // const eventosCalendario = useMemo(() => visitas.map(v => ({
-  //   id: v.idvisitas,
-  //   title: `${v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.asignatura?.nombre || 'Sin Asignatura'}`,
-  //   start: moment(`${v.fechavisita} ${v.horavisita}`).toDate(),
-  //   end: moment(`${v.fechavisita} ${v.horavisita}`).add(1, 'hour').toDate(),
-  //   resource: v
-  // })), [visitas])
-  const eventosCalendario = useMemo(() => visitas.map(v => {
-  const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
-  const campoclinico = carga?.campoclinico
 
-  const horaIni = moment(`${v.fechavisita} ${v.horavisita}`)
-  const horaFin = horaIni.clone().add(1, 'hour') // si tienes duración real cámbiala
-
-  return {
-    id: v.idvisitas,
-    title: carga?.asignatura?.nombre || 'Sin Asignatura', // ya no se usa tanto
-    start: horaIni.toDate(),
-    end: horaFin.toDate(),
-    resource: {
-     ...v,
-      horaRango: `${horaIni.format('HH:mm')} - ${horaFin.format('HH:mm')}`,
-      curso: `${carga?.asignatura?.nombre || 'Sin Asignatura'} - NRC:${carga?.nrc || ''}`,
-      eps: campoclinico?.eps?.razonsocial || 'Sin EPS',
-      docente: `${campoclinico?.docente?.persona?.apellidos || ''}, ${campoclinico?.docente?.persona?.nombres || ''}`
-    }
-  }
-}), [visitas])
-
+/* no se porque agrupe*/
  const visitasAgrupadasPorDia = useMemo(() => {
     const grupos: any = {}
     visitas.forEach(v => {
@@ -250,6 +224,97 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
     return grupos
   }, [visitas])
 
+// const eventosCalendario = useMemo(() => {
+//   return visitas
+//    .filter(v => v.fechavisita && v.horavisita) // blindaje
+//    .map(v => {
+//       const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
+//       const campoclinico = carga?.campoclinico
+
+//       // FORZAR FORMATO YYYY-MM-DD HH:mm:ss
+//       const fechaHora = `${v.fechavisita}T${v.horavisita}`
+//       const horaIni = moment(fechaHora)
+//       const horaFin = horaIni.clone().add(1, 'hour')
+
+//       // Si moment falla, ignora esa visita
+//       if (!horaIni.isValid()) return null
+
+//       return {
+//         id: v.idvisitas,
+//         title: carga?.asignatura?.nombre || 'Sin Asignatura',
+//         start: horaIni.toDate(),
+//         end: horaFin.toDate(),
+//         resource: {
+//          ...v,
+//           horaRango: `${horaIni.format('HH:mm')} - ${horaFin.format('HH:mm')}`,
+//           curso: `${carga?.asignatura?.nombre || 'Sin Asignatura'} - NRC:${carga?.nrc || ''}`,
+//           eps: campoclinico?.eps?.razonsocial || 'Sin EPS',
+//           docente: `${campoclinico?.docente?.persona?.apellidos || ''}, ${campoclinico?.docente?.persona?.nombres || ''}`
+//         }
+//       }
+//     }).filter(Boolean) // quita los null
+// }, [visitas])
+
+// const eventosCalendario = useMemo(() => {
+//   return visitas
+//  .filter(v => v.fechavisita && v.horavisita) 
+//  .map(v => {
+//       const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
+//       const campoclinico = carga?.campoclinico
+
+//       const horaIni = moment(`${v.fechavisita}T${v.horavisita}`)
+//       if (!horaIni.isValid()) return null
+
+//       // CALCULAR HORA FIN REAL. Si en BD tienes horafin usalo. Si no, ponle +1h 30min aprox
+//       // EJEMPLO: Si tu horafin está en otra tabla, jálalo aquí
+//       const horaFin = horaIni.clone().add(1, 'hour').add(30, 'minutes') // AJUSTA ESTO
+
+//       return {
+//         id: v.idvisitas,
+//         title: carga?.asignatura?.nombre || 'Sin Asignatura',
+//         start: horaIni.toDate(),
+//         end: horaFin.toDate(), // <-- AHORA EL CARD CRECE
+//         resource: {
+//         ...v,
+//           horaRango: `${horaIni.format('HH:mm')} - ${horaFin.format('HH:mm')}`,
+//           curso: `${carga?.asignatura?.nombre || 'Sin Asignatura'} - NRC:${carga?.nrc || ''}`,
+//           eps: campoclinico?.eps?.razonsocial || 'Sin EPS',
+//           docente: `${campoclinico?.docente?.persona?.apellidos || ''}, ${campoclinico?.docente?.persona?.nombres || ''}`
+//         }
+//       }
+//     }).filter(Boolean)
+// }, [visitas])
+
+const eventosCalendario = useMemo(() => {
+  return visitas
+.filter(v => v.fechavisita && v.horavisita) 
+.map(v => {
+      const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
+      const campoclinico = carga?.campoclinico
+
+      const horaIni = moment(`${v.fechavisita}T${v.horavisita}`)
+      // USAR HORAFIN DE LA BD. Si no existe usa +1h por si acaso
+      const horaFin = v.horafin 
+       ? moment(`${v.fechavisita}T${v.horafin}`) 
+        : horaIni.clone().add(1, 'hour')
+
+      if (!horaIni.isValid() ||!horaFin.isValid()) return null
+
+      return {
+        id: v.idvisitas,
+        title: carga?.asignatura?.nombre || 'Sin Asignatura',
+        start: horaIni.toDate(),
+        end: horaFin.toDate(), // <-- AHORA EL CARD DURA LO REAL
+        resource: {
+       ...v,
+          horaRango: `${horaIni.format('HH:mm')} - ${horaFin.format('HH:mm')}`,
+          curso: `${carga?.asignatura?.nombre || 'Sin Asignatura'} - NRC:${carga?.nrc || ''}`,
+          eps: campoclinico?.eps?.razonsocial || 'Sin EPS',
+          docente: `${campoclinico?.docente?.persona?.apellidos || ''}, ${campoclinico?.docente?.persona?.nombres || ''}`
+        }
+      }
+    }).filter(Boolean)
+}, [visitas])
 
   const handleClickCard = (visita: any) => {
     // Si ya esta supervisado, permiso o incidencia → solo ver detalle
@@ -276,18 +341,50 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
 
   console.log("ES ADMIN:", esAdmin, "ROL DETECTADO")
 
-  const { minHora, maxHora } = useMemo(() => {
-    if(visitas.length === 0) return { minHora: new Date(2026,0,1,7,0), maxHora: new Date(2026,0,1,20,0) }
+const { minHora, maxHora, cssHorasVisibles } = useMemo(() => {
+  const base = semanaActual.clone()
+  const horasSet = new Set<number>()
 
-    const horas = visitas.map(v => moment(`${v.fechavisita} ${v.horavisita}`))
-    const min = moment.min(horas).startOf('hour').subtract(1, 'hour') // 1 hora antes
-    const max = moment.max(horas).endOf('hour').add(1, 'hour') // 1 hora después
+  visitas.forEach(v => {
+    if(v.fechavisita && v.horavisita){
+      const mIni = moment(`${v.fechavisita}T${v.horavisita}`)
+      const mFin = v.horafin 
+      ? moment(`${v.fechavisita}T${v.horafin}`) 
+        : mIni.clone().add(1, 'hour')
 
-    return {
-      minHora: min.toDate(),
-      maxHora: max.toDate()
+      if(mIni.isValid() && mFin.isValid()){
+        // +1 hora antes y +1 hora despues como pediste
+        const horaInicioRango = Math.max(0, mIni.hour() - 1)
+        const horaFinRango = Math.min(23, mFin.hour() + 1)
+
+        for(let h = horaInicioRango; h <= horaFinRango; h++){
+          horasSet.add(h)
+        }
+      }
     }
-  }, [visitas])
+  })
+
+  const horasArray = Array.from(horasSet).sort((a,b) => a-b)
+  const horaMin = horasArray[0] || 6
+  const horaMax = horasArray[horasArray.length - 1] + 1 || 22
+
+  // Generar CSS dinámico para ocultar horas
+  // const css = horasArray.map(h => 
+  //   `.rbc-time-gutter.rbc-label[data-time="${String(h).padStart(2,'0')}:00"] { display: block!important; }`
+  // ).join('')
+
+  const css = horasArray.length > 0 
+ ? horasArray.map(h => 
+      `.rbc-time-gutter .rbc-label[data-time="${String(h).padStart(2,'0')}:00:00"] { display: block!important; }` // <- AGREGA ESPACIO
+    ).join('')
+  : ''
+
+  return { 
+    minHora: base.clone().hour(horaMin).minute(0).second(0).toDate(), 
+    maxHora: base.clone().hour(horaMax).minute(0).second(0).toDate(),
+    cssHorasVisibles: css
+  }
+}, [visitas, semanaActual])
 
   return (
     
@@ -397,7 +494,7 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
       style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#22C55E', fontWeight: 600}}
       onClick={(e) => e.stopPropagation()} // para que no haga nada al click
     >
-      <Check/> Ver Detalle
+      Ver Detalle
     </div>
   )}
 </div>
@@ -421,8 +518,8 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
 
             min={minHora}
             max={maxHora}
-            step={30}
-            timeslots={2}
+            step={60}
+            timeslots={1}
 
             components={{
               event: ({ event }) => ( // NUEVO: PINTAR EVENTO PERSONALIZADO
@@ -482,6 +579,7 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
         onAbrirFicha={(v, solo) => {setVisitaSeleccionada(v); setShowFichaModal(true)}}
         onRefresh={() => fetchVisitas(esAdmin, idSupervisorLogeado)}
       />
+
       <style jsx global>{`
         /* HEADER AZUL */
        .rbc-toolbar {
@@ -544,12 +642,29 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
           text-align: right;
         }
 
+      
+
         /* OCULTAR ALLDAY */
        .rbc-allday-cell { display: none !important; }
 
         /* BORDES */
        .rbc-month-view, .rbc-time-view { border: 1px solid #DBEAFE; border-radius: 0 0 0.8rem 0.8rem; }
+
+       
+/* OCULTAR ALLDAY */
+.rbc-allday-cell { display: none!important; }
+
+/* BORDES */
+.rbc-month-view,.rbc-time-view { border: 1px solid #DBEAFE; border-radius: 0 0 0.8rem 0.8rem; }
+
       `}</style>
+      {/* INYECTAR CSS DINÁMICO PARA OCULTAR HORAS */}
+<style>{`
+ .rbc-time-gutter.rbc-label { 
+    display: none!important; 
+  }
+  ${cssHorasVisibles}
+`}</style>
     </div>
     
   )

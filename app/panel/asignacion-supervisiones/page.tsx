@@ -476,6 +476,7 @@ const handleAsignar = async () => {
           idasignacions: detalle.idasignacions,
           fechavisita: fecha.format('YYYY-MM-DD'),
           horavisita: celdaSeleccionada.hora_inicio,
+          horafin: celdaSeleccionada.hora_fin, // 09:24:00 <- NUEVO
           condicion: 'PROGRAMADO',
           iddh: iddh
         })
@@ -667,6 +668,7 @@ const handleAsignarMasivo = async () => {
           idasignacions: detalle.idasignacions,
           fechavisita: fecha.format('YYYY-MM-DD'),
           horavisita: e.resource.hora_inicio,
+          horafin: e.resource.hora_fin, // 16:24:00 <- AGREGA ESTA LINE
           condicion: 'PROGRAMADO',
           iddh: e.resource.iddh
         })
