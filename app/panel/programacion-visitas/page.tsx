@@ -1,6 +1,7 @@
 'use client'
 import React, { useEffect, useState, useMemo, useRef } from 'react' // agrega useRef
-import moment from 'moment'
+//import { momentPeru as moment, nowPeru, hoyPeru, fechaHoraPeru, momentPeru } from '@/lib/momentPeru'
+import { momentPeru, nowPeru, hoyPeru, fechaHoraPeru } from '@/lib/momentPeru'
 import 'moment/locale/es'
 import { createClient } from '@/lib/client'
 import { Check, X, CalendarDays, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -11,9 +12,11 @@ import ModalFichaSupervision from './components/ModalFichaSupervision'
 import ModalConsultaVisita from './components/ModalConsultaVisita' // <-- AGREGAR ESTO
 
 
-moment.locale('es')
-const localizer = momentLocalizer(moment)
+momentPeru.locale('es')
+const localizer = momentLocalizer(momentPeru)
 
+const minHora = new Date(2000,0,1,6,0) // 6am fijo
+const maxHora = new Date(2000,0,1,22,0) // 10pm fijo
 // const ESTADO_COLORES: any = {
 //   'PROGRAMADO': { bg: '#3B82F6', border: '#2563EB', text: '#fff' },
 //   'EN_PROCESO': { bg: '#F59E0B', border: '#D97706', text: '#fff' },
@@ -50,15 +53,17 @@ export default function ProgramacionVisitasPage() {
   const [esAdmin, setEsAdmin] = useState(false)
   const [idSupervisorLogeado, setIdSupervisorLogeado] = useState<number | null>(null)
   const [isMobile, setIsMobile] = useState(false)
-  const [semanaActual, setSemanaActual] = useState(moment())
+  const [semanaActual, setSemanaActual] = useState(momentPeru())
 
   const limpiarFiltros = () => {
     setFiltroPeriodo('')
     setFiltroFilial('')
     setFiltroEps('')
     setFiltroSupervisor('')
-    setSemanaActual(moment()) // NUEVO: volver a la semana de hoy
+    setSemanaActual(momentPeru()) // NUEVO: volver a la semana de hoy
   }
+
+
 
   const [showModalConsulta, setShowModalConsulta] = useState(false)
   const [visitaParaConsulta, setVisitaParaConsulta] = useState<any>(null)
@@ -105,7 +110,7 @@ const [sup] = await Promise.all([
       const rolLower = rol?.toLowerCase().trim()
 esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower === 'supervisor'
 
-      console.log("ROL ENCONTRADO:", rol, "ES ADMIN:", esAdminAhora)
+      //console.log("ROL ENCONTRADO:", rol, "ES ADMIN:", esAdminAhora)
       esAdminRef.current = esAdminAhora
       setEsAdmin(esAdminAhora)
       
@@ -121,9 +126,9 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
     setLoading(true)
     
     const esAdminParaQuery = forzarEsAdmin !== undefined ? forzarEsAdmin : esAdmin // Usar el que me pasen
-    console.log("CONSULTANDO COMO ADMIN:", esAdminParaQuery)
+    //console.log("CONSULTANDO COMO ADMIN:", esAdminParaQuery)
     const idSupParaQuery = forzarIdSup !== undefined ? forzarIdSup : idSupervisorLogeado // NUEVO
-    console.log("CONSULTANDO COMO ADMIN:", esAdminParaQuery)
+    //console.log("CONSULTANDO COMO ADMIN:", esAdminParaQuery)
     
     const inicioSemana = semanaActual.clone().startOf('week').format('YYYY-MM-DD')
     const finSemana = semanaActual.clone().endOf('week').format('YYYY-MM-DD')
@@ -211,44 +216,88 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
   ], [eps])
 
   const opcionesSupervisor = useMemo(() => [{value: '', label: 'Todos'},...supervisores.map(s=>({value:s.idsupervisor, label:`${s.persona?.dni} - ${s.persona?.apellidos}`}))], [supervisores]) 
-  // const eventosCalendario = useMemo(() => visitas.map(v => ({
-  //   id: v.idvisitas,
-  //   title: `${v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.asignatura?.nombre || 'Sin Asignatura'}`,
-  //   start: moment(`${v.fechavisita} ${v.horavisita}`).toDate(),
-  //   end: moment(`${v.fechavisita} ${v.horavisita}`).add(1, 'hour').toDate(),
-  //   resource: v
-  // })), [visitas])
-  const eventosCalendario = useMemo(() => visitas.map(v => {
-  const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
-  const campoclinico = carga?.campoclinico
 
-  const horaIni = moment(`${v.fechavisita} ${v.horavisita}`)
-  const horaFin = horaIni.clone().add(1, 'hour') // si tienes duración real cámbiala
+//   const eventosCalendario = useMemo(() => visitas.map(v => {
+//   const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
+//   const campoclinico = carga?.campoclinico
 
-  return {
-    id: v.idvisitas,
-    title: carga?.asignatura?.nombre || 'Sin Asignatura', // ya no se usa tanto
-    start: horaIni.toDate(),
-    end: horaFin.toDate(),
-    resource: {
-     ...v,
-      horaRango: `${horaIni.format('HH:mm')} - ${horaFin.format('HH:mm')}`,
-      curso: `${carga?.asignatura?.nombre || 'Sin Asignatura'} - NRC:${carga?.nrc || ''}`,
-      eps: campoclinico?.eps?.razonsocial || 'Sin EPS',
-      docente: `${campoclinico?.docente?.persona?.apellidos || ''}, ${campoclinico?.docente?.persona?.nombres || ''}`
+//   const horaIni = momentPeru(`${v.fechavisita} ${v.horavisita}`)
+//   const horaFin = horaIni.clone().add(1, 'hour') // si tienes duración real cámbiala
+
+//   return {
+//     id: v.idvisitas,
+//     title: carga?.asignatura?.nombre || 'Sin Asignatura', // ya no se usa tanto
+//     start: horaIni.toDate(),
+//     end: horaFin.toDate(),
+//     resource: {
+//      ...v,
+//       horaRango: `${horaIni.format('HH:mm')} - ${horaFin.format('HH:mm')}`,
+//       curso: `${carga?.asignatura?.nombre || 'Sin Asignatura'} - NRC:${carga?.nrc || ''}`,
+//       eps: campoclinico?.eps?.razonsocial || 'Sin EPS',
+//       docente: `${campoclinico?.docente?.persona?.apellidos || ''}, ${campoclinico?.docente?.persona?.nombres || ''}`
+//     }
+//   }
+// }), [visitas])
+
+const eventosCalendario = useMemo(() => {
+  if (!visitas ||!Array.isArray(visitas)) return []
+
+  return visitas.reduce((acc, v) => {
+    if (!v.fechavisita ||!v.horavisita) return acc
+
+    const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
+    const campoclinico = carga?.campoclinico
+
+    // 1. Tomar solo HH:mm de "15:40:00"
+    const horaStr = String(v.horavisita).substring(0,5) // "15:40"
+    
+    // 2. Unir fecha + hora sin T y sin formato estricto
+    const horaIni = momentPeru(`${v.fechavisita} ${horaStr}`) 
+    
+    if (!horaIni.isValid()) {
+      console.warn('Visita inválida:', v.idvisitas, v.fechavisita, v.horavisita)
+      return acc
     }
-  }
-}), [visitas])
 
- const visitasAgrupadasPorDia = useMemo(() => {
-    const grupos: any = {}
-    visitas.forEach(v => {
-      const dia = moment(v.fechavisita).format('YYYY-MM-DD')
-      if(!grupos[dia]) grupos[dia] = []
-      grupos[dia].push(v)
+    const horaFin = horaIni.clone().add(1, 'hour')
+
+    acc.push({
+      id: v.idvisitas,
+      title: carga?.asignatura?.nombre || 'Sin Asignatura',
+      start: horaIni.toDate(),
+      end: horaFin.toDate(),
+      resource: {
+    ...v,
+        horaRango: `${horaIni.format('HH:mm')} - ${horaFin.format('HH:mm')}`,
+        curso: `${carga?.asignatura?.nombre || 'Sin Asignatura'} - NRC:${carga?.nrc || ''}`,
+        eps: campoclinico?.eps?.razonsocial || 'Sin EPS',
+        docente: `${campoclinico?.docente?.persona?.apellidos || ''}, ${campoclinico?.docente?.persona?.nombres || ''}`
+      }
     })
-    return grupos
-  }, [visitas])
+    return acc
+  }, [] as any[])
+}, [visitas])
+
+
+//  const visitasAgrupadasPorDia = useMemo(() => {
+//     const grupos: any = {}
+//     visitas.forEach(v => {
+//       const dia = momentPeru(v.fechavisita).format('YYYY-MM-DD')
+//       if(!grupos[dia]) grupos[dia] = []
+//       grupos[dia].push(v)
+//     })
+//     return grupos
+//   }, [visitas])
+
+    const visitasAgrupadasPorDia = useMemo(() => {
+      const grupos: any = {}
+      visitas.filter(v => v.fechavisita).forEach(v => { // <- agrega filter
+        const dia = momentPeru(v.fechavisita).format('YYYY-MM-DD')
+        if(!grupos[dia]) grupos[dia] = []
+        grupos[dia].push(v)
+      })
+      return grupos
+    }, [visitas])
 
 
   const handleClickCard = (visita: any) => {
@@ -274,20 +323,49 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
   else { setShowFichaModal(false); fetchVisitas(esAdmin, idSupervisorLogeado) }
   }
 
-  console.log("ES ADMIN:", esAdmin, "ROL DETECTADO")
+  //console.log("ES ADMIN:", esAdmin, "ROL DETECTADO")
 
-  const { minHora, maxHora } = useMemo(() => {
-    if(visitas.length === 0) return { minHora: new Date(2026,0,1,7,0), maxHora: new Date(2026,0,1,20,0) }
+  // const { minHora, maxHora } = useMemo(() => {
+  //   if(visitas.length === 0) return { minHora: new Date(2026,0,1,7,0), maxHora: new Date(2026,0,1,20,0) }
 
-    const horas = visitas.map(v => moment(`${v.fechavisita} ${v.horavisita}`))
-    const min = moment.min(horas).startOf('hour').subtract(1, 'hour') // 1 hora antes
-    const max = moment.max(horas).endOf('hour').add(1, 'hour') // 1 hora después
+  //   const horas = visitas.map(v => momentPeru(`${v.fechavisita} ${v.horavisita}`))
+  //   const min = momentPeru.min(horas).startOf('hour').subtract(1, 'hour') // 1 hora antes
+  //   const max = momentPeru.max(horas).endOf('hour').add(1, 'hour') // 1 hora después
 
-    return {
-      minHora: min.toDate(),
-      maxHora: max.toDate()
-    }
-  }, [visitas])
+  //   return {
+  //     minHora: min.toDate(),
+  //     maxHora: max.toDate()
+  //   }
+  // }, [visitas])
+  
+const { minHora, maxHora } = useMemo(() => {
+  const defaultMin = new Date(2026,0,1,7,0) // 7am
+  const defaultMax = new Date(2026,0,1,20,0) // 8pm
+
+  if(eventosCalendario.length === 0) 
+    return { minHora: defaultMin, maxHora: defaultMax }
+
+  const fechasValidas = eventosCalendario
+   .map(e => e.start)
+   .filter(d => d instanceof Date &&!isNaN(d.getTime())) // <- Filtra Invalid Date
+
+  if(fechasValidas.length === 0) 
+    return { minHora: defaultMin, maxHora: defaultMax }
+
+  const minDate = new Date(Math.min(...fechasValidas.map(d => d.getTime())))
+  const maxDate = new Date(Math.max(...fechasValidas.map(d => d.getTime())))
+
+  minDate.setHours(minDate.getHours() - 1) // 1 hora antes
+  maxDate.setHours(maxDate.getHours() + 1) // 1 hora después
+
+  return {
+    minHora: minDate,
+    maxHora: maxDate
+  }
+}, [eventosCalendario])
+
+console.log("EVENTOS FINALES:", eventosCalendario)
+console.log("MIN:", minHora, "MAX:", maxHora)
 
   return (
     
@@ -356,7 +434,7 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
         Object.keys(visitasAgrupadasPorDia).sort().map(dia => (
         <div key={dia} style={{marginBottom: '2rem'}}>
           <h3 style={{color: '#004AAD', marginBottom: '1rem', fontSize: '1.5rem', borderBottom: '2px solid #E2E8F0', paddingBottom: '0.5rem'}}>
-            {moment(dia).format('dddd DD [de] MMMM')}
+            {momentPeru(dia).format('dddd DD [de] MMMM')}
           </h3>
           <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(24rem, 1fr))', gap: '1rem'}}>
             {visitasAgrupadasPorDia[dia].map((v:any) => {
@@ -408,6 +486,13 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
         </div>
       ))) : (
         <div className="card-sgpc" style={{height: '70vh', padding: '1rem'}}>
+         {loading? (
+  <div style={{textAlign:'center', padding:'5rem'}}>Cargando calendario...</div>
+  ) : eventosCalendario.length === 0? ( // <- NUEVO
+    <div style={{textAlign:'center', padding:'5rem', color:'#64748b'}}>
+      No hay visitas programadas esta semana
+    </div>
+) : (
          <Calendar
             localizer={localizer}
             events={eventosCalendario}
@@ -416,11 +501,11 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
             defaultView="week"
             views={['week', 'day']}
             date={semanaActual.toDate()}
-            onNavigate={(date) => setSemanaActual(moment(date))}
+            onNavigate={(date) => setSemanaActual(momentPeru(date))}
             onSelectEvent={(event) => handleClickCard(event.resource)}
 
-            min={minHora}
-            max={maxHora}
+            //min={minHora}
+            //max={maxHora}
             step={30}
             timeslots={2}
 
@@ -440,8 +525,8 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
                 </div>
               ),
               header: ({ date }) => {
-                const dia = moment(date).format('dddd').toUpperCase()
-                const fecha = moment(date).format('DD MMM').toUpperCase()
+                const dia = momentPeru(date).format('dddd').toUpperCase()
+                const fecha = momentPeru(date).format('DD MMM').toUpperCase()
                 return (
                   <span>
                     {dia}
@@ -464,6 +549,7 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
               next: "Siguiente", previous: "Anterior", today: "Hoy", week: "Semana", day: "Día"
             }}
           />
+)}
         </div>
       )}
 

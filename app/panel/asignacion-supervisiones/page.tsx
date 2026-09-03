@@ -1,8 +1,8 @@
 'use client'
-//import { useEffect, useState, useMemo, useCallback, Fragment as ReactFragment } from 'react'
+
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar'
-import moment from 'moment'
+import { momentPeru as moment, nowPeru, hoyPeru, fechaHoraPeru, momentPeru } from '@/lib/momentPeru'
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { createClient } from '@/lib/client'
 import { Check, X, UserCheck, Hospital } from 'lucide-react'
@@ -436,7 +436,7 @@ const handleAsignar = async () => {
       idcargaacad: idcargaacad,
       idsupervisor: idsupervisor,
       estado: 'PROGRAMADO',
-      fechaasignacion: moment().format('YYYY-MM-DD')
+      fechaasignacion: hoyPeru(),
     }, { onConflict: 'idcargaacad' })
     .select()
     .single();
@@ -468,7 +468,7 @@ const handleAsignar = async () => {
     const diasMap: any = {'DOMINGO':0,'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6}
     const diaNum = diasMap[celdaSeleccionada.dia_semana?.toUpperCase()]
     const visitasParaInsertar: any[] = []
-    let fecha = moment(periodo.fecha_inicio)
+    let fecha = momentPeru(periodo.fecha_inicio)
 
     while(fecha.isSameOrBefore(periodo.fecha_fin)){
       if(fecha.day() === diaNum){
@@ -633,7 +633,9 @@ const handleAsignarMasivo = async () => {
     iddh: e.resource.iddh,
     idsupervisor: idsupervisor,
     estado: 'PROGRAMADO',
-    fechaasignacion: moment().format('YYYY-MM-DD'),
+    //fechaasignacion: moment().format('YYYY-MM-DD'),
+    fechaasignacion: hoyPeru(), // 2026-09-02
+    created_at: nowPeru(), // 2026-09-02 20:31:00
     idasignacion_nrc: cabeceraInsertada.find((c:any) => c.idcargaacad === e.resource.cargaacademica.idcargaacad)?.idasignacion_nrc
   }))
 

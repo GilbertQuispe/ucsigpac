@@ -2,7 +2,8 @@
 import React, { useEffect, useState, useMemo } from 'react'
 import { X, Check, Camera, Trash2, Eraser, BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/client'
-import moment from 'moment'
+//import { momentPeru as moment, nowPeru, hoyPeru, fechaHoraPeru } from '@/lib/momentPeru'
+import { momentPeru, nowPeru, hoyPeru, fechaHoraPeru } from '@/lib/momentPeru'
 import toast, { Toaster } from 'react-hot-toast'
 
 export default function ModalFichaSupervision({ show, onClose, visita }: any) {
@@ -272,9 +273,9 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   const nrc = headerData?.nrc || '0'
   const idsupervisor = visita?.asignacionsupervision?.idsupervisor || '0' // este sí viene de visita
 
-  const ahora = new Date()
-  const fecha = ahora.toISOString().slice(0,10).replace(/-/g,'') // 20250901
-  const hora = ahora.toTimeString().slice(0,8).replace(/:/g,'') // 093045
+  const ahora = momentPeru()
+  const fecha = ahora.format('YYYYMMDD') // 20250901
+  const hora = ahora.format('HHmmss') // 093045
 
   return `${idpa}_${idcargaacad}_${nrc}_${idsupervisor}_${fecha}_${hora}.jpg`
 }
