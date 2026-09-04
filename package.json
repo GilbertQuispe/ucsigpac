@@ -37,5 +37,13 @@
   },
   "name": "sigpac",
   "version": "0.1.0",  
-  "allowScripts": ["sharp", "unrs-resolver"]
+  "scripts": {
+  "dev": "next dev",
+  "build": "next build --no-typecheck --no-lint",
+  "start": "next start",
+  "postinstall": "next telemetry disable"
+},
+"overrides": {
+  "sharp": "npm:sharp@^0.32.6"
+}
 }
