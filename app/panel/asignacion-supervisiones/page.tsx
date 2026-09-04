@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react'
 import { Calendar, momentLocalizer, Views } from 'react-big-calendar'
 import moment from 'moment'
+//import moment from 'moment-timezone' // cambia el import de moment normal
 import 'react-big-calendar/lib/css/react-big-calendar.css'
 import { createClient } from '@/lib/client'
 //import { Check, X, UserCheck, Hospital } from 'lucide-react'
@@ -437,7 +438,8 @@ const handleAsignar = async () => {
       idcargaacad: idcargaacad,
       idsupervisor: idsupervisor,
       estado: 'PROGRAMADO',
-      fechaasignacion: moment().format('YYYY-MM-DD')
+      fechaasignacion: moment().format('YYYY-MM-DD'),
+      created_at: moment().toISOString(), // <-- NUEVO
     }, { onConflict: 'idcargaacad' })
     .select()
     .single();
@@ -636,6 +638,7 @@ const handleAsignarMasivo = async () => {
     idsupervisor: idsupervisor,
     estado: 'PROGRAMADO',
     fechaasignacion: moment().format('YYYY-MM-DD'),
+    created_at: moment().toISOString(), // <-- NUEVO
     idasignacion_nrc: cabeceraInsertada.find((c:any) => c.idcargaacad === e.resource.cargaacademica.idcargaacad)?.idasignacion_nrc
   }))
 
@@ -976,7 +979,14 @@ const handleAsignarMasivo = async () => {
         <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0}}>
           <UserCheck size={22}/> Asignación Masiva
         </h2>          
-        <button onClick={()=>setShowAsignarModalMasivo(false)} style={{background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.8rem', borderRadius: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff'}}><X size={20}/></button>
+       <button 
+  onClick={()=>setShowAsignarModalMasivo(false)} 
+  onMouseEnter={e => {e.currentTarget.style.background = '#FEE2E2'; e.currentTarget.style.color = '#DC2626'; e.currentTarget.style.transform = 'rotate(90deg)';}}
+  onMouseLeave={e => {e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#fff'; e.currentTarget.style.transform = 'rotate(0deg)';}}
+  style={{background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.8rem', borderRadius: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', transition: 'all 0.2s ease'}}
+>
+  <X size={20}/>
+</button>
       </div> 
       <div className="modal-body" style={{padding: '2rem'}}> 
         <div style={{display: 'grid', gridTemplateColumns: '1fr', gap: '1rem', marginBottom: '2rem'}}>

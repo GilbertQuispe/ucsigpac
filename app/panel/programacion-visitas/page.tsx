@@ -81,6 +81,10 @@ export default function ProgramacionVisitasPage() {
 
   useEffect(() => { fetchDataMaestra() }, [])
 
+  useEffect(() => { 
+  if(visitas.length >= 0) cargarOpcionesDinamicas() 
+}, [filtroPeriodo, filtroFilial, filtroEps, esAdmin, idSupervisorLogeado, semanaActual])
+
 const fetchDataMaestra = async () => {
     setLoading(true)
     let esAdminAhora = false
@@ -100,11 +104,14 @@ const [sup] = await Promise.all([
       
       if(error) console.log("ERROR ROL:", error)
 
-      const rol = usuarioData?.persona?.rol?.nombrerol
-      //esAdminAhora = rol === 'ADMINISTRADOR' || rol === 'GESTOR'
+//       const rol = usuarioData?.persona?.rol?.nombrerol
+//       //esAdminAhora = rol === 'ADMINISTRADOR' || rol === 'GESTOR'
 
-      const rolLower = rol?.toLowerCase().trim()
-esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower === 'supervisor'
+//       const rolLower = rol?.toLowerCase().trim()
+// esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower === 'supervisor'
+
+const rol = usuarioData?.persona?.rol?.nombrerol?.trim()
+esAdminAhora = rol === 'Administrador' || rol === 'Gestor'
 
       console.log("ROL ENCONTRADO:", rol, "ES ADMIN:", esAdminAhora)
       esAdminRef.current = esAdminAhora
@@ -129,27 +136,28 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
     const inicioSemana = semanaActual.clone().startOf('week').format('YYYY-MM-DD')
     const finSemana = semanaActual.clone().endOf('week').format('YYYY-MM-DD')
 
-    // QUERY SIMPLE SIN TANTO!INNER PARA EVITAR 406
-    let query = supabase.from('visitasupervision').select(`
+    
+let query = supabase.from('visitasupervision').select(`
       idvisitas, fechavisita, horavisita, horafin, condicion, observaciones,
-      asignacionsupervision(
+      asignacionsupervision!inner(
         idasignacions, idsupervisor,
-        asignacion_nrc_supervisor(
+        asignacion_nrc_supervisor!inner(
           idcargaacad, idsupervisor,
-          cargaacademica(
+          cargaacademica!inner(
             nrc,
-            asignatura(nombre),
-            campoclinico(
+            asignatura!inner(nombre),
+            campoclinico!inner(
               idpa, idfilial, ideps,
-              filial(nombrefilial),
-              eps(razonsocial),
-              docente(persona(apellidos, nombres))
+              filial!inner(nombrefilial),
+              eps!inner(razonsocial),
+              docente!inner(persona!inner(apellidos, nombres))
             )
           )
         )
       ),
       solicitud_permiso(idvisitas, estado, motivo)
     `)
+
    .gte('fechavisita', inicioSemana)
    .lte('fechavisita', finSemana)
 
@@ -169,29 +177,84 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
     }
     setVisitas(data || [])
 
-    // SACAR OPCIONES DINÁMICAS DE LAS VISITAS
-    const visitasData = data || []
+    // // SACAR OPCIONES DINÁMICAS DE LAS VISITAS
+    // const visitasData = data || []
     
-    const periodosUnicos = new Map()
-    const filialesUnicas = new Map()
-    const epsUnicas = new Map()
+    // const periodosUnicos = new Map()
+    // const filialesUnicas = new Map()
+    // const epsUnicas = new Map()
     
-    visitasData.forEach(v => {
-      const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
-      if(carga?.campoclinico){
-        if(carga.campoclinico.idpa) periodosUnicos.set(carga.campoclinico.idpa, carga.campoclinico.idpa)
-        if(carga.campoclinico.idfilial) filialesUnicas.set(carga.campoclinico.idfilial, {id: carga.campoclinico.idfilial, nombre: carga.campoclinico.filial?.nombrefilial})
-        if(carga.campoclinico.ideps) epsUnicas.set(carga.campoclinico.ideps, {id: carga.campoclinico.ideps, nombre: carga.campoclinico.eps?.razonsocial})
-      }
-    })
+    // visitasData.forEach(v => {
+    //   const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
+    //   if(carga?.campoclinico){
+    //     if(carga.campoclinico.idpa) periodosUnicos.set(carga.campoclinico.idpa, carga.campoclinico.idpa)
+    //     if(carga.campoclinico.idfilial) filialesUnicas.set(carga.campoclinico.idfilial, {id: carga.campoclinico.idfilial, nombre: carga.campoclinico.filial?.nombrefilial})
+    //     if(carga.campoclinico.ideps) epsUnicas.set(carga.campoclinico.ideps, {id: carga.campoclinico.ideps, nombre: carga.campoclinico.eps?.razonsocial})
+    //   }
+    // })
 
-    // Convertir a array para los selects
-    setPeriodos(Array.from(periodosUnicos.keys()).map(id => ({idpa: id, codigo: `PA-${id}`}))
-     .sort((a,b) => b.idpa - a.idpa))
-    setFiliales(Array.from(filialesUnicas.values()).map(f => ({idfilial: f.id, nombrefilial: f.nombre})))
-    setEps(Array.from(epsUnicas.values()).map(e => ({ideps: e.id, razonsocial: e.nombre})))
+    // // Convertir a array para los selects
+    // setPeriodos(Array.from(periodosUnicos.keys()).map(id => ({idpa: id, codigo: `PA-${id}`}))
+    //  .sort((a,b) => b.idpa - a.idpa))
+    // setFiliales(Array.from(filialesUnicas.values()).map(f => ({idfilial: f.id, nombrefilial: f.nombre})))
+    // setEps(Array.from(epsUnicas.values()).map(e => ({ideps: e.id, razonsocial: e.nombre})))
 
     setLoading(false)
+  }
+
+  const cargarOpcionesDinamicas = async () => {
+    const inicioSemana = semanaActual.clone().startOf('week').format('YYYY-MM-DD')
+    const finSemana = semanaActual.clone().endOf('week').format('YYYY-MM-DD')
+
+    // QUERY BASE SIN FILTROS DE SELECTS
+    let queryBase = supabase.from('visitasupervision').select(`
+      asignacionsupervision!inner(
+        asignacion_nrc_supervisor!inner(
+          cargaacademica!inner(
+            campoclinico!inner(
+              idpa, idfilial, ideps,
+              filial!inner(nombrefilial),
+              eps!inner(razonsocial)
+            )
+          )
+        )
+      )
+    `)
+   .gte('fechavisita', inicioSemana)
+   .lte('fechavisita', finSemana)
+
+   // Si es supervisor solo ve las suyas
+   if(!esAdmin && idSupervisorLogeado){ 
+      queryBase = queryBase.eq('asignacionsupervision.idsupervisor', idSupervisorLogeado)
+   }
+
+   // APLICAR FILTROS CRUZADOS
+   // Para opciones de Periodo: aplicar Filial y EPS
+   let qPeriodo = queryBase
+   if(filtroFilial) qPeriodo = qPeriodo.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.idfilial', Number(filtroFilial))
+   if(filtroEps) qPeriodo = qPeriodo.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.ideps', Number(filtroEps))
+   const {data: dP} = await qPeriodo
+   const periodosUnicos = new Map()
+   dP?.forEach(v => { const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica; if(c?.campoclinico?.idpa) periodosUnicos.set(c.campoclinico.idpa, c.campoclinico.idpa) })
+   setPeriodos(Array.from(periodosUnicos.keys()).map(id => ({idpa: id, codigo: `PA-${id}`})).sort((a,b) => b.idpa - a.idpa))
+
+   // Para opciones de Filial: aplicar Periodo y EPS
+   let qFilial = queryBase
+   if(filtroPeriodo) qFilial = qFilial.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.idpa', Number(filtroPeriodo))
+   if(filtroEps) qFilial = qFilial.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.ideps', Number(filtroEps))
+   const {data: dF} = await qFilial
+   const filialesUnicas = new Map()
+   dF?.forEach(v => { const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica; if(c?.campoclinico?.idfilial) filialesUnicas.set(c.campoclinico.idfilial, {id: c.campoclinico.idfilial, nombre: c.campoclinico.filial?.nombrefilial}) })
+   setFiliales(Array.from(filialesUnicas.values()).map(f => ({idfilial: f.id, nombrefilial: f.nombre})))
+
+   // Para opciones de EPS: aplicar Periodo y Filial
+   let qEps = queryBase
+   if(filtroPeriodo) qEps = qEps.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.idpa', Number(filtroPeriodo))
+   if(filtroFilial) qEps = qEps.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.idfilial', Number(filtroFilial))
+   const {data: dE} = await qEps
+   const epsUnicas = new Map()
+   dE?.forEach(v => { const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica; if(c?.campoclinico?.ideps) epsUnicas.set(c.campoclinico.ideps, {id: c.campoclinico.ideps, nombre: c.campoclinico.eps?.razonsocial}) })
+   setEps(Array.from(epsUnicas.values()).map(e => ({ideps: e.id, razonsocial: e.nombre})))
   }
   
   useEffect(() => { if(supervisores.length > 0) fetchVisitas(esAdminRef.current, idSupervisorLogeado) }, [filtroSupervisor, filtroPeriodo, filtroFilial, filtroEps, esAdmin, idSupervisorLogeado, semanaActual])
@@ -223,67 +286,6 @@ esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower
     })
     return grupos
   }, [visitas])
-
-// const eventosCalendario = useMemo(() => {
-//   return visitas
-//    .filter(v => v.fechavisita && v.horavisita) // blindaje
-//    .map(v => {
-//       const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
-//       const campoclinico = carga?.campoclinico
-
-//       // FORZAR FORMATO YYYY-MM-DD HH:mm:ss
-//       const fechaHora = `${v.fechavisita}T${v.horavisita}`
-//       const horaIni = moment(fechaHora)
-//       const horaFin = horaIni.clone().add(1, 'hour')
-
-//       // Si moment falla, ignora esa visita
-//       if (!horaIni.isValid()) return null
-
-//       return {
-//         id: v.idvisitas,
-//         title: carga?.asignatura?.nombre || 'Sin Asignatura',
-//         start: horaIni.toDate(),
-//         end: horaFin.toDate(),
-//         resource: {
-//          ...v,
-//           horaRango: `${horaIni.format('HH:mm')} - ${horaFin.format('HH:mm')}`,
-//           curso: `${carga?.asignatura?.nombre || 'Sin Asignatura'} - NRC:${carga?.nrc || ''}`,
-//           eps: campoclinico?.eps?.razonsocial || 'Sin EPS',
-//           docente: `${campoclinico?.docente?.persona?.apellidos || ''}, ${campoclinico?.docente?.persona?.nombres || ''}`
-//         }
-//       }
-//     }).filter(Boolean) // quita los null
-// }, [visitas])
-
-// const eventosCalendario = useMemo(() => {
-//   return visitas
-//  .filter(v => v.fechavisita && v.horavisita) 
-//  .map(v => {
-//       const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
-//       const campoclinico = carga?.campoclinico
-
-//       const horaIni = moment(`${v.fechavisita}T${v.horavisita}`)
-//       if (!horaIni.isValid()) return null
-
-//       // CALCULAR HORA FIN REAL. Si en BD tienes horafin usalo. Si no, ponle +1h 30min aprox
-//       // EJEMPLO: Si tu horafin está en otra tabla, jálalo aquí
-//       const horaFin = horaIni.clone().add(1, 'hour').add(30, 'minutes') // AJUSTA ESTO
-
-//       return {
-//         id: v.idvisitas,
-//         title: carga?.asignatura?.nombre || 'Sin Asignatura',
-//         start: horaIni.toDate(),
-//         end: horaFin.toDate(), // <-- AHORA EL CARD CRECE
-//         resource: {
-//         ...v,
-//           horaRango: `${horaIni.format('HH:mm')} - ${horaFin.format('HH:mm')}`,
-//           curso: `${carga?.asignatura?.nombre || 'Sin Asignatura'} - NRC:${carga?.nrc || ''}`,
-//           eps: campoclinico?.eps?.razonsocial || 'Sin EPS',
-//           docente: `${campoclinico?.docente?.persona?.apellidos || ''}, ${campoclinico?.docente?.persona?.nombres || ''}`
-//         }
-//       }
-//     }).filter(Boolean)
-// }, [visitas])
 
 const eventosCalendario = useMemo(() => {
   return visitas
@@ -341,51 +343,92 @@ const eventosCalendario = useMemo(() => {
 
   console.log("ES ADMIN:", esAdmin, "ROL DETECTADO")
 
+// const { minHora, maxHora, cssHorasVisibles } = useMemo(() => {
+//   const base = semanaActual.clone()
+//   const horasSet = new Set<number>()
+
+//   visitas.forEach(v => {
+//     if(v.fechavisita && v.horavisita){
+//       const mIni = moment(`${v.fechavisita}T${v.horavisita}`)
+//       const mFin = v.horafin 
+//       ? moment(`${v.fechavisita}T${v.horafin}`) 
+//         : mIni.clone().add(1, 'hour')
+
+//       if(mIni.isValid() && mFin.isValid()){
+//         // +1 hora antes y +1 hora despues como pediste
+//         const horaInicioRango = Math.max(0, mIni.hour() - 1)
+//         const horaFinRango = Math.min(23, mFin.hour() + 1)
+
+//         for(let h = horaInicioRango; h <= horaFinRango; h++){
+//           horasSet.add(h)
+//         }
+//       }
+//     }
+//   })
+
+//   const horasArray = Array.from(horasSet).sort((a,b) => a-b)
+//   const horaMin = horasArray[0] || 6
+//   const horaMax = horasArray[horasArray.length - 1] + 1 || 22
+
+//   // Generar CSS dinámico para ocultar horas
+//   // const css = horasArray.map(h => 
+//   //   `.rbc-time-gutter.rbc-label[data-time="${String(h).padStart(2,'0')}:00"] { display: block!important; }`
+//   // ).join('')
+
+//   const css = horasArray.length > 0 
+//  ? horasArray.map(h => 
+//       `.rbc-time-gutter .rbc-label[data-time="${String(h).padStart(2,'0')}:00:00"] { display: block!important; }` // <- AGREGA ESPACIO
+//     ).join('')
+//   : ''
+
+//   return { 
+//     minHora: base.clone().hour(horaMin).minute(0).second(0).toDate(), 
+//     maxHora: base.clone().hour(horaMax).minute(0).second(0).toDate(),
+//     cssHorasVisibles: css
+//   }
+// }, [visitas, semanaActual])
 const { minHora, maxHora, cssHorasVisibles } = useMemo(() => {
   const base = semanaActual.clone()
-  const horasSet = new Set<number>()
+  const horasConCarga = new Set<number>()
 
   visitas.forEach(v => {
     if(v.fechavisita && v.horavisita){
       const mIni = moment(`${v.fechavisita}T${v.horavisita}`)
-      const mFin = v.horafin 
-      ? moment(`${v.fechavisita}T${v.horafin}`) 
-        : mIni.clone().add(1, 'hour')
+      const mFin = v.horafin? moment(`${v.fechavisita}T${v.horafin}`) : mIni.clone().add(1, 'hour')
 
       if(mIni.isValid() && mFin.isValid()){
-        // +1 hora antes y +1 hora despues como pediste
-        const horaInicioRango = Math.max(0, mIni.hour() - 1)
-        const horaFinRango = Math.min(23, mFin.hour() + 1)
+        // Agregamos hora -1 y hora +1 como colchón
+        const horaInicio = Math.max(0, mIni.hour() - 1)
+        const horaFin = Math.min(23, mFin.hour() + 1)
 
-        for(let h = horaInicioRango; h <= horaFinRango; h++){
-          horasSet.add(h)
+        for(let h = horaInicio; h <= horaFin; h++){
+          horasConCarga.add(h)
         }
       }
     }
   })
 
-  const horasArray = Array.from(horasSet).sort((a,b) => a-b)
-  const horaMin = horasArray[0] || 6
-  const horaMax = horasArray[horasArray.length - 1] + 1 || 22
+  // Si no hay nada, mostrar de 6 a 18 por defecto
+  if(horasConCarga.size === 0){
+    for(let h = 6; h <= 18; h++) horasConCarga.add(h)
+  }
 
-  // Generar CSS dinámico para ocultar horas
-  // const css = horasArray.map(h => 
-  //   `.rbc-time-gutter.rbc-label[data-time="${String(h).padStart(2,'0')}:00"] { display: block!important; }`
-  // ).join('')
+  const horasArray = Array.from(horasConCarga).sort((a,b) => a-b)
+  const horaMin = horasArray[0]
+  const horaMax = horasArray[horasArray.length - 1] + 1
 
-  const css = horasArray.length > 0 
- ? horasArray.map(h => 
-      `.rbc-time-gutter .rbc-label[data-time="${String(h).padStart(2,'0')}:00:00"] { display: block!important; }` // <- AGREGA ESPACIO
-    ).join('')
-  : ''
+  // CSS CORREGIDO: ESPACIO entre gutter y label
+  const cssOcultarTodas = `.rbc-time-gutter.rbc-label { display: none!important; }`
+  const cssMostrarEstas = horasArray.map(h =>
+    `.rbc-time-gutter.rbc-label[data-time="${String(h).padStart(2,'0')}:00:00"] { display: block!important; }`
+  ).join('')
 
-  return { 
-    minHora: base.clone().hour(horaMin).minute(0).second(0).toDate(), 
+  return {
+    minHora: base.clone().hour(horaMin).minute(0).second(0).toDate(),
     maxHora: base.clone().hour(horaMax).minute(0).second(0).toDate(),
-    cssHorasVisibles: css
+    cssHorasVisibles: cssOcultarTodas + cssMostrarEstas
   }
 }, [visitas, semanaActual])
-
   return (
     
     <div className="main-content" style={{padding: '1rem'}}>
@@ -394,7 +437,7 @@ const { minHora, maxHora, cssHorasVisibles } = useMemo(() => {
       </h1>
 
       <div className="card-sgpc" style={{ padding: '1.5rem', marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1.2rem' }}>
-        <SelectSGPCFieldset label="Periodo Académico" options={opcionesPeriodo} value={filtroPeriodo} onChange={setFiltroPeriodo} />
+        {/* <SelectSGPCFieldset label="Periodo Académico" options={opcionesPeriodo} value={filtroPeriodo} onChange={setFiltroPeriodo} />
         {esAdminRef.current ? <>
           <SelectSGPCFieldset label="Filial" options={opcionesFilial} value={filtroFilial} onChange={setFiltroFilial} />          
         </> : null}
@@ -403,7 +446,16 @@ const { minHora, maxHora, cssHorasVisibles } = useMemo(() => {
         {esAdminRef.current ? <>
           
           <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={filtroSupervisor} onChange={setFiltroSupervisor} />
-        </> : null}
+        </> : null} */}
+        {/* ESTOS 3 LOS VEN TODOS */}
+<SelectSGPCFieldset label="Periodo Académico" options={opcionesPeriodo} value={filtroPeriodo} onChange={setFiltroPeriodo} />
+<SelectSGPCFieldset label="Filial" options={opcionesFilial} value={filtroFilial} onChange={setFiltroFilial} />
+<SelectSGPCFieldset label="EPS" options={opcionesEps} value={filtroEps} onChange={setFiltroEps} />
+
+{/* ESTE SOLO ADMIN/GESTOR */}
+{esAdminRef.current && (
+  <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={filtroSupervisor} onChange={setFiltroSupervisor} />
+)}
 
         {/* BOTON LIMPIAR */}
         <button 
@@ -660,9 +712,7 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
       `}</style>
       {/* INYECTAR CSS DINÁMICO PARA OCULTAR HORAS */}
 <style>{`
- .rbc-time-gutter.rbc-label { 
-    display: none!important; 
-  }
+ 
   ${cssHorasVisibles}
 `}</style>
     </div>
