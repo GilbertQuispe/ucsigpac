@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, X, Search, Upload, GraduationCap, ChevronLeft, ChevronRight, Eraser, Users, Check, UserX, UserCheck } from 'lucide-react'
+import { Plus, Edit, X, Search, Upload, GraduationCap, ChevronLeft, ChevronRight, Eraser, Users, Check, UserX, UserStar, UserCheck, Award, Medal, BadgeCheck, School } from 'lucide-react'
 import Select from 'react-select'
 
 type Persona = { idpersona: number; dni: string; apellidos: string; nombres: string; telefono: string | null; sexo: 'M' | 'F' | null }
@@ -65,6 +65,25 @@ const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
   )
 }
 
+const SelectSGPCSinLegend = ({value, onChange, options}:any) => {
+  const selectedOption = options.find((o:any) => o.value === value) || null
+  return (
+    <Select 
+      options={options} 
+      value={selectedOption} 
+      onChange={(opt:any) => onChange(opt?.value || null)} 
+      placeholder="Seleccione..." 
+      isSearchable 
+      classNamePrefix="react-select"
+      menuPortalTarget={typeof document !== 'undefined' ? document.body : null} // <-- CLAVE PARA MOBIL
+      menuPosition="fixed"
+      styles={{ 
+        control: (base) => ({...base, height: '4.4rem', border: '1px solid #cbd5e1', boxShadow: 'none', fontSize: '1.4rem' }), 
+        menuPortal: (base) => ({...base, zIndex: 99999 }) // <-- Para que no se corte
+      }} 
+    />
+  )
+}
 export default function DocentesPage() {
   const supabase = createClient()
   const [tab, setTab] = useState<'personas' | 'docentes'>('personas')
@@ -442,11 +461,10 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '70rem'}}>
-            <div className="modal-header" style={{borderBottom: '2px solid var(--color-primario)', paddingBottom: '1.2rem'}}>
+            <div className="modal-header">
               <div>
-                <div style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}>
-                  <Users size={18} color="var(--color-primario)" />
-                  <h2>Actualizar Datos complementario del Docente</h2>
+                <div style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}>                  
+                  <h2 style={{color: 'var(--color-texto-secundario)'}}> <Users size={18}/> Actualizar Datos complementario del Docente</h2>
                 </div>
                 {docenteEdit && (
                   <p style={{fontSize: 'var(--text-sm)', color: 'var(--color-texto-secundario)', marginTop: '0.4rem', fontWeight: 400}}>
@@ -454,45 +472,52 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
                   </p>
                 )}
               </div>
-              <button onClick={() => setShowModal(false)} className="btn-cerrar-modal">
-                <X size={18} />
-              </button>
+              <button onClick={() => setShowModal(false)} className="btn-cerrar-modal"><X size={18} /></button>              
             </div>
 
             <div className="modal-body">
               <div className="grid-2-modal">
-                <SelectSGPCFieldset
-                  label="Profesión"
-                  value={form.idprofesion}
-                  onChange={(val:any) => setForm({...form, idprofesion: val})}
-                  options={profesiones.map(p=>({value:p.idprofesion, label:p.profesion}))}
-                />
-                <SelectSGPCFieldset
-                  label="Especialidad"
-                  value={form.idespecialidad}
-                  onChange={(val:any) => setForm({...form, idespecialidad: val})}
-                  options={especialidades.map(e=>({value:e.idespecialidad, label:e.especialidad}))}
-                />
+                <fieldset className="fieldset-sgpc" style={{background: '#EFF6FF', borderLeft: '4px solid #3B82F6'}}>
+                  <legend><GraduationCap size={14}/> Profesion *</legend>
+                  <SelectSGPCSinLegend                   
+                    value={form.idprofesion}
+                    onChange={(val:any) => setForm({...form, idprofesion: val})}
+                    options={profesiones.map(p=>({value:p.idprofesion, label:p.profesion}))}
+                  />
+                </fieldset>
+              
+                <fieldset className="fieldset-sgpc" style={{background: '#F5F3FF', borderLeft: '4px solid #8B5CF6'}}>
+                  <legend><Award size={14}/> Especialidad *</legend> 
+                    <SelectSGPCSinLegend                  
+                      value={form.idespecialidad}
+                      onChange={(val:any) => setForm({...form, idespecialidad: val})}
+                      options={especialidades.map(e=>({value:e.idespecialidad, label:e.especialidad}))}
+                    />
+                </fieldset>
               </div>
 
               <div className="grid-2-modal">
-                <SelectSGPCFieldset
-                  label="Condición *"
-                  value={form.condicion}
-                  onChange={(val:any) => setForm({...form, condicion: val})}
-                  options={[{value: "NOMBRADO", label: "NOMBRADO"}, {value: "CONTRATADO", label: "CONTRATADO"}]}
-                />
-                <SelectSGPCFieldset
-                  label="Tipo Docente *"
-                  value={form.tipodocente}
-                  onChange={(val:any) => setForm({...form, tipodocente: val})}
-                  options={[{value: "P", label: "Principal"}, {value: "A", label: "Asociado"}, {value: "X", label: "Auxiliar"}]}
-                />
+                <fieldset className="fieldset-sgpc" style={{background: '#F0FDF4', borderLeft: '4px solid #22C55E'}}>
+                  <legend><UserCheck size={14}/> Condición *</legend>
+                  <SelectSGPCSinLegend                    
+                    value={form.condicion}
+                    onChange={(val:any) => setForm({...form, condicion: val})}
+                    options={[{value: "NOMBRADO", label: "NOMBRADO"}, {value: "CONTRATADO", label: "CONTRATADO"}]}
+                  />
+                </fieldset>
+                <fieldset className="fieldset-sgpc" style={{background: '#F0FDF4', borderLeft: '4px solid #F59E0B'}}>
+                  <legend><UserX size={14}/> Tipo Docente *</legend>
+                  <SelectSGPCSinLegend                    
+                    value={form.tipodocente}
+                    onChange={(val:any) => setForm({...form, tipodocente: val})}
+                    options={[{value: "P", label: "Principal"}, {value: "A", label: "Asociado"}, {value: "X", label: "Auxiliar"}]}
+                  />
+                </fieldset>
               </div>
             </div>
 
             <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
-              <button className="btn-secundario-outline" onClick={() => setForm({idprofesion: null, idespecialidad: null, condicion: 'NOMBRADO', tipodocente: 'P'})}>
+              <button className="btn-secundario" onClick={() => setForm({idprofesion: null, idespecialidad: null, condicion: 'NOMBRADO', tipodocente: 'P'})}>
                 <Eraser size={18} /> Limpiar
               </button>
               <button className="btn-primario" onClick={handleGuardarEdit} disabled={!form.idprofesion ||!form.idespecialidad}>
@@ -565,7 +590,49 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
           </div>
         </div>
       )}
+      <style jsx>{`
 
+.modal-header { 
+  background: var(--color-primario); 
+  color: #fff; 
+  padding: 2rem 2.4rem; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border-radius: 1.2rem 1.2rem 0 0;
+}
+
+    .modal-content {
+  background: #f8fafc; /* gris clarito de fondo */
+  padding: 0;
+  border-radius: 1.2rem;
+  overflow: hidden; /* para que el header azul no se salga */
+}
+.modal-body {
+  background: #fff; /* blanco para los campos */
+  padding: 2.4rem;
+}
+  .modal-footer { 
+  padding: 1.6rem 2.4rem; 
+  border-top: 1px solid #e2e8f0; 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1.2rem;
+  background: #f8fafc;
+  border-radius: 0 0 1.2rem 1.2rem;
+}
+.btn-cerrar-modal { color: #fff; background: transparent; border: none; }
+    .grid-2-modal {
+        display: grid;
+        grid-template-columns: 1fr; /* mobil first: 1 columna */
+        gap: 1.6rem;
+      }
+      @media (min-width: 768px) {
+        .grid-2-modal {
+          grid-template-columns: 1fr 1fr; /* tablet/desktop: 2 columnas */
+        }
+      }
+  `}</style>
     </div>
   )
 }

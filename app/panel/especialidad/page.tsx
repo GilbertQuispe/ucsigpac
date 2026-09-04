@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Stethoscope, Eraser} from 'lucide-react'
+import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Stethoscope, Eraser, Save} from 'lucide-react'
 
 type Especialidad = {
   idespecialidad: number
@@ -184,18 +184,32 @@ export default function EspecialidadPage() {
 
       {showModal && (
         <div className="modal-overlay" onClick={handleClose}>
-          <div className="modal-content card-sgpc" style={{maxWidth: "50rem"}} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content card-sgpc" style={{maxWidth: '50rem', display: 'flex', flexDirection: 'column', padding: 0 }}  onClick={(e) => e.stopPropagation()}>
             {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
-            <div className="modal-header"><h2><Stethoscope size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar Especialidad" : "Nueva Especialidad"}</h2><button onClick={handleClose} className="btn-cerrar"><X size={20} /></button></div>
+            <div className="modal-header"><h2 style={{color: 'var(--color-texto-secundario)'}}><Stethoscope size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar Especialidad" : "Nueva Especialidad"}</h2><button onClick={handleClose} className="btn-cerrar-modal"><X size={20} /></button></div>
             <div className="modal-body">
               <div className="input-wrapper">
-                <label className="input-label">Nombre de Especialidad *</label>
-                <input className="input-sgpc-floating" placeholder="CARDIOLOGÍA" value={form.especialidad || ""} onChange={e => setForm({...form, especialidad: e.target.value })} maxLength={200} />
+
+                
+                {/* CARD ESPECIALIDAD */}
+              <div className="card-info-ejecutiva" style={{borderLeft: '4px solid #6366F1', background: '#EEF2FF'}}>
+                <Stethoscope size={20} color="#6366F1"/>
+                <div style={{flex: 1}}>
+                  <div className="card-info-label">Nombre de Especialidad *</div>
+                  
+                  <input 
+                  className="input-sin-borde" 
+                  placeholder="CARDIOLOGÍA"                   
+                  value={form.especialidad || ""} onChange={e => setForm({...form, especialidad: e.target.value })}
+                  maxLength={200} />
+                </div>
+              </div>
               </div>
             </div>
-            <div className="modal-footer">
+
+            <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
               <button className="btn-secundario" onClick={resetForm} type="button"><Eraser size={16} style={{marginRight: "0.5rem"}} />Limpiar</button>
-              <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>Guardar</button>
+              <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}> <Save size={18} />Guardar</button>
             </div>
           </div>
         </div>
@@ -209,6 +223,74 @@ export default function EspecialidadPage() {
         </div></div>
       )}
       <style jsx>{`
+       .input-sin-borde {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  font-weight: 700; /* Valor fuerte */
+  color: #1e293b; /* Nombre oscuro */
+  outline: none;
+  padding: 0;
+}
+  .input-sin-borde::placeholder {
+  font-weight: 400; /* Placeholder finito */
+  color: rgb(182, 199, 221); /* Gris suave */
+  opacity: 1;
+}
+.card-info-label {
+  font-size: 1.2rem;
+  color: #475569; /* Nombre oscuro */
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+    .card-info-ejecutiva {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 1.2rem 1.6rem;
+  border-radius: 0.8rem;
+}
+      .modal-header { 
+  background: var(--color-primario); 
+  color: #fff; 
+  padding: 2rem 2.4rem; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border-radius: 1.2rem 1.2rem 0 0;
+}
+
+    .modal-content {
+  background: #f8fafc; /* gris clarito de fondo */
+  padding: 0;
+  border-radius: 1.2rem;
+  overflow: hidden; /* para que el header azul no se salga */
+}
+.modal-body {
+  background: #fff; /* blanco para los campos */
+  padding: 2.4rem;
+}
+  .modal-footer { 
+  padding: 1.6rem 2.4rem; 
+  border-top: 1px solid #e2e8f0; 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1.2rem;
+  background: #f8fafc;
+  border-radius: 0 0 1.2rem 1.2rem;
+}
+.btn-cerrar-modal { color: #fff; background: transparent; border: none; }
+    .grid-2-modal {
+        display: grid;
+        grid-template-columns: 1fr; /* mobil first: 1 columna */
+        gap: 1.6rem;
+      }
+      @media (min-width: 768px) {
+        .grid-2-modal {
+          grid-template-columns: 1fr 1fr; /* tablet/desktop: 2 columnas */
+        }
+      }
   .btn-danger { background: #ef4444; color: white; }
   .btn-primario:disabled { opacity: 0.5; cursor: not-allowed; }
   

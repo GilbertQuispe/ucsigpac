@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Briefcase, Eraser} from 'lucide-react'
+import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Briefcase, Eraser, GraduationCap, Check, Save} from 'lucide-react'
 
 type Profesion = {
   idprofesion: number
@@ -183,18 +183,29 @@ export default function ProfesionPage() {
 
       {showModal && (
         <div className="modal-overlay" onClick={handleClose}>
-          <div className="modal-content card-sgpc" style={{maxWidth: "50rem"}} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-content card-sgpc" style={{maxWidth: '50rem', display: 'flex', flexDirection: 'column', padding: 0 }} onClick={(e) => e.stopPropagation()}>
             {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
-            <div className="modal-header"><h2><Briefcase size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar Profesión" : "Nueva Profesión"}</h2><button onClick={handleClose} className="btn-cerrar"><X size={20} /></button></div>
-            <div className="modal-body">
-              <div className="input-wrapper">
-                <label className="input-label">Nombre de Profesión *</label>
-                <input className="input-sgpc-floating" placeholder="MÉDICO CIRUJANO" value={form.profesion || ""} onChange={e => setForm({...form, profesion: e.target.value })} maxLength={200} />
+            <div className="modal-header"><h2 style={{color: 'var(--color-texto-secundario)'}}><GraduationCap size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar Profesión" : "Nueva Profesión"}</h2><button onClick={handleClose} className="btn-cerrar-modal"><X size={20} /></button></div>
+            <div className="modal-body">       
+            
+              {/* CARD PROFESION */}
+              <div className="card-info-ejecutiva" style={{borderLeft: '4px solid #6366F1', background: '#EEF2FF'}}>
+                <GraduationCap size={20} color="#6366F1"/>
+                <div style={{flex: 1}}>
+                  <div className="card-info-label">Nombre de Profesión *</div>
+                  
+                  <input 
+                  className="input-sin-borde" 
+                  placeholder="MÉDICO CIRUJANO" 
+                  value={form.profesion || ""} onChange={e => setForm({...form, profesion: e.target.value })} 
+                  maxLength={200} />
+                </div>
               </div>
+
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
               <button className="btn-secundario" onClick={resetForm} type="button"><Eraser size={16} style={{marginRight: "0.5rem"}} />Limpiar</button>
-              <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>Guardar</button>
+              <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}> <Save size={18} /> Guardar</button>
             </div>
           </div>
         </div>
@@ -209,6 +220,75 @@ export default function ProfesionPage() {
       )}
 
       <style jsx>{`
+      .input-sin-borde {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  font-weight: 700; /* Valor fuerte */
+  color: #1e293b; /* Nombre oscuro */
+  outline: none;
+  padding: 0;
+}
+  .input-sin-borde::placeholder {
+  font-weight: 400; /* Placeholder finito */
+  color: rgb(182, 199, 221); /* Gris suave */
+  opacity: 1;
+}
+.card-info-label {
+  font-size: 1.2rem;
+  color: #475569; /* Nombre oscuro */
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+    .card-info-ejecutiva {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 1.2rem 1.6rem;
+  border-radius: 0.8rem;
+}
+      .modal-header { 
+  background: var(--color-primario); 
+  color: #fff; 
+  padding: 2rem 2.4rem; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border-radius: 1.2rem 1.2rem 0 0;
+}
+
+    .modal-content {
+  background: #f8fafc; /* gris clarito de fondo */
+  padding: 0;
+  border-radius: 1.2rem;
+  overflow: hidden; /* para que el header azul no se salga */
+}
+.modal-body {
+  background: #fff; /* blanco para los campos */
+  padding: 2.4rem;
+}
+  .modal-footer { 
+  padding: 1.6rem 2.4rem; 
+  border-top: 1px solid #e2e8f0; 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1.2rem;
+  background: #f8fafc;
+  border-radius: 0 0 1.2rem 1.2rem;
+}
+.btn-cerrar-modal { color: #fff; background: transparent; border: none; }
+    .grid-2-modal {
+        display: grid;
+        grid-template-columns: 1fr; /* mobil first: 1 columna */
+        gap: 1.6rem;
+      }
+      @media (min-width: 768px) {
+        .grid-2-modal {
+          grid-template-columns: 1fr 1fr; /* tablet/desktop: 2 columnas */
+        }
+      }
+        
      .btn-danger { background: #ef4444; color: white; }
      .btn-primario:disabled { opacity: 0.5; cursor: not-allowed; }
      .btn-cerrar { background: #f1f5f9; border: none; border-radius: 0.8rem; padding: 0.8rem; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; }

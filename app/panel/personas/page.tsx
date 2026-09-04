@@ -4,6 +4,7 @@ import { createClient } from '@/lib/client'
 import { Plus, Edit, Trash2, X, Search, Upload, Phone, User, IdCard, Users, Shield, AlertTriangle, Check, Ban, ChevronLeft, ChevronRight, Eraser, Save } from 'lucide-react' // <- Agregue 2 iconos
 import * as XLSX from 'xlsx'
 import Select from 'react-select'
+import toast, { Toaster } from 'react-hot-toast' // NUEVO
 
 type Persona = {
   idpersona: number
@@ -73,25 +74,26 @@ export default function PersonasPage() {
   const [form, setForm] = useState<Partial<Persona>>({})
   const [search, setSearch] = useState('')
   const [filtroRol, setFiltroRol] = useState<number | null>(null) // NUEVO
-const [filtroSexo, setFiltroSexo] = useState('')
- const [totalRegistros, setTotalRegistros] = useState(0)
+  const [filtroSexo, setFiltroSexo] = useState('')
+  const [totalRegistros, setTotalRegistros] = useState(0)
   const [dniInputBloqueado, setDniInputBloqueado] = useState(true)
   const [camposBloqueados, setCamposBloqueados] = useState(true)
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  //const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
   const dniInputRef = useRef<HTMLInputElement>(null)
   const apellidosInputRef = useRef<HTMLInputElement>(null)
 
   const [previewData, setPreviewData] = useState<any[]>([])
   const [showPreviewModal, setShowPreviewModal] = useState(false)
 
+  const [filtroEstado, setFiltroEstado] = useState<string>('ACTIVO') // NUEVO: ACTIVO, ANULADO, TODOS
   // 1. NUEVOS ESTADOS PARA PAGINACION
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
 
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
-  }
+  // const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
+  //   setToast({ msg, type })
+  //   setTimeout(() => setToast(null), 3000)
+  // }
 
 const SelectSGPC = ({label, value, onChange, options, placeholder, isDisabled = false}:any) => {
   const selectedOption = options.find((o:any) => o.value === value) || null
@@ -143,27 +145,7 @@ const SelectSGPC = ({label, value, onChange, options, placeholder, isDisabled = 
   const toTitleCase = (str: string) =>
     str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
 
-//   const fetchPersonas = async () => {
-//     setLoading(true)
-//     const { data: personasData } = await supabase
-//     .from('persona')
-//     .select('*')
-//     .eq('estado', 'ACTIVO')
-//     .order('idpersona')
-//     const { data: rolesData } = await supabase.from('rol').select('idrol, nombrerol')
 
-//     const personasConRol = (personasData || []).map(p => ({
-//   ...p,
-//       rol: rolesData?.find(r => Number(r.idrol) === Number(p.idrol))
-//     }))
-
-//     setPersonas(personasConRol)
-//     setRoles(rolesData || [])
-//     console.log("PERSONAS:", personasConRol)
-// console.log("ROLES:", rolesData)
-//     setLoading(false)
-//     setPaginaActual(1) // <- Reinicia a pag 1 al recargar
-//   }
 const fetchPersonas = async () => {
   setLoading(true)
   const desde = (paginaActual - 1) * registrosPorPagina
@@ -173,7 +155,10 @@ const fetchPersonas = async () => {
   let query = supabase
     .from('persona')
     .select('*, rol(nombrerol)', { count: 'exact' }) // <-- JOIN directo
-    .eq('estado', 'ACTIVO')
+    //.eq('estado', 'ACTIVO')
+      if(filtroEstado !== 'TODOS') {
+        query = query.eq('estado', filtroEstado)
+      }
 
   if(search) {
     query = query.or(`dni.ilike.%${search}%,nombres.ilike.%${search}%,apellidos.ilike.%${search}%`)
@@ -186,7 +171,7 @@ const fetchPersonas = async () => {
     .range(desde, hasta)
 
   if(error) {
-    showToast(error.message, 'error')
+    toast.error(error.message)
     console.error(error)
   } else {
     setPersonas(data as Persona[] || []) // ya viene con rol
@@ -198,7 +183,8 @@ const fetchPersonas = async () => {
   setLoading(false)
 }
   //useEffect(() => { fetchPersonas() }, [])
-  useEffect(() => { fetchPersonas() }, [paginaActual, search, filtroSexo, filtroRol])
+  useEffect(() => { fetchPersonas() }, [paginaActual, search, filtroSexo, filtroRol, filtroEstado])
+  //useEffect(() => { fetchPersonas() }, [paginaActual, search, filtroSexo, filtroRol, filtroEstado]) // <-- AGREGAR filtroEstado
 
   const validarDNI = async (dniValue: string) => {
     if (!dniValue || dniValue.length!== 8) return
@@ -209,9 +195,9 @@ const fetchPersonas = async () => {
 
     if (data) {
       if(data.estado === 'ANULADO'){
-        showToast('Este DNI está ANULADO. Reactívelo primero', 'error')
+        toast.error('Este DNI está ANULADO. Reactívelo primero')
       } else {
-        showToast('Este Nro. De DNI ya está registrado', 'error')
+        toast.error('Este Nro. De DNI ya está registrado')
       }
       setDniInputBloqueado(false)
       setCamposBloqueados(true)
@@ -220,7 +206,7 @@ const fetchPersonas = async () => {
         dniInputRef.current?.focus()
       }, 1500)
     } else {
-      showToast('Nro. De DNI Nuevo', 'success')
+      toast.success('Nro. De DNI Nuevo')
       setDniInputBloqueado(true)
       setCamposBloqueados(false)
       setTimeout(() => {
@@ -259,29 +245,17 @@ const fetchPersonas = async () => {
       && (form.sexo === 'M' || form.sexo === 'F')
   }, [camposBloqueados, form])
 
-// const personasFiltradas = useMemo(() => {
-//   return personas.filter(p => {
-//     const matchSearch =
-//       p.dni.toLowerCase().includes(search.toLowerCase()) ||
-//       p.nombres.toLowerCase().includes(search.toLowerCase()) ||
-//       p.apellidos.toLowerCase().includes(search.toLowerCase())
-//     const matchSexo = filtroSexo? p.sexo === filtroSexo : true
-//     const matchRol = filtroRol? p.idrol === filtroRol : true // NUEVO
-//     return matchSearch && matchSexo && matchRol // ACTUALIZADO
-//   })
-// }, [personas, search, filtroSexo, filtroRol]) // ACTUALIZADO
-
   // 2. LOGICA DE PAGINACION
   //const totalPaginas = Math.ceil(personasFiltradas.length / registrosPorPagina)
   const indiceInicio = (paginaActual - 1) * registrosPorPagina
   const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina)
-const indiceFin = indiceInicio + registrosPorPagina
+  const indiceFin = indiceInicio + registrosPorPagina
   //const indiceFin = indiceInicio + registrosPorPagina
   //const personasPaginadas = personasFiltradas.slice(indiceInicio, indiceFin)
 
- useEffect(() => { // Reinicia pag al buscar/filtrar
+  useEffect(() => { // Reinicia pag al buscar/filtrar
   setPaginaActual(1)
-}, [search, filtroSexo, filtroRol]) // AGREGUE filtroRol
+  }, [search, filtroSexo, filtroRol, filtroEstado]) // AGREGUE filtroRol
 
   const handleSave = async () => {
     if (!puedeGuardar) return;
@@ -321,12 +295,12 @@ const indiceFin = indiceInicio + registrosPorPagina
         mensaje = 'Persona registrada correctamente';
       }
 
-      showToast(mensaje, 'success');
+      toast.success(mensaje);
       await fetchPersonas();
       closeModal();
 
     } catch (err: any) {
-      showToast(err.message || 'Error al guardar', 'error');
+      toast.error(err.message || 'Error al guardar');
     }
   }
 
@@ -344,22 +318,36 @@ const indiceFin = indiceInicio + registrosPorPagina
     .eq('idpersona', idAEliminar)
 
     if (error) {
-      showToast('Error al anular: ' + error.message, 'error')
+      toast.error('Error al anular: ' + error.message)
     } else {
-      showToast('Registro anulado correctamente', 'success')
+      toast.success('Registro anulado correctamente')
       fetchPersonas()
     }
     setShowConfirm(false)
     setIdAEliminar(null)
   }
 
-  const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleRestaurar = async (id: number) => {
+  const { error } = await supabase
+    .from('persona')
+    .update({ estado: 'ACTIVO' })
+    .eq('idpersona', id)
+
+  if (error) {
+    toast.error('Error al restaurar: ' + error.message)
+  } else {
+    toast.success('Persona restaurada correctamente')
+    fetchPersonas()
+  }
+}
+
+    const handleImportExcel = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-
+    setLoading(true)
     const reader = new FileReader()
     reader.onload = async (evt) => {
-      setLoading(true)
+      
       const bstr = evt.target?.result
       const wb = XLSX.read(bstr, { type: 'binary' })
       const ws = wb.Sheets[wb.SheetNames[0]]
@@ -416,6 +404,7 @@ const indiceFin = indiceInicio + registrosPorPagina
       setShowPreviewModal(true)
       setLoading(false)
     }
+    
     reader.readAsBinaryString(file)
     e.target.value = ''
   }
@@ -434,7 +423,7 @@ const indiceFin = indiceInicio + registrosPorPagina
       }))
 
     if (paraGrabar.length === 0) {
-      showToast('No hay registros válidos para importar', 'error')
+      toast.error('No hay registros válidos para importar')
       return
     }
 
@@ -443,15 +432,40 @@ const indiceFin = indiceInicio + registrosPorPagina
     setLoading(false)
 
     if (error) {
-      showToast('Error al importar: ' + error.message, 'error')
+      toast.error('Error al importar: ' + error.message)
       console.error(error)
     } else {
-      showToast(`Se importaron ${paraGrabar.length} personas correctamente`, 'success')
+      toast.success(`Se importaron ${paraGrabar.length} personas correctamente`)
       fetchPersonas()
     }
     setShowPreviewModal(false)
     setPreviewData([])
   }
+
+  const handleExportarErrores = () => {
+  const errores = previewData.filter(p => p.estado === 'error')
+  
+  if(errores.length === 0) {
+    toast.success('No hay registros con error para exportar')
+    return
+  }
+
+  const ws = XLSX.utils.json_to_sheet(errores.map(e => ({
+    FILA: e.fila,
+    DNI: e.dni,
+    APELLIDOS: e.apellidos,
+    NOMBRES: e.nombres,
+    SEXO: e.sexo,
+    ROL: roles.find(r=>r.idrol===e.idrol)?.nombrerol || 'Sin Rol',
+    MOTIVO: e.motivo
+  })))
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, "Errores")
+  XLSX.writeFile(wb, "Errores_Importacion_Personas.xlsx")
+  
+  toast.success(`Se exportaron ${errores.length} registros con error`)
+}
 
   const openModal = (persona?: Persona) => {
     if (persona) {
@@ -484,18 +498,36 @@ const indiceFin = indiceInicio + registrosPorPagina
     setCamposBloqueados(true);
   }
 
+  
   return (
+     <>
+      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
     <div>
       <div className="header-responsive">
         <div>
-          <h1>Registro de Personas</h1>
-          <p>Total: {totalRegistros} registros ACTIVOS</p>
+          <h1> <Users size={24} /> Registro de Personas</h1>
+          {/* <p>Total: {totalRegistros} registros ACTIVOS</p> */}
+          <p>Total: {totalRegistros} registros {filtroEstado === 'TODOS' ? '' : filtroEstado}</p>
         </div>
         <div style={{ display: 'flex', gap: '1.2rem' }}>
-          <label htmlFor="import-excel" className="btn-secundario" style={{ cursor: 'pointer' }}>
+          {/* <label htmlFor="import-excel" className="btn-secundario" style={{ cursor: 'pointer' }}>
             <Upload size={18} />
             Importar Excel
-          </label>
+          </label> */}
+          <button
+  type="button"
+  className="btn-secundario"
+  style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.8rem' }}
+  onClick={() => {
+    toast('Estructura del excel: DNI | APELLIDOS | NOMBRES | TELEFONO | SEXO | ROL',
+      { icon: 'ℹ️', duration: 6000 }
+    )
+    setTimeout(() => document.getElementById('import-excel')?.click(), 100)
+  }}
+>
+  <Upload size={18} />
+  Importar Excel
+</button>
           <input
             id="import-excel"
             type="file"
@@ -531,6 +563,16 @@ const indiceFin = indiceInicio + registrosPorPagina
       placeholder="Todos"
       options={roles.map(r => ({value: r.idrol, label: r.nombrerol}))}
     />
+    <SelectSGPCFieldset 
+  label="Estado"
+  value={filtroEstado || "ACTIVO"}
+  onChange={(val:any) => setFiltroEstado(val)}
+  options={[
+    {value: "ACTIVO", label: "ACTIVOS"},
+    {value: "ANULADO", label: "ANULADOS"},
+    {value: "TODOS", label: "Todos"}
+  ]}
+/>
 
     <div style={{ position: 'relative', width: "100%" }}>
       <Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5, zIndex: 1 }} />
@@ -545,7 +587,8 @@ const indiceFin = indiceInicio + registrosPorPagina
 
     <button 
       className="btn-secundario btn-limpiar" 
-      onClick={() => {setSearch(""); setFiltroSexo(null); setFiltroRol(null)}}
+      // onClick={() => {setSearch(""); setFiltroSexo(null); setFiltroRol(null)}}
+      onClick={() => {setSearch(""); setFiltroSexo(""); setFiltroRol(null); setFiltroEstado("ACTIVO")}}
     >
       <Eraser size={16} />Limpiar
     </button>
@@ -568,7 +611,21 @@ const indiceFin = indiceInicio + registrosPorPagina
               </tr>
             </thead>
             <tbody>
-              <>{personas.map((p, index) => (<tr key={p.idpersona} style={{ borderBottom: '1px solid var(--color-borde)' }}><td style={{ padding: '1rem', fontWeight: 600 }}>{indiceInicio + index + 1}</td><td style={{ padding: '1rem' }}>{p.dni}</td><td style={{ padding: '1rem' }}>{p.apellidos}</td><td style={{ padding: '1rem' }}>{p.nombres}</td><td style={{ padding: '1rem' }}>{p.telefono || '-'}</td><td style={{ padding: '1rem' }}>{p.sexo === 'M'? 'Masculino' : p.sexo === 'F'? 'Femenino' : '-'}</td><td style={{ padding: '1rem', fontWeight: 600 }}>{p.rol?.nombrerol || 'Sin Rol'}</td><td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}><button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button><button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button></td></tr>))}</>
+              <>{personas.map((p, index) => (<tr key={p.idpersona} style={{ borderBottom: '1px solid var(--color-borde)' }}><td style={{ padding: '1rem', fontWeight: 600 }}>{indiceInicio + index + 1}</td><td style={{ padding: '1rem' }}>{p.dni}</td><td style={{ padding: '1rem' }}>{p.apellidos}</td><td style={{ padding: '1rem' }}>{p.nombres}</td><td style={{ padding: '1rem' }}>{p.telefono || '-'}</td><td style={{ padding: '1rem' }}>{p.sexo === 'M'? 'Masculino' : p.sexo === 'F'? 'Femenino' : '-'}</td><td style={{ padding: '1rem', fontWeight: 600 }}>{p.rol?.nombrerol || 'Sin Rol'}</td>
+              {/* <td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}><button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button><button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button></td> */}
+              <td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}>
+  {p.estado === 'ACTIVO' ? (
+    <>
+      <button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button>
+      <button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button>
+    </>
+  ) : (
+    <>
+      <button className="btn-icon" style={{background: '#10b981', color: '#fff'}} onClick={() => handleRestaurar(p.idpersona)}><Check size={15} /></button>
+    </>
+  )}
+</td>
+              </tr>))}</>
             </tbody>
           </table>
         )}
@@ -608,148 +665,194 @@ const indiceFin = indiceInicio + registrosPorPagina
         </div>
       )}
 
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()}>
-            {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
-           <div className="modal-header">
-  <h2><User size={20} style={{marginRight: "0.8rem"}}/>{editing? 'Editar Persona' : 'Nueva Persona'}</h2>
-  <button onClick={closeModal} className="btn-cerrar-modal"><X size={20} /></button>
-   {/* <button onClick={() => setShowPreviewModal(false)} className="btn-cerrar-modal"><X size={20} /></button> */}
-</div>
-            <div className="modal-body">
-  <div className="grid-2">
-    <div className="input-wrapper">
-      <label className="input-label">DNI *</label>
-      <input 
-        ref={dniInputRef} 
-        className="input-sgpc-floating" 
-        placeholder="12345678" 
-        type="text" 
-        inputMode="numeric" 
-        value={form.dni || ''} 
-        onChange={e => handleDniChange(e.target.value)} 
-        onKeyDown={handleDniKeyDown} 
-        onBlur={() => validarDNI(form.dni || '')} 
-        maxLength={8} 
-        disabled={dniInputBloqueado} 
-      />
-    </div>
-    <div className="input-wrapper">
-      <label className="input-label">Apellidos *</label>
-      <input 
-        ref={apellidosInputRef} 
-        className="input-sgpc-floating" 
-        placeholder="Pérez García" 
-        value={form.apellidos || ''} 
-        onChange={e => setForm({...form, apellidos: e.target.value })} 
-        disabled={camposBloqueados} 
-        maxLength={200}
-      />
-    </div>
-    <div className="input-wrapper">
-      <label className="input-label">Nombres *</label>
-      <input 
-        className="input-sgpc-floating" 
-        placeholder="Juan Carlos" 
-        value={form.nombres || ''} 
-        onChange={e => setForm({...form, nombres: e.target.value })} 
-        disabled={camposBloqueados}
-        maxLength={200}
-      />
-    </div>
+{showModal && (
+  <div className="modal-overlay" >
+    <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '55rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden'}}>
+      
+      {/* HEADER AZUL EJECUTIVO */}
+      <div className="modal-header" style={{background: 'var(--color-primario)', color: '#fff', padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}>
+          <User size={22}/>{editing ? 'Editar Persona' : 'Nueva Persona'}
+        </h2>
+        <button onClick={closeModal} className="btn-cerrar-modal" style={{background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.8rem', borderRadius: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff'}}>
+          <X size={20} />
+        </button>
+      </div>
 
-    <SelectSGPC
-      label="Sexo *"
-      value={form.sexo || ""}
-      onChange={(val:any) => setForm({...form, sexo: val })}
-      placeholder="Seleccione"
-      options={[
-        {value: "M", label: "Masculino"},
-        {value: "F", label: "Femenino"}
-      ]}
-      isDisabled={camposBloqueados}
-    />
-  </div>
-
-<fieldset className="fieldset-sgpc">
-  <legend>Rol y contacto</legend>
-  
-  <div className="grid-2">
-    <SelectSGPC
-      label="Rol"
-      value={form.idrol || ""}
-      onChange={(val:any) => setForm({...form, idrol: val })}
-      placeholder="Seleccione Rol"
-      options={roles.map(r => ({value: r.idrol, label: r.nombrerol}))}
-      isDisabled={camposBloqueados}
-    />
-    <div className="input-wrapper">
-      <label className="input-label">Teléfono</label>
-      <input 
-        className="input-sgpc-floating" 
-        placeholder="987654321" 
-        value={form.telefono || ''} 
-        onChange={e => setForm({...form, telefono: e.target.value })} 
-        disabled={camposBloqueados}
-        maxLength={20}
-      />
-    </div>
-  </div>
-</fieldset>
-</div>
-
-<div className="modal-footer">
-  <button className="btn-secundario" onClick={() => {
-    setForm({ dni: '', nombres: '', apellidos: '', telefono: '', sexo: '', idrol: 4 });
-    setDniInputBloqueado(false);
-    setCamposBloqueados(true);
-    setTimeout(() => dniInputRef.current?.focus(), 100);
-  }}>
-    <Eraser size={16} style={{marginRight: "0.5rem"}} />Limpiar
-  </button>
-  <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}> <Save size={16} />
-    Guardar
-  </button>
-</div>
+      {/* BODY CON CARDS */}
+      <div className="modal-body" style={{padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem'}}>
+        
+        {/* CARD DNI */}
+        <div className="card-info-ejecutiva" style={{borderLeft: '4px solid #3B82F6', background: '#EFF6FF'}}>
+          <IdCard size={20} color="#3B82F6"/>
+          <div style={{flex: 1}}>
+            <div className="card-info-label">DNI *</div>
+            <input 
+              ref={dniInputRef} 
+              className="input-sin-borde"
+              placeholder="12345678" 
+              type="text" 
+              inputMode="numeric" 
+              value={form.dni || ''} 
+              onChange={e => handleDniChange(e.target.value)} 
+              onKeyDown={handleDniKeyDown} 
+              onBlur={() => validarDNI(form.dni || '')} 
+              maxLength={8} 
+              disabled={dniInputBloqueado} 
+            />
           </div>
         </div>
-      )}
 
-      {showConfirm && (
-        <div className="modal-overlay">
-          <div className="modal-content card-sgpc" style={{ maxWidth: '40rem' }}>
-            <div className="modal-header">
-              <h2><AlertTriangle size={20} style={{ marginRight: '0.8rem', color: '#f59e0b' }} />Confirmar Anulación</h2>
-              <button onClick={() => setShowConfirm(false)} className="btn-cerrar-modal"><X size={20} /></button>
-            </div>
-            <div className="modal-body">
-              <p style={{ textAlign: 'center', fontSize: 'var(--text-base)', color: 'var(--color-texto)' }}>
-                ¿Está seguro de ANULAR este registro? <br />
-                <span style={{ fontWeight: 600 }}>El registro no se borrará, solo se ocultará de la lista.</span>
-              </p>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-secundario" onClick={() => setShowConfirm(false)}>
-                Cancelar
-              </button>
-              <button className="btn-primario" style={{ background: '#f59e0b' }} onClick={confirmarEliminar}>
-                Anular
-              </button>
-            </div>
+        {/* CARD APELLIDOS */}
+        <div className="card-info-ejecutiva" style={{borderLeft: '4px solid #10B981', background: '#ECFDF5'}}>
+          <User size={20} color="#10B981"/>
+          <div style={{flex: 1}}>
+            <div className="card-info-label">Apellidos *</div>
+            <input 
+              ref={apellidosInputRef} 
+              className="input-sin-borde"
+              placeholder="Pérez García" 
+              value={form.apellidos || ''} 
+              onChange={e => setForm({...form, apellidos: e.target.value })} 
+              disabled={camposBloqueados} 
+              maxLength={200}
+            />
           </div>
         </div>
-      )}
 
-     {showPreviewModal && (
-  <div className="modal-overlay">
-    <div className="modal-content card-sgpc" style={{ maxWidth: '95rem', maxHeight: '90vh' }}>
-      <div className="modal-header">
-        <h2><Upload size={20} style={{marginRight: "0.8rem"}}/>Vista Previa de Importación</h2>
-        <button onClick={() => setShowPreviewModal(false)} className="btn-cerrar-modal"><X size={20} /></button>
+        {/* CARD NOMBRES */}
+        <div className="card-info-ejecutiva" style={{borderLeft: '4px solid #F59E0B', background: '#FFFBEB'}}>
+          <User size={20} color="#F59E0B"/>
+          <div style={{flex: 1}}>
+            <div className="card-info-label">Nombres *</div>
+            <input 
+              className="input-sin-borde"
+              placeholder="Juan Carlos" 
+              value={form.nombres || ''} 
+              onChange={e => setForm({...form, nombres: e.target.value })} 
+              disabled={camposBloqueados}
+              maxLength={200}
+            />
+          </div>
+        </div>
+
+        {/* CARD TELEFONO */}
+        <div className="card-info-ejecutiva" style={{borderLeft: '4px solid #6366F1', background: '#EEF2FF'}}>
+          <Phone size={20} color="#6366F1"/>
+          <div style={{flex: 1}}>
+            <div className="card-info-label">Teléfono</div>
+            <input 
+              className="input-sin-borde"
+              placeholder="987654321" 
+              value={form.telefono || ''} 
+              onChange={e => setForm({...form, telefono: e.target.value })} 
+              disabled={camposBloqueados}
+              maxLength={20}
+            />
+          </div>
+        </div>
+
+        {/* FIELDSET ROL Y SEXO */}
+        
+          
+          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem'}}>
+            <SelectSGPCFieldset
+              label="Sexo *"
+              value={form.sexo || ""}
+              onChange={(val:any) => setForm({...form, sexo: val })}
+              options={[{value: "M", label: "Masculino"},{value: "F", label: "Femenino"}]}
+            />
+            <SelectSGPCFieldset
+              label="Rol"
+              value={form.idrol || ""}
+              onChange={(val:any) => setForm({...form, idrol: val })}
+              options={roles.map(r => ({value: r.idrol, label: r.nombrerol}))}
+            />
+            {/* <SelectSGPCFieldset 
+              label="Estado"
+              value={filtroEstado || "ACTIVO"}
+              onChange={(val:any) => setFiltroEstado(val)}
+              options={[
+                {value: "ACTIVO", label: "Activos"},
+                {value: "ANULADO", label: "Inactivos/Anulados"},
+                {value: "TODOS", label: "Todos"}
+              ]}
+            /> */}
+          </div>
+        
+      </div>
+
+      {/* FOOTER BOTONES */}
+      <div className='modal-footer' style={{borderTop: '2px solid var(--color-primario)'}}>
+        <button className="btn-secundario" style={{flex:1, height: '4.8rem'}} onClick={() => {
+          setForm({ dni: '', nombres: '', apellidos: '', telefono: '', sexo: '', idrol: 4 });
+          setDniInputBloqueado(false);
+          setCamposBloqueados(true);
+          setTimeout(() => dniInputRef.current?.focus(), 100);
+        }}>
+          <Eraser size={16} />Limpiar
+        </button>
+        <button className="btn-primario" style={{flex:1, height: '4.8rem'}} onClick={handleSave} disabled={!puedeGuardar}> 
+          <Save size={16} /> Guardar
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{showConfirm && (
+  <div className="modal-overlay" onClick={() => setShowConfirm(false)}>
+    <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '45rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden' }}>
+      
+      {/* 1. HEADER AZUL */}
+      <div className="modal-header" style={{background: 'var(--color-primario)', color: '#fff', padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}>
+          <AlertTriangle size={22}/>Confirmar Anulación
+        </h2>
+        <button onClick={() => setShowConfirm(false)} className="btn-cerrar-modal" style={{background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.8rem', borderRadius: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff'}}>
+          <X size={20} />
+        </button>
+      </div>
+
+      {/* 2. BODY SIN CARD - SOLO TEXTO */}
+      <div className="modal-body" style={{padding: '3rem 2rem', textAlign: 'center'}}>
+        <p style={{fontSize: '1.6rem', fontWeight: 600, color: 'var(--color-texto)', margin: '0 0 0.8rem 0'}}>
+          ¿Está seguro de ANULAR este registro?
+        </p>
+        <p style={{fontSize: '1.4rem', color: 'var(--color-texto-secundario)', margin: 0, lineHeight: 1.5}}>
+          El registro no se borrará, solo se ocultará de la lista.
+        </p>
+      </div>
+
+      {/* 3. FOOTER BOTONES IGUALES */}
+      <div className="modal-footer" style={{display: 'flex', padding: '1.5rem 2rem', background: 'var(--color-fondo-card)', borderTop: '1px solid var(--color-borde)', gap: '1rem'}}>
+        <button className="btn-secundario" style={{flex:1, height: '4.8rem'}} onClick={() => setShowConfirm(false)}>
+          <X size={16} />Cancelar
+        </button>
+        <button className="btn-primario" style={{flex:1, height: '4.8rem', background: '#ef4444'}} onClick={confirmarEliminar}> 
+          <Trash2 size={16} /> Anular
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+{showPreviewModal && (
+  <div className="modal-overlay" onClick={() => setShowPreviewModal(false)}>
+    <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '95rem', maxHeight: '90vh', padding: '0', borderRadius: '1.2rem', overflow: 'hidden' }}>
+      
+      {/* HEADER AZUL EJECUTIVO */}
+      <div className="modal-header" style={{background: 'var(--color-primario)', color: '#fff', padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}>
+          <Upload size={22}/>Vista Previa de Importación
+        </h2>
+        <button onClick={() => setShowPreviewModal(false)} className="btn-cerrar-modal" style={{background: 'transparent', border: 'none', cursor: 'pointer', padding: '0.8rem', borderRadius: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff'}}>
+          <X size={20} />
+        </button>
       </div>
       
-      <div className="modal-body" style={{overflowY: 'auto'}}>
+      {/* BODY */}
+      <div className="modal-body" style={{overflowY: 'auto', padding: '2rem'}}>
         <p style={{fontSize: 'var(--text-sm)', marginBottom: '1.2rem'}}>
           Total: {previewData.length} registros. 
           <span style={{color: '#22C55E', fontWeight: 600}}> {previewData.filter(p=>p.estado==='ok').length} Correctos</span> / 
@@ -758,30 +861,19 @@ const indiceFin = indiceInicio + registrosPorPagina
         
         <div style={{overflowX: 'auto'}}>
           <table className="tabla-preview">
+            {/* Tu tabla igual */}
             <thead>
               <tr>
-                <th>FILA</th>
-                <th>DNI</th>
-                <th>APELLIDOS</th>
-                <th>NOMBRES</th>
-                <th>SEXO</th>
-                <th>ROL</th>
-                <th>ESTADO</th>
-                <th>OBSERVACIÓN</th>
+                <th>FILA</th><th>DNI</th><th>APELLIDOS</th><th>NOMBRES</th>
+                <th>SEXO</th><th>ROL</th><th>ESTADO</th><th>OBSERVACIÓN</th>
               </tr>
             </thead>
             <tbody>
               {previewData.map((p, i) => (
                 <tr key={i}>
-                  <td>{p.fila}</td>
-                  <td>{p.dni}</td>
-                  <td>{p.apellidos}</td>
-                  <td>{p.nombres}</td>
-                  <td>{p.sexo}</td>
-                  <td>{roles.find(r=>r.idrol===p.idrol)?.nombrerol || 'Sin Rol'}</td>
-                  <td className={p.estado}>
-                    {p.estado === 'ok' ? <Check size={16}/> : <X size={16}/>}
-                  </td>
+                  <td>{p.fila}</td><td>{p.dni}</td><td>{p.apellidos}</td><td>{p.nombres}</td>
+                  <td>{p.sexo}</td><td>{roles.find(r=>r.idrol===p.idrol)?.nombrerol || 'Sin Rol'}</td>
+                  <td className={p.estado}>{p.estado === 'ok' ? <Check size={16}/> : <X size={16}/>}</td>
                   <td className={p.estado}>{p.motivo || 'Correcto'}</td>
                 </tr>
               ))}
@@ -790,23 +882,39 @@ const indiceFin = indiceInicio + registrosPorPagina
         </div>
       </div>
 
-      <div className="modal-footer">
-        {/* <button className="btn-secundario" onClick={() => setShowPreviewModal(false)}>Cancelar</button> */}
-        <button style={{margin: '0rem 5rem'}}
+      {/* FOOTER: EXPORTAR + GRABAR */}
+      <div className="modal-footer" style={{display: 'flex', padding: '1.5rem 2rem', background: 'var(--color-fondo-card)', borderTop: '1px solid var(--color-borde)', gap: '1rem'}}>
+        <button 
+          className="btn-secundario" 
+          style={{flex:1, height: '4.8rem'}} 
+          onClick={handleExportarErrores}
+          disabled={previewData.filter(p=>p.estado==='error').length === 0}
+        >
+          <Upload size={16} />Exportar Errores
+        </button>
+        <button 
           className="btn-primario" 
+          style={{flex:1, height: '4.8rem'}}
           onClick={handleConfirmImport}
           disabled={previewData.filter(p=>p.estado==='ok').length === 0}
         >
           <Save size={18} /> Grabar {previewData.filter(p=>p.estado==='ok').length} Registros
         </button>
-        
       </div>
     </div>
   </div>
 )}
 
       <style jsx>{`
-
+ .modal-footer { 
+  padding: 1.6rem 2.4rem; 
+  border-top: 1px solid #e2e8f0; 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1.2rem;
+  background: #f8fafc;
+  border-radius: 0 0 1.2rem 1.2rem;
+}
  .btn-danger { background: #ef4444; color: white; }
  .btn-primario:disabled {
         opacity: 0.5;
@@ -1116,7 +1224,70 @@ const indiceFin = indiceInicio + registrosPorPagina
   white-space: normal; /* Para que baje de línea si es muy largo */
   word-break: break-word;
 }
+  .grid-2-modal-ejecutivo {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+.card-info-modal {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.2rem;
+  border-radius: 0.8rem;
+}
+@media (min-width: 768px) {
+  .grid-2-modal-ejecutivo {
+    grid-template-columns: 1fr 1fr; /* 2 columnas en desktop */
+  }
+}
+  .card-info-ejecutiva {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 1.2rem 1.6rem;
+  border-radius: 0.8rem;
+}
+.card-info-label {
+  font-size: 1.2rem;
+  color: #475569; /* Nombre oscuro */
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+.input-sin-borde {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  font-weight: 700; /* Valor fuerte */
+  color: #1e293b; /* Nombre oscuro */
+  outline: none;
+  padding: 0;
+}
+.input-sin-borde::placeholder {
+  font-weight: 400; /* Placeholder finito */
+  color: #94a3b8; /* Gris suave */
+  opacity: 1;
+}
+.input-sin-borde:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+.fieldset-ejecutivo {
+  border: 2px solid var(--color-borde);
+  border-radius: 0.8rem;
+  padding: 1.6rem;
+  margin-top: 0.5rem;
+}
+.fieldset-ejecutivo legend {
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--color-primario);
+  padding: 0 0.8rem;
+}
       `}</style>
     </div>
+    </>
   )
 }

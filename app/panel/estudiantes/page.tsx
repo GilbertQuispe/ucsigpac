@@ -4,6 +4,8 @@ import { createClient } from '@/lib/client'
 import { Plus, Edit, X, Search, Upload, Users, ChevronLeft, ChevronRight, Eraser, Check, UserX, UserCheck, GraduationCap, Save, Download } from 'lucide-react'
 import Select from 'react-select'
 import * as XLSX from 'xlsx' // <-- AGREGADO
+import toast from 'react-hot-toast' // AGREGAR
+import { Toaster } from 'react-hot-toast' // AGREGAR
 
 type Persona = { idpersona: number; dni: string; apellidos: string; nombres: string; telefono: string | null; sexo: 'M' | 'F' | null }
 type Estudiante = { idestudiante: number; idpersona: number; idcarrera: number | null; idfilial: number | null; estado: string | null; persona?: Persona; carrera?: { idcarrera: number; nombrecarrera: string; idfacultad: number | null; facultad?: {nombrefacultad: string} }; filial?: { idfilial: number; nombrefilial: string } }
@@ -21,33 +23,25 @@ const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
   )
 }
 
-// const SelectSGPCFieldset = ({label, value, onChange, options, isAsync = false, loadOptions, isDisabled = false}:any) => {
-//   const Component = isAsync? AsyncSelect : Select
-//   return (
-//     <fieldset className="fieldset-sgpc">
-//       <legend>{label}</legend>
-//       <Component
-//         options={isAsync? undefined : options}
-//         loadOptions={isAsync? loadOptions : undefined}
-//         defaultOptions={isAsync}
-//         cacheOptions={isAsync}
-//         value={value}
-//         onChange={onChange}
-//         isDisabled={isDisabled}
-//         placeholder="Seleccione..." isSearchable maxMenuHeight={200}
-//         classNamePrefix="react-select"
-//         menuPortalTarget={typeof document !== 'undefined' ? document.body : null} // <-- ESTO ES CLAVE
-//         menuPosition="fixed"
-//         styles={{ 
-//           //control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem' }), 
-//           control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), input: (base) => ({...base, margin: 0, padding: 0 }), indicatorsContainer: (base) => ({...base, height: '4.4rem' }), option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }),
-//           menuPortal: (base) => ({...base, zIndex: 99999 }), // <-- ESTO ES CLAVE
-//           menu: (base) => ({...base, zIndex: 9999 }) 
-//         }}
-//       />
-//     </fieldset>
-//   )
-// }
+const SelectSGPCSinLegend = ({value, onChange, options}:any) => {
+  const selectedOption = options.find((o:any) => o.value === value) || null
+  return (
+    <Select 
+      options={options} 
+      value={selectedOption} 
+      onChange={(opt:any) => onChange(opt?.value || null)} 
+      placeholder="Seleccione..." 
+      isSearchable 
+      classNamePrefix="react-select"
+      menuPortalTarget={typeof document !== 'undefined' ? document.body : null} // <-- CLAVE PARA MOBIL
+      menuPosition="fixed"
+      styles={{ 
+        control: (base) => ({...base, height: '4.4rem', border: '1px solid #cbd5e1', boxShadow: 'none', fontSize: '1.4rem' }), 
+        menuPortal: (base) => ({...base, zIndex: 99999 }) // <-- Para que no se corte
+      }} 
+    />
+  )
+}
 
 export default function EstudiantesPage() {
   const supabase = createClient()
@@ -69,7 +63,8 @@ export default function EstudiantesPage() {
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
   const [seleccionados, setSeleccionados] = useState<number[]>([])
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  //const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  
 
   const [showModal, setShowModal] = useState(false)
   const [showModalConvertir, setShowModalConvertir] = useState(false)
@@ -77,16 +72,27 @@ export default function EstudiantesPage() {
   const [estudianteEdit, setEstudianteEdit] = useState<Estudiante | null>(null)
   const [form, setForm] = useState({ idcarrera: null, idfilial: null, estado: 'ACTIVO' })
 
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+  
+  const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
+  if(type === 'success') toast.success(msg, { duration: 3000 })
+  else toast.error(msg, { duration: 3000 })
+}
   const [previewDataEst, setPreviewDataEst] = useState<any[]>([])
   const [showPreviewModalEst, setShowPreviewModalEst] = useState(false)
 
+// const handleClickImportar = () => {
+//   showToast('Formato requerido: DNI | Apellidos y Nombres | Carrera | Filial', 'success')
+//   // Después de 1 segundo le damos click automático al input
+//   setTimeout(() => {
+//     document.getElementById('import-estudiante')?.click()
+//   }, 1000)
+// }
 const handleClickImportar = () => {
-  showToast('Formato requerido: DNI | Apellidos y Nombres | Carrera | Filial', 'success')
-  // Después de 1 segundo le damos click automático al input
-  setTimeout(() => {
-    document.getElementById('import-estudiante')?.click()
-  }, 1000)
+  toast('Formato requerido: DNI | Apellidos y Nombres | Carrera | Filial', { 
+    icon: 'ℹ️', 
+    duration: 6000
+  })
+  setTimeout(() => document.getElementById('import-estudiante')?.click(), 100)
 }
 
   useEffect(() => { fetchData() }, [])
@@ -323,17 +329,9 @@ const toTitleCase = (str: string) =>
   const limpiarFiltros = () => { setSearch(""); setFiltroEstado(""); setFiltroCarrera(""); setFiltroFacultad(""); setFiltroFilial(""); setPaginaActual(1) }
 
   return (
-    <div className="main-content">
-      {toast && (
-        <div style={{
-          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999,
-          background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem',
-          borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.2)',
-          animation: 'fadeInOut 3s ease-in-out', whiteSpace: 'nowrap'
-        }}>
-          {toast.msg}
-        </div>
-      )}
+    <>
+      <Toaster position="top-right" toastOptions={{ duration: 4000 }} />
+    <div className="main-content">   
 
       <div className="header-responsive">
         <div><h1><GraduationCap size={24} style={{marginRight: '0.8rem'}}/>Gestión de Estudiantes</h1><p>Total: {datosFiltrados.length} registros</p></div>
@@ -384,7 +382,8 @@ const toTitleCase = (str: string) =>
       {showModalConvertir && (
         <div className="modal-overlay" onClick={() => setShowModalConvertir(false)}>
           <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '100rem', height: '85vh', display: 'flex', flexDirection: 'column', padding: 0 }}>
-            <div className="modal-header" style={{padding: '2rem 2.4rem', borderBottom: '1px solid #e2e8f0', flexShrink: 0}}>
+            {/* <div className="modal-header" style={{padding: '2rem 2.4rem', borderBottom: '1px solid #e2e8f0', flexShrink: 0}}> */}
+            <div className="modal-header">
               <h2><Users size={20} style={{marginRight: "0.8rem"}}/>Completar Datos de {formConvertirMasivo.length} Estudiantes</h2>
               <button onClick={() => setShowModalConvertir(false)} className="btn-cerrar-modal"><X size={20} /></button>
             </div>
@@ -419,21 +418,66 @@ const toTitleCase = (str: string) =>
       {/* MODAL EDITAR */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '70rem'}}>
-            <div className="modal-header" style={{borderBottom: '2px solid var(--color-primario)', paddingBottom: '1.2rem'}}>
-              <div><div style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}><Users size={18} color="var(--color-primario)" /><h2>Actualizar Datos del Estudiante</h2></div>{estudianteEdit && (<p style={{fontSize: 'var(--text-sm)', color: 'var(--color-texto-secundario)', marginTop: '0.4rem', fontWeight: 400}}>{estudianteEdit.persona?.apellidos}, {estudianteEdit.persona?.nombres} - DNI: {estudianteEdit.persona?.dni}</p>)}</div>
+          <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '50rem'}}>
+            {/* <div className="modal-header" style={{borderBottom: '2px solid var(--color-primario)', paddingBottom: '1.2rem'}}> */}
+            <div className="modal-header">
+              <div><div style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}><h2><GraduationCap size={18}/> Actualizar Datos del Estudiante</h2></div>{estudianteEdit && (<p style={{fontSize: 'var(--text-sm)', color: 'var(--color-texto-secundario)', marginTop: '0.4rem', fontWeight: 400}}>{estudianteEdit.persona?.apellidos}, {estudianteEdit.persona?.nombres} - DNI: {estudianteEdit.persona?.dni}</p>)}</div>
               <button onClick={() => setShowModal(false)} className="btn-cerrar-modal"><X size={18} /></button>
             </div>
-            <div className="modal-body">
+            {/* <div className="modal-body">
               <div className="grid-2-modal">
-                <SelectSGPCFieldset label="Carrera" value={form.idcarrera} onChange={(val:any) => setForm({...form, idcarrera: val})} options={carreras.map(c=>({value:c.idcarrera, label:c.nombrecarrera}))} />
-                <SelectSGPCFieldset label="Filial" value={form.idfilial} onChange={(val:any) => setForm({...form, idfilial: val})} options={filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))} />
+                <fieldset className="fieldset-sgpc" style={{borderLeft: '4px solid var(--color-primario)'}}>
+                  <legend><GraduationCap size={14}/> Carrera *</legend>      
+                  <SelectSGPCFieldset label="Carrera" value={form.idcarrera} onChange={(val:any) => setForm({...form, idcarrera: val})} options={carreras.map(c=>({value:c.idcarrera, label:c.nombrecarrera}))} />
+                </fieldset>
+                 <fieldset className="fieldset-sgpc" style={{borderLeft: '4px solid #8B5CF6'}}>
+                  <legend><Users size={14}/> Filial</legend>
+                  <SelectSGPCFieldset label="Filial" value={form.idfilial} onChange={(val:any) => setForm({...form, idfilial: val})} options={filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))} />
+                </fieldset>  
               </div>
-              <SelectSGPCFieldset label="Estado *" value={form.estado} onChange={(val:any) => setForm({...form, estado: val})} options={[{value: "ACTIVO", label: "ACTIVO"}, {value: "INACTIVO", label: "INACTIVO"}]} />
+              <fieldset className="fieldset-sgpc" style={{borderLeft: '4px solid #22C55E'}}>
+                <legend><Check size={14}/> Estado *</legend>
+                <SelectSGPCFieldset label="Estado *" value={form.estado} onChange={(val:any) => setForm({...form, estado: val})} options={[{value: "ACTIVO", label: "ACTIVO"}, {value: "INACTIVO", label: "INACTIVO"}]} />
+              </fieldset>  
+            </div> */}
+            <div className="modal-body" style={{background: '#fff', padding: '2.4rem'}}>
+              <div className="grid-1-modal">
+                
+                {/* CARD AZUL - CARRERA */}
+                <fieldset className="fieldset-sgpc" style={{background: '#EFF6FF', borderLeft: '4px solid #3B82F6'}}>
+                  <legend><GraduationCap size={14}/> Carrera *</legend>
+                  <SelectSGPCSinLegend 
+                    value={form.idcarrera} 
+                    onChange={(val:any) => setForm({...form, idcarrera: val})} 
+                    options={carreras.map(c=>({value:c.idcarrera, label:c.nombrecarrera}))} 
+                  />
+                </fieldset>
+                
+                {/* CARD MORADO - FILIAL */}
+                <fieldset className="fieldset-sgpc" style={{background: '#F5F3FF', borderLeft: '4px solid #8B5CF6'}}>
+                  <legend><Users size={14}/> Filial</legend>
+                  <SelectSGPCSinLegend 
+                    value={form.idfilial} 
+                    onChange={(val:any) => setForm({...form, idfilial: val})} 
+                    options={filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))} 
+                  />
+                </fieldset>
+              </div>
+
+              {/* CARD VERDE - ESTADO */}
+              <fieldset className="fieldset-sgpc" style={{background: '#F0FDF4', borderLeft: '4px solid #22C55E'}}>
+                <legend><Check size={14}/> Estado *</legend>
+                <SelectSGPCSinLegend 
+                  value={form.estado} 
+                  onChange={(val:any) => setForm({...form, estado: val})} 
+                  options={[{value: "ACTIVO", label: "ACTIVO"}, {value: "INACTIVO", label: "INACTIVO"}]} 
+                />
+              </fieldset>
             </div>
+            
             <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
-              <button className="btn-secundario-outline" onClick={() => setForm({idcarrera: null, idfilial: null, estado: 'ACTIVO'})}><Eraser size={18} /> Limpiar</button>
-              <button className="btn-primario" onClick={handleGuardarEdit}><Check size={18} /> Guardar</button>
+              <button className="btn-secundario" onClick={() => setForm({idcarrera: null, idfilial: null, estado: 'ACTIVO'})}><Eraser size={18} /> Limpiar</button>
+              <button className="btn-primario" onClick={handleGuardarEdit}><Save size={18} /> Guardar</button>
             </div>
           </div>
         </div>
@@ -443,7 +487,8 @@ const toTitleCase = (str: string) =>
       {showPreviewModalEst && (
         <div className="modal-overlay" onClick={() => setShowPreviewModalEst(false)}>
           <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '95rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
-            <div className="modal-header" style={{padding: '2rem 2.4rem', borderBottom: '1px solid #e2e8f0', flexShrink: 0}}>
+            {/* <div className="modal-header" style={{padding: '2rem 2.4rem', borderBottom: '1px solid #e2e8f0', flexShrink: 0}}> */}
+            <div className="modal-header">
               <h2><Upload size={20} style={{marginRight: "0.8rem"}}/>Vista Previa Importación Estudiantes</h2>
               <button onClick={() => setShowPreviewModalEst(false)} className="btn-cerrar-modal"><X size={20} /></button>
             </div>
@@ -517,6 +562,40 @@ const toTitleCase = (str: string) =>
       {/* ===== FIN: MODAL VISTA PREVIA IMPORTAR EXCEL ===== */}
 
       <style jsx>{`
+
+.modal-header { 
+  background: var(--color-primario); 
+  color: #fff; 
+  padding: 2rem 2.4rem; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border-radius: 1.2rem 1.2rem 0 0;
+}
+
+    .modal-content {
+  background: #f8fafc; /* gris clarito de fondo */
+  padding: 0;
+  border-radius: 1.2rem;
+  overflow: hidden; /* para que el header azul no se salga */
+}
+.modal-body {
+  background: #fff; /* blanco para los campos */
+  padding: 2.4rem;
+}
+.modal-header h2 { color: #fff; margin: 0; }
+.modal-header p { color: #dbeafe; margin: 0.4rem 0 0 0; }
+.btn-cerrar-modal { color: #fff; background: transparent; border: none; }
+
+.modal-footer { 
+  padding: 1.6rem 2.4rem; 
+  border-top: 1px solid #e2e8f0; 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1.2rem;
+  background: #f8fafc;
+  border-radius: 0 0 1.2rem 1.2rem;
+}
    .paginacion-footer {
       display: flex;
       justify-content: space-between;
@@ -572,6 +651,8 @@ const toTitleCase = (str: string) =>
       white-space: nowrap;
       color: var(--color-texto);
     }
+
+
     @media (max-width: 768px) {
      .paginacion-footer { flex-direction: column; padding: 1.2rem; }
      .paginacion-controles { width: 100%; justify-content: space-between; }
@@ -579,7 +660,19 @@ const toTitleCase = (str: string) =>
      .paginacion-pagina { padding: 0.6rem 0.8rem; font-size: 1.2rem; }
      .paginacion-info { text-align: center; width: 100%; }
     }
+
+    .grid-2-modal {
+        display: grid;
+        grid-template-columns: 1fr; /* mobil first: 1 columna */
+        gap: 1.6rem;
+      }
+      @media (min-width: 768px) {
+        .grid-2-modal {
+          grid-template-columns: 1fr 1fr; /* tablet/desktop: 2 columnas */
+        }
+      }
   `}</style>
     </div>
+    </>
   )
 }
