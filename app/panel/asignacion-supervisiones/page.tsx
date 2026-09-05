@@ -599,7 +599,8 @@ const handleAsignarMasivo = async () => {
   if(!periodo) return toast.error("Periodo no encontrado")
 
   const cargasUnicas = Array.from(new Map(eventos.map(e => [e.resource.cargaacademica.idcargaacad, e.resource.cargaacademica])).values())
-  if(cargasUnicas.length === 0) return toast.warning("No hay cargas para asignar")
+  //if(cargasUnicas.length === 0) return toast.warning("No hay cargas para asignar")
+  if(cargasUnicas.length === 0) return toast("No hay cargas para asignar", { icon: '⚠️' })
 
   const idsupervisor = Number(formAsignar.idsupervisor);
   const idcargaacadList = cargasUnicas.map(c => c.idcargaacad);
