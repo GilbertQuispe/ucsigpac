@@ -1,12 +1,13 @@
 {
-  "name": "ucsigpac",
+  "name": "sigpac",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "postinstall": "next telemetry disable"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.0",
@@ -35,15 +36,7 @@
     "tailwindcss": "^4",
     "typescript": "^5"
   },
-  "name": "sigpac",
-  "version": "0.1.0",  
-  "scripts": {
-  "dev": "next dev",
-  "build": "next build --no-typecheck --no-lint",
-  "start": "next start",
-  "postinstall": "next telemetry disable"
-},
-"overrides": {
-  "sharp": "npm:sharp@^0.32.6"
-}
+  "overrides": {
+    "sharp": "npm:sharp@^0.32.6"
+  }
 }
