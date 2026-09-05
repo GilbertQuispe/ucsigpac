@@ -348,8 +348,16 @@ const opcionesPeriodo = useMemo(() => {
 //   }, [dataFiltrada])
 
 useEffect(() => {
-    const dias = { 'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6 }
-    
+    //const dias = { 'LUNES':1,'MARTES':2,'MIERCOLES':3,'JUEVES':4,'VIERNES':5,'SABADO':6 }
+    const dias: Record<string, number> = {
+  LUNES: 1,
+  MARTES: 2,
+  MIERCOLES: 3,
+  JUEVES: 4,
+  VIERNES: 5,
+  SABADO: 6,
+  DOMINGO: 0
+}
     const eventosTemp = dataFiltrada
    .filter(h => h.cargaacademica)
    .map((h:any) => {
