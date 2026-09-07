@@ -9,6 +9,15 @@ type Docente = { iddocente: number; idpersona: number; condicion: string | null;
 type Profesion = { idprofesion: number; profesion: string }
 type Especialidad = { idespecialidad: number; especialidad: string }
 
+//Se agrega segun Vercel-
+type FormDocente = {
+  idprofesion: number | null
+  idespecialidad: number | null
+  condicion: string
+  tipodocente: string
+}
+//Fin del agregado
+
 const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
   const selectedOption = options.find((o:any) => o.value === value) || null
   return (
@@ -107,7 +116,8 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
 
   const [showModal, setShowModal] = useState(false)
   const [docenteEdit, setDocenteEdit] = useState<Docente | null>(null)
-  const [form, setForm] = useState({ idprofesion: null, idespecialidad: null, condicion: 'CONTRATADO', tipodocente: 'P' })
+  //Se cambia segun Vercel- const [form, setForm] = useState({ idprofesion: null, idespecialidad: null, condicion: 'CONTRATADO', tipodocente: 'P' })
+  const [form, setForm] = useState<FormDocente>({ idprofesion: null, idespecialidad: null, condicion: 'CONTRATADO', tipodocente: 'P' })
 
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
     setToast({ msg, type })
@@ -235,7 +245,8 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
       const apellidosExcel = row[1]?.toString().trim().toUpperCase() || ''
       const nombresExcel = row[2]?.toString().trim()
      .split(' ')
-     .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+     //Se cambia segun Vercel- .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+     .map((p: string) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
      .join(' ') || ''
       const personaEncontrada = mapaPersonas.get(dni)
 
