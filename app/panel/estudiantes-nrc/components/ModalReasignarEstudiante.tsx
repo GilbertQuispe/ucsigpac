@@ -89,7 +89,8 @@ const opciones = (cas || [])
   .filter(c => idsHorariod.includes(c.idhorariod)) // Solo del periodo
   .map(c => ({
     value: c.idcargaacad,
-    label: `NRC: ${c.nrc} - ${c.horariodocente?.campoclinico?.docente?.persona?.apellidos || 'SIN DOCENTE'}, ${c.horariodocente?.campoclinico?.docente?.persona?.nombres || ''}`,
+    //Cambio segun Vercel- label: `NRC: ${c.nrc} - ${c.horariodocente?.campoclinico?.docente?.persona?.apellidos || 'SIN DOCENTE'}, ${c.horariodocente?.campoclinico?.docente?.persona?.nombres || ''}`,
+    label: `NRC: ${c.nrc} - ${(c.horariodocente as any)?.campoclinico?.docente?.persona?.apellidos || 'SIN DOCENTE'}, ${(c.horariodocente as any)?.campoclinico?.docente?.persona?.nombres || ''}`,
     nrc: c.nrc
   }))
 
