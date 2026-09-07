@@ -223,7 +223,8 @@ const [dataParaHorario, setDataParaHorario] = useState<any>(null)
         supabase.from("departamento").select("iddepartamento, nombred").eq("estado", "ACTIVO").order("nombred"),
         supabase.from("provincia").select("idprovincia, nombrep, iddepartamento").eq("estado", "ACTIVO").order("nombrep"),
         supabase.from("distrito").select("iddistrito, nombredt, idprovincia").eq("estado", "ACTIVO").order("nombredt"),
-        supabase.from("eps").select("ideps, iddistrito").eq("estado","ACTIVO"),
+        //Cambio segun Vercel - supabase.from("eps").select("ideps, iddistrito").eq("estado","ACTIVO"),
+        supabase.from("eps").select("ideps, razonsocial, idtipoeps, ruc, iddistrito").eq("estado","ACTIVO"),
       ])
 
       setTiposEps(tipoRes.data || [])
@@ -353,17 +354,29 @@ const openModal = (campo: CampoClinico | null = null) => {
     }])
     
     // 2. DESPUES: Setear la cascada con un pequeño delay para que no resetee el key
+    //Segun Vercel- setTimeout(() => {
+    //   const idDist = campo.eps.iddistrito
+    //   setIdDistSel(idDist)
+      
+    //   const provDelDist = distritos.find(d => d.iddistrito === idDist)?.idprovincia || null
+    //   setIdProvSel(provDelDist)
+      
+    //   const deptoDeLaProv = provincias.find(p => p.idprovincia === provDelDist)?.iddepartamento || null
+    //   setIdDeptoSel(deptoDeLaProv)
+      
+    //   setIdTipoEpsSel(campo.eps.idtipoeps)
+    // }, 50)
     setTimeout(() => {
-      const idDist = campo.eps.iddistrito
+      const idDist = campo.eps?.iddistrito ?? null
       setIdDistSel(idDist)
       
-      const provDelDist = distritos.find(d => d.iddistrito === idDist)?.idprovincia || null
+      const provDelDist = idDist ? distritos.find(d => d.iddistrito === idDist)?.idprovincia ?? null : null
       setIdProvSel(provDelDist)
       
-      const deptoDeLaProv = provincias.find(p => p.idprovincia === provDelDist)?.iddepartamento || null
+      const deptoDeLaProv = provDelDist ? provincias.find(p => p.idprovincia === provDelDist)?.iddepartamento ?? null : null
       setIdDeptoSel(deptoDeLaProv)
       
-      setIdTipoEpsSel(campo.eps.idtipoeps)
+      setIdTipoEpsSel(campo.eps?.idtipoeps ?? null)
     }, 50)
   }
   
