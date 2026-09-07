@@ -16,9 +16,36 @@ type Eps = {
   estado: string | null
   idtipoeps: number | null
   distrito?: { nombredt: string, idprovincia: number, provincia?: { nombrep: string, iddepartamento: number, departamento?: { nombred: string } }}
+  //distrito?: { nombredt: string, idprovincia: number, provincia?: { nombrep: string, iddepartamento: number, departamento?: { nombred: string } }}[]
   nivelatencion?: { codigo: string | null, nombre: string } // 1. AGREGADO CODIGO
   tipoeps?: { nombretipoeps: string }
 }
+
+// type Eps = {
+//   ideps: number
+//   iddistrito: number | null
+//   idnivela: number | null
+//   ruc: string | null
+//   razonsocial: string | null
+//   direccion: string | null
+//   telefono: string | null
+//   contacto: string | null
+//   estado: string | null
+//   idtipoeps: number | null
+//   distrito?: { 
+//     nombredt: string
+//     idprovincia: number
+//     provincia?: { 
+//       nombrep: string
+//       iddepartamento: number
+//       departamento?: { nombred: string }[]
+//     }[]
+//   }[]
+//   nivelatencion?: { codigo: string | null, nombre: string }[]
+//   tipoeps?: { nombretipoeps: string }[]
+// }
+
+
 type Distrito = { iddistrito: number, nombredt: string, idprovincia: number }
 type Provincia = { idprovincia: number, nombrep: string, iddepartamento: number }
 type Departamento = { iddepartamento: number, nombred: string }
@@ -100,12 +127,19 @@ const fetchData = async () => {
   //     tipoeps!inner(nombretipoeps)
   //   `, { count: 'exact' })
 
-  .select(`
+.select(`
   ideps, ruc, razonsocial, direccion, telefono, contacto, estado, iddistrito, idnivela, idtipoeps,
   distrito!inner(nombredt,idprovincia,provincia!inner(nombrep,iddepartamento,departamento!inner(nombred))),
   nivelatencion!inner(codigo,nombre),
   tipoeps!inner(nombretipoeps)
 `, { count: 'exact' })
+// .select(`
+//   ideps, ruc, razonsocial, direccion, telefono, contacto, estado, iddistrito, idnivela, idtipoeps,
+//   distrito(nombredt,idprovincia,provincia(nombrep,iddepartamento,departamento(nombred))),
+//   nivelatencion(codigo,nombre),
+//   tipoeps(nombretipoeps)
+// `, { count: 'exact' })
+
   .eq('estado', 'ACTIVO')
 
   if(search) query = query.or(`razonsocial.ilike.%${search}%,ruc.ilike.%${search}%`)
@@ -136,7 +170,8 @@ const fetchData = async () => {
     setTipos(tipoData || [])
   }
 
-  setEps((epsData as Eps[]) || []); 
+  //cambio segun Vercel- setEps((epsData as Eps[]) || []); 
+  setEps((epsData as any) || []);
   await fetchDepartamentosDeEps()
   setTotalRegistros(count || 0)
   setLoading(false)
@@ -156,6 +191,17 @@ const fetchDepartamentosDeEps = async () => {
           )
         )
       `)
+//     const { data, error } = await supabase
+//  .from("eps")
+//  .select(`
+//     distrito(
+//       idprovincia,
+//       provincia(
+//         iddepartamento,
+//         departamento(iddepartamento, nombred)
+//       )
+//     )
+//   `)
       .eq("estado", "ACTIVO")
       .not("iddistrito", "is", null)
 
@@ -165,6 +211,7 @@ const fetchDepartamentosDeEps = async () => {
     const deptosMap = new Map()
     data?.forEach((eps: any) => {
       const depto = eps.distrito?.provincia?.departamento
+      //const depto = eps.distrito?.[0]?.provincia?.[0]?.departamento?.[0]
       if (depto) {
         deptosMap.set(depto.iddepartamento, {
           iddepartamento: depto.iddepartamento,
@@ -203,6 +250,7 @@ const fetchDepartamentosDeEps = async () => {
 const indiceInicio = (paginaActual - 1) * registrosPorPagina
 const indiceFin = indiceInicio + registrosPorPagina
   const epsPaginados = eps.slice(indiceInicio, indiceFin)
+  //const epsPaginados = eps
   useEffect(() => { setPaginaActual(1) }, [search, filtroDepto, filtroProv, filtroDist, filtroTipo]) // resetea a pág 1
 
 useEffect(() => { fetchData() }, [paginaActual, search, filtroDepto, filtroProv, filtroDist, filtroTipo]) // carga data
@@ -385,11 +433,19 @@ useEffect(() => { fetchData() }, [paginaActual, search, filtroDepto, filtroProv,
     <td style={{ fontWeight: 600 }}>{e.ruc}</td>
     <td>{e.razonsocial}</td>
     <td><span className="badge-nivel">{e.nivelatencion?.codigo || '-'}</span></td>
-    <td style={{ fontSize: "1.3rem" }}>{e.nivelatencion?.nombre || "-"}</td>
-    <td style={{ fontSize: "1.3rem" }}>{e.distrito?.provincia?.departamento?.nombred || "-"}</td>
+     <td style={{ fontSize: "1.3rem" }}>{e.nivelatencion?.nombre || "-"}</td>
+      <td style={{ fontSize: "1.3rem" }}>{e.distrito?.provincia?.departamento?.nombred || "-"}</td>
     <td style={{ fontSize: "1.3rem" }}>{e.distrito?.provincia?.nombrep || "-"}</td>
     <td style={{ fontSize: "1.3rem" }}>{e.distrito?.nombredt || "-"}</td>
     <td style={{ fontSize: "1.3rem" }}>{e.tipoeps?.nombretipoeps || "-"}</td>
+    
+    {/* <td><span className="badge-nivel">{e.nivelatencion?.[0]?.codigo || '-'}</span></td>
+    <td style={{ fontSize: "1.3rem" }}>{e.nivelatencion?.[0]?.nombre || "-"}</td>
+    <td style={{ fontSize: "1.3rem" }}>{e.distrito?.[0]?.provincia?.[0]?.departamento?.[0]?.nombred || "-"}</td>
+    <td style={{ fontSize: "1.3rem" }}>{e.distrito?.[0]?.provincia?.[0]?.nombrep || "-"}</td>
+    <td style={{ fontSize: "1.3rem" }}>{e.distrito?.[0]?.nombredt || "-"}</td>
+    <td style={{ fontSize: "1.3rem" }}>{e.tipoeps?.[0]?.nombretipoeps || "-"}</td> */}
+
     <td><span className={`chip-estado ${e.estado === "ACTIVO"? "chip-activo" : "chip-inactivo"}`}>{e.estado}</span></td>
     <td style={{ display: "flex", gap: "0.8rem" }}>
       <button className="btn-icon btn-icon-editar" onClick={() => openModal(e)}><Edit size={15} /></button>
