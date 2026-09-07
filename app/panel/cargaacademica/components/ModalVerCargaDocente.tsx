@@ -6,6 +6,12 @@ import ModalReasignarDocente from './ModalReasignarDocente' // <-- AGREGA ESTO
 
 const supabase = createClient()
 
+//Agregando segun Vercel-
+type DocenteType = {
+  especialidad: { especialidad: string } | null
+  profesion: { profesion: string } | null
+}
+
 const ModalVerCargaDocente = ({ show, onClose, carga, onAbrirAgregarEstudiante, setDataWizard2 }: any) => {
   const [loading, setLoading] = useState(false)
   const [horarios, setHorarios] = useState<any[]>([])
@@ -74,7 +80,9 @@ useEffect(() => {
         profesion(profesion)
       `)
     .eq('iddocente', iddocente)
-    .single()
+    //Se agregó segun Vercel-
+    .single<DocenteType>()
+    //Se quitó segun Vercel- .single()
     
     setEspecialidadDoc(data?.especialidad?.especialidad || data?.profesion?.profesion || 'S/ESPECIALIDAD')
   }

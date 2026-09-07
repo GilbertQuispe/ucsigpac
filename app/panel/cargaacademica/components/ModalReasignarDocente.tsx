@@ -63,9 +63,9 @@ const { data: ca } = await supabase.from('cargaacademica')
         periodoacademico(codigo,nombre), docente!inner(persona(apellidos,nombres)),
         eps(razonsocial)
       )
-    `).eq('nrc', carga.nrc).single<CaType>()
+    `).eq('idcargaacad', carga.idcargaacad).single<CaType>()
 
-
+//).eq('nrc', carga.nrc).single<CaType>()
     //Segun Vercel- if(!ca) { // <-- AGREGA ESTO
     //   showToast('No se encontró la carga académica', 'error')
     //   return
