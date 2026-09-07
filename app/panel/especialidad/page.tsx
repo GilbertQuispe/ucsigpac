@@ -53,7 +53,8 @@ export default function EspecialidadPage() {
   useEffect(() => { fetchData() }, [])
 
   const puedeGuardar = useMemo(() =>
-    form.especialidad?.trim().length > 3
+   //Cambio segun Vercel-  form.especialidad?.trim().length > 3
+  (form.especialidad ?? "").trim().length > 3
  , [form])
 
   const especialidadesFiltradas = useMemo(() => especialidades.filter(e => {
