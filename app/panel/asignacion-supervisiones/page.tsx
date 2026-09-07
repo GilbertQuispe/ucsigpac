@@ -888,7 +888,8 @@ const handleAsignarMasivo = async () => {
                     overflow: 'hidden'
                   }}
                 >
-                {event.title.split('\n').map((linea, i) => {
+                {/* {event.title.split('\n').map((linea, i) => { */}
+                {event.title.split('\n').map((linea: string, i: number) => {
   let estilo: React.CSSProperties = { fontSize: '1.1rem', lineHeight: '1.3' }
   
   //if(i === 0) estilo = { ...estilo, fontWeight: 700, color: '#004AAD' } // HORA - Azul y Negrita
