@@ -10,6 +10,30 @@ import ModalVerCargaDocente from './components/ModalVerCargaDocente' // <-- NUEV
 // NUEVO
 const DIAS_SEMANA = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO','DOMINGO']
 
+//Agreando tipado segun Vercel-
+
+type CarreraType = { nombrecarrera: string } | null
+type PlanType = { nombre: string } | null
+type AsignaturaType = {
+  idasignatura: number
+  codigo: string
+  nombre: string
+  carrera: CarreraType
+  planasignatura: PlanType
+}
+
+type PersonaType = { dni: string, apellidos: string, nombres: string }
+type DocenteCargaType = { iddocente: number, persona: PersonaType }
+type EpsType = { razonsocial: string, distrito: { nombredt: string }}
+type CampoClinicoType = {
+  idcampocli: number, idpa: number, iddocente: number,
+  periodoacademico: { idpa: number, codigo: string, nombre: string }
+  filial: { nombrefilial: string }, eps: EpsType,
+  docente: DocenteCargaType, serviciosalud: { nombre: string }
+}
+type HorarioDocenteType = { idhorariod: number, campoclinico: CampoClinicoType }
+// Termianndo tipado
+
 const calcularHoras = (inicio: string, fin: string) => {
   if(!inicio ||!fin) return 0
   const [h1, m1] = inicio.split(':').map(Number)
@@ -96,7 +120,8 @@ const loadAsignaturas = async (inputValue: string) => {
       query = query.or(`codigo.ilike.%${inputValue}%,nombre.ilike.%${inputValue}%`) // <-- BUSCA EN LOS 2
     }
 
-    const {data, error} = await query
+    //Cambiando segun Vercel- const {data, error} = await query
+    const {data, error} = await query.returns<AsignaturaType[]>()
     
     if(error) {
       console.error("Error loadAsignaturas:", error)
@@ -106,7 +131,8 @@ const loadAsignaturas = async (inputValue: string) => {
     return data?.map(a => ({
       value: a.idasignatura, 
       label: `${a.codigo} - ${a.nombre}`, 
-      carrera: a.carrera?.nombrecarrera, 
+      //Cambio segun Vercel- carrera: a.carrera?.nombrecarrera, 
+      carrera: (a.carrera as CarreraType)?.nombrecarrera,
       planacademico: a.planasignatura?.nombre
     })) || []
   }
@@ -133,14 +159,17 @@ const loadAsignaturas = async (inputValue: string) => {
  .eq('estado', 'ACTIVO')
  .eq('horariodocente.campoclinico.idpa', filtroPeriodo.value) // <-- Filtra por periodo de la carga
  .limit(200)
+ .returns<any[]>() // <-- Se agregó segun Vercel-
 
   if(error ||!data) return []
 
   const mapaDocentes = new Map()
   data.forEach(c => {
-    const id = c.horariodocente?.campoclinico?.docente?.iddocente
+    //Se cambio segun Vercel- const id = c.horariodocente?.campoclinico?.docente?.iddocente
+    const id = (c as any).horariodocente?.campoclinico?.docente?.iddocente
     if(id &&!mapaDocentes.has(id)) {
-      mapaDocentes.set(id, c.horariodocente)
+    //Se cambio segun Vercel-  mapaDocentes.set(id, c.horariodocente)
+    mapaDocentes.set(id, (c as any).horariodocente)
     }
   })
 
@@ -207,6 +236,7 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
   `)
   .eq('estado', 'ACTIVO')
   .limit(500)
+  .returns<any[]>() // <--Agregar segun Vercel-
 
   if(error || !data) return []
 
@@ -214,11 +244,13 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
   let filtrado = data
 
   if(filtroPeriodo?.value) {
-    filtrado = filtrado.filter(c => c.horariodocente?.campoclinico?.idpa === filtroPeriodo.value)
+    //Se quito segun Vercel- filtrado = filtrado.filter(c => c.horariodocente?.campoclinico?.idpa === filtroPeriodo.value)
+    filtrado = filtrado.filter(c => (c as any).horariodocente?.campoclinico?.idpa === filtroPeriodo.value)
   }
 
   if(docenteSel?.value) {
     filtrado = filtrado.filter(c => c.idhorariod === docenteSel.value)
+    //filtrado = filtrado.filter(c => (c as any).idhorariod === docenteSel.value) 
   }
 
   // 3. Filtrar por texto de búsqueda
@@ -287,6 +319,7 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
  .eq('campoclinico.idpa', form.idpa.value)
  .eq('campoclinico.estado', 'ACTIVO')
  .limit(200)
+ .returns<any[]>() // <-- Se agregón segun Vercel-
 
   if(error) return []
 
@@ -365,9 +398,10 @@ const loadCamposPorDocente = async (iddocente: number) => {
       idservicios,
       eps:ideps!inner(razonsocial, distrito:iddistrito!inner(nombredt)),
       serviciosalud:idservicios(nombre)
-    `)
+    `)    
     .eq('iddocente', iddocente)
     .eq('idpa', form.idpa.value)
+    .returns<any[]>() // <--Se agregó sun Vercel-
 
   //console.log("Respuesta cruda de BD:", data) // <-- ESTO
   //console.log("Error:", error)
@@ -579,8 +613,8 @@ camposDelDocente: [],
           <SelectSGPCFieldset 
   label="Filtrar por Periodo" 
   value={filtroPeriodo} 
-  onChange={(opt) => { setFiltroPeriodo(opt); setDocenteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} 
-  options={[{value: '', label: 'TODOS'},...periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))]} 
+  //Se quitó segun Vercel- onChange={(opt) => { setFiltroPeriodo(opt); setDocenteSel(null); setAsignaturaSel(null); setPaginaActual(1) }}   options={[{value: '', label: 'TODOS'},...periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))]} 
+  onChange={(opt: {value: string, label: string} | null) => { setFiltroPeriodo(opt); setDocenteSel(null); setAsignaturaSel(null); setPaginaActual(1) }}
 />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 2fr 1fr 1fr', gap: '1.2rem', alignItems: 'flex-end' }}>
@@ -694,7 +728,8 @@ camposDelDocente: [],
                       onChange={(opt:any) => setForm({...form, idpa: opt, idhorariod: null, docenteData: null})}
                       placeholder="Seleccione..."
                       isSearchable
-                      styles={{ control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', marginTop: '0.4rem' }), menu: (base) => ({...base, zIndex: 9999 }) }}
+                      //Cambio segun Vercel- styles={{ control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', marginTop: '0.4rem' }), menu: (base) => ({...base, zIndex: 9999 }) }}
+                      styles={{ control: (base: any, state: any) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', marginTop: '0.4rem' }), menu: (base:any) => ({...base, zIndex: 9999 }) }}
                     />
                    <SelectSGPCFieldset
   label="DNI + Docente *"
@@ -705,7 +740,8 @@ camposDelDocente: [],
     // Al elegir docente, cargamos todos sus campos
     if(opt?.iddocente){
       const campos = await loadCamposPorDocente(opt.iddocente)
-      setForm(prev => ({...prev, camposDelDocente: campos}))
+      //Cambio segun Vercel- setForm(prev => ({...prev, camposDelDocente: campos}))
+      setForm((prev: any) => ({...prev, camposDelDocente: campos}))
     }
   }}
   isAsync
@@ -722,7 +758,9 @@ camposDelDocente: [],
     // JALAMOS HORARIO LABORAL DE ESE CAMPO
     if(opt?.value){
       const {data: horLab} = await supabase.from('horariodocente').select('idhorariod').eq('idcampocli', opt.value).limit(1).single()
-      setForm(prev => ({...prev, idhorariod: {...prev.idhorariod, value: horLab?.idhorariod}}))
+      //Cambio segun Vercel- setForm(prev => ({...prev, idhorariod: {...prev.idhorariod, value: horLab?.idhorariod}}))
+      setForm((prev: any) => ({...prev, idhorariod: {...prev.idhorariod, value: horLab?.idhorariod}}))
+      //Si es que se rompe cambiamos por este: setForm((prev: any) => ({...prev, idhorariod: {...prev.idhorariod || {}, value: horLab?.idhorariod}}))
     }
   }}
   options={form.camposDelDocente}
