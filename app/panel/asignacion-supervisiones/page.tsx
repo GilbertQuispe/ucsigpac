@@ -725,10 +725,9 @@ const handleAsignarMasivo = async () => {
 </div>
       <div className="card-sgpc" style={{ padding: '2rem', marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', gap: '1.2rem', alignItems: 'end' }}>
 
-  <SelectSGPCFieldset label="Periodo Académico" options={opcionesPeriodo} value={filtroPeriodo} onChange={(val:string) => {setFiltroPeriodo(val); setFiltroFilial(''); setFiltroEps(''); setFiltroDocente('')}} disabled={loading}/>
+  {/* <SelectSGPCFieldset label="Periodo Académico" options={opcionesPeriodo} value={filtroPeriodo} onChange={(val:string) => {setFiltroPeriodo(val==='' ? '':Number(val)); setFiltroFilial(''); setFiltroEps(''); setFiltroDocente('')}} disabled={loading}/>
   <SelectSGPCFieldset label="Filial" options={opcionesFilial} value={filtroFilial} onChange={(val:string) => {setFiltroFilial(val); setFiltroEps(''); setFiltroDocente('')}} disabled={!filtroPeriodo}/>
-  <SelectSGPCFieldset label="EPS" options={opcionesEps} value={filtroEps} onChange={(val:string) => {setFiltroEps(val); setFiltroDocente('')}} disabled={!filtroFilial}/>
-  {/* <SelectSGPCFieldset label="DNI + Docente" options={opcionesDocente} value={filtroDocente} onChange={(val) => setFiltroDocente(val)} disabled={!filtroEps}/> */}
+  <SelectSGPCFieldset label="EPS" options={opcionesEps} value={filtroEps} onChange={(val:string) => {setFiltroEps(val); setFiltroDocente('')}} disabled={!filtroFilial}/>  
   <SelectSGPCFieldset 
   label="DNI + Docente" 
   options={opcionesDocente} 
@@ -736,7 +735,36 @@ const handleAsignarMasivo = async () => {
   onChange={setFiltroDocente} 
   disabled={!filtroEps}
   isMulti={true} // <-- CLAVE
-/>
+/> */}
+
+<SelectSGPCFieldset 
+  label="Periodo Académico" 
+  options={opcionesPeriodo} 
+  value={filtroPeriodo} 
+  onChange={(val:string) => {setFiltroPeriodo(val===''? '':Number(val)); setFiltroFilial(''); setFiltroEps(''); setFiltroDocente([])}} 
+  disabled={loading}/>
+
+<SelectSGPCFieldset 
+  label="Filial" 
+  options={opcionesFilial} 
+  value={filtroFilial} 
+  onChange={(val:string) => {setFiltroFilial(val===''? '':Number(val)); setFiltroEps(''); setFiltroDocente([])}} 
+  disabled={!filtroPeriodo}/>
+
+<SelectSGPCFieldset 
+  label="EPS" 
+  options={opcionesEps} 
+  value={filtroEps} 
+  onChange={(val:string) => {setFiltroEps(val===''? '':Number(val)); setFiltroDocente([])}} 
+  disabled={!filtroFilial}/>
+
+<SelectSGPCFieldset 
+  label="DNI + Docente" 
+  options={opcionesDocente} 
+  value={filtroDocente} 
+  onChange={(val:number[]) => setFiltroDocente(val)} 
+  disabled={!filtroEps}
+  isMulti={true}/>
 
 
 
@@ -744,7 +772,8 @@ const handleAsignarMasivo = async () => {
   <button
     className="btn-secundario"
     style={{height: '4.4rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem'}}
-    onClick={() => {setFiltroPeriodo(''); setFiltroFilial(''); setFiltroEps(''); setFiltroDocente('')}}
+    // onClick={() => {setFiltroPeriodo(''); setFiltroFilial(''); setFiltroEps(''); setFiltroDocente('')}}
+    onClick={() => {setFiltroPeriodo(''); setFiltroFilial(''); setFiltroEps(''); setFiltroDocente([])}}
   >
     <X size={16}/> Limpiar
   </button>
