@@ -64,7 +64,8 @@ export default function CarrerasPage() {
   useEffect(() => { fetchData() }, [])
 
   const puedeGuardar = useMemo(() =>
-    form.nombrecarrera?.trim().length > 3 && form.idfacultad
+    //Cambio segun Vercel- form.nombrecarrera?.trim().length > 3 && form.idfacultad
+   (form.nombrecarrera?.trim().length?? 0) > 3 &&!!form.idfacultad
 , [form])
 
   const carrerasFiltrados = useMemo(() => carreras.filter(c => {
