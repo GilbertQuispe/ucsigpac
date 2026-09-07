@@ -55,7 +55,8 @@ export default function FilialesPage() {
   useEffect(() => { fetchData() }, [])
 
   const puedeGuardar = useMemo(() =>
-    form.nombrefilial?.trim().length > 3
+    //Cambio segun Vercel- form.nombrefilial?.trim().length > 3
+  (form.nombrefilial?.trim() || '').length > 3
  , [form])
 
   const filialesFiltrados = useMemo(() => filiales.filter(f => {
