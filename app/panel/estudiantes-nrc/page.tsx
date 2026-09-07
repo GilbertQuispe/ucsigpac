@@ -111,7 +111,8 @@ const cargarFilialesDelPeriodo = async () => {
   if(error ||!data) { setFiliales([]); return }
 
   // Sacar filiales únicas
-  const idsFiliales = [...new Set(data.map(h => h.matricula?.estudiante?.idfilial).filter(Boolean))]
+  //Cabio segun Vercel- const idsFiliales = [...new Set(data.map(h => h.matricula?.estudiante?.idfilial).filter(Boolean))]
+  const idsFiliales = [...new Set((data as any[]).map(h => h.matricula?.estudiante?.idfilial).filter(Boolean))]
 
   if(idsFiliales.length === 0) { setFiliales([]); return }
 
@@ -148,6 +149,7 @@ const loadEstudiantes = async (inputValue: string) => {
     .eq('matricula.estado', 'MATRICULADO')
     .eq('matricula.idpa', idpa)
     .limit(2000)
+    .returns<any[]>() //Se agrego segun Vercel
 
   if(errH || !horarios) { console.log("ERROR HORARIO:", errH); return [] }
   // console.log("HORARIOS ENCONTRADOS:", horarios.length)
@@ -155,6 +157,7 @@ const loadEstudiantes = async (inputValue: string) => {
   // 2. Filtrar por filial y quitar duplicados
   const mapa = new Map()
   horarios.forEach(h => {
+  //(horarios as any[]).forEach(h => {
     const est = h.matricula?.estudiante
     if(!est) return
     if(idfilial && est.idfilial !== idfilial) return
@@ -212,6 +215,7 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
     .eq('matricula.estado', 'MATRICULADO')
     .eq('matricula.idpa', idpa)
     .limit(2000)
+    .returns<any[]>() //Se agrego Vercel
 
   if(error || !horarios) { console.log("ERROR ASIG:", error); return [] }
   // console.log("HORARIOS PARA ASIG:", horarios.length)
@@ -272,7 +276,7 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
   if(asignaturaSel?.value) query = query.eq('cargaacademica.idasignatura', asignaturaSel.value)
   if(searchNRC) query = query.ilike('cargaacademica.nrc', `%${searchNRC}%`)
 
-  const {data, count, error} = await query.order('idhorario', {ascending: false}).limit(1000) // Trae max 1000
+  const {data, count, error} = await query.order('idhorario', {ascending: false}).limit(1000).returns<any[]>() // Trae max 1000 Se agrego Segun Vercel
   
   if(error) { showToast(error.message, 'error') }
 
@@ -298,7 +302,8 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
 
   useEffect(() => { fetchData() }, [paginaActual, filtroPeriodo, filtroFilial, filtroEstado, estudianteSel, asignaturaSel, searchNRC])
 
-const handlePeriodoChange = (opt) => {
+//Cambio segun Vercel- const handlePeriodoChange = (opt) => {
+const handlePeriodoChange = (opt: any) => {
   setFiltroPeriodo(opt)
   setFiltroFilial({value: '', label: 'TODOS'}) // limpia
   setEstudianteSel(null)
@@ -356,14 +361,16 @@ const confirmarBaja = async () => {
 
       <div className="card-sgpc" style={{ marginBottom: '2.4rem', padding: '2rem' }}>
         <div className="grid-filtros-nrc">
-          <SelectSGPCFieldset label="Filtrar por Periodo" value={filtroPeriodo} onChange={(opt) => { setFiltroPeriodo(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))]} />
-             <SelectSGPCFieldset label="Filial" value={filtroFilial} onChange={(opt) => { setFiltroFilial(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))]} isDisabled={!filtroPeriodo?.value} />
-          {/* <SelectSGPCFieldset label="Estudiante" value={estudianteSel} onChange={(opt) => {setEstudianteSel(opt); setPaginaActual(1)}} isAsync loadOptions={loadEstudiantes}  /> */}
+          {/*Cambio segun Vercel- <SelectSGPCFieldset label="Filtrar por Periodo" value={filtroPeriodo} onChange={(opt) => { setFiltroPeriodo(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))]} /> */}
+          <SelectSGPCFieldset label="Filtrar por Periodo" value={filtroPeriodo} onChange={(opt: any) => { setFiltroPeriodo(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...periodos.map(p=>({value:p.idpa, label:`${p.codigo} - ${p.nombre}`}))]} />
+             {/*Cambio segun Vercel-  <SelectSGPCFieldset label="Filial" value={filtroFilial} onChange={(opt) => { setFiltroFilial(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))]} isDisabled={!filtroPeriodo?.value} /> */}
+          <SelectSGPCFieldset label="Filial" value={filtroFilial} onChange={(opt: any) => { setFiltroFilial(opt); setEstudianteSel(null); setAsignaturaSel(null); setPaginaActual(1) }} options={[{value: '', label: 'TODOS'},...filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))]} isDisabled={!filtroPeriodo?.value} />
           <SelectSGPCFieldset 
   key={`est-${filtroPeriodo?.value}-${filtroFilial?.value}`} // <-- AGREGA ESTO
   label="Estudiante" 
   value={estudianteSel} 
-  onChange={(opt) => {setEstudianteSel(opt); setPaginaActual(1)}} 
+  //Cambio segun Vercel-  onChange={(opt) => {setEstudianteSel(opt); setPaginaActual(1)}}
+  onChange={(opt: any) => {setEstudianteSel(opt); setPaginaActual(1)}} 
   isAsync 
   loadOptions={loadEstudiantes}  
 />
@@ -375,7 +382,8 @@ const confirmarBaja = async () => {
   isAsync
   loadOptions={loadAsignaturasFiltro}
 />
-<SelectSGPCFieldset label="Estado" value={filtroEstado} onChange={(opt)=>{setFiltroEstado(opt); setPaginaActual(1)}} options={[{value: 'ACTIVO', label: 'ACTIVO'}, {value: 'INACTIVO', label: 'INACTIVO'}, {value: '', label: 'TODOS'}]} />
+{/*Cambio segun Vercel- <SelectSGPCFieldset label="Estado" value={filtroEstado} onChange={(opt)=>{setFiltroEstado(opt); setPaginaActual(1)}} options={[{value: 'ACTIVO', label: 'ACTIVO'}, {value: 'INACTIVO', label: 'INACTIVO'}, {value: '', label: 'TODOS'}]} /> */}
+<SelectSGPCFieldset label="Estado" value={filtroEstado} onChange={(opt: any)=>{setFiltroEstado(opt); setPaginaActual(1)}} options={[{value: 'ACTIVO', label: 'ACTIVO'}, {value: 'INACTIVO', label: 'INACTIVO'}, {value: '', label: 'TODOS'}]} />
           <div><legend>Buscar NRC</legend><input className="input-sgpc" placeholder="Buscar NRC..." value={searchNRC} onChange={e => {setSearchNRC(e.target.value); setPaginaActual(1)}} style={{height: "4.4rem", width: '100%', marginTop: '0.4rem' }} /></div>
           <button className="btn-secundario btn-limpiar" onClick={limpiarFiltros} style={{height: '4.4rem'}}><Eraser size={16} />Limpiar</button>
         </div>
