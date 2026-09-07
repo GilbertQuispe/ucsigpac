@@ -61,7 +61,8 @@ export default function PeriodoPage() {
   useEffect(() => { fetchData() }, [])
 
   const puedeGuardar = useMemo(() =>
-    form.nombre?.trim().length > 3 &&
+    //Cambio segun Vercel- form.nombre?.trim().length > 3 &&
+  (form.nombre?.trim() || '').length > 3 &&
     form.fecha_inicio &&
     form.fecha_fin
 , [form])
