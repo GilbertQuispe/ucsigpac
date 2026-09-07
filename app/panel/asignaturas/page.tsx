@@ -6,8 +6,21 @@ import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, FileText, Era
 type Facultad = { idfacultad: number, nombrefacultad: string }
 type Carrera = { idcarrera: number, idfacultad: number, nombrecarrera: string }
 type Plan = { idplan: number, idcarrera: number, nombre: string }
+// type Asignatura = {
+//   idasignatura: number
+//   idcarrera: number | null
+//   idplan: number | null
+//   codigo: string | null
+//   nombre: string
+//   carrera?: Carrera & { facultad?: Facultad }
+//   planasignatura?: Plan
+// }
+
+// const FORM_INICIAL: Partial<Asignatura> = { idcarrera: null, idplan: null, codigo: "", nombre: "" }
+
 type Asignatura = {
   idasignatura: number
+  idfacultad?: number | null  // <- AGREGAR ESTA
   idcarrera: number | null
   idplan: number | null
   codigo: string | null
@@ -16,7 +29,7 @@ type Asignatura = {
   planasignatura?: Plan
 }
 
-const FORM_INICIAL: Partial<Asignatura> = { idcarrera: null, idplan: null, codigo: "", nombre: "" }
+const FORM_INICIAL: Partial<Asignatura> = { idfacultad: null, idcarrera: null, idplan: null, codigo: "", nombre: "" }
 
 export default function AsignaturasPage() {
   const supabase = createClient()
@@ -62,9 +75,16 @@ export default function AsignaturasPage() {
   const planesFiltrados = useMemo(() => planes.filter(p => p.idcarrera === form.idcarrera), [planes, form.idcarrera])
 
   // Selects dependientes del FILTRO
+  //const carrerasFiltro = useMemo(() => carreras.filter(c => c.idfacultad === filtroFacultad), [carreras, filtroFacultad])
   const carrerasFiltro = useMemo(() => carreras.filter(c => c.idfacultad === filtroFacultad), [carreras, filtroFacultad])
 
-  const puedeGuardar = useMemo(() => form.nombre?.trim().length > 3 && form.idcarrera && form.idplan, [form])
+  //const puedeGuardar = useMemo(() => form.nombre?.trim().length > 3 && form.idcarrera && form.idplan, [form])
+  const puedeGuardar = useMemo(() => {
+  const nombreOk = (form.nombre?.trim().length?? 0) > 3
+  const carreraOk =!!form.idcarrera
+  const planOk =!!form.idplan
+  return nombreOk && carreraOk && planOk
+}, [form.nombre, form.idcarrera, form.idplan])
 
  const asignaturasFiltrados = useMemo(() => asignaturas.filter(a => {
     const matchSearch = a.nombre?.toLowerCase().includes(search.toLowerCase()) ||
