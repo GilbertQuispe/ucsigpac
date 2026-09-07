@@ -151,18 +151,25 @@ const fetchMatriculas = async () => {
   }
 
   // 2. FILTRO DE BUSQUEDA EN MEMORIA - AQUI ESTA EL TRUCO
-  let dataFiltrada = data as Matricula[] || []
+  //Cambio segun Vercel- let dataFiltrada = data as Matricula[] || []
+  
+  let dataFiltrada = (data ?? [])
   
   if(search) {
     const termino = search.toLowerCase()
-    dataFiltrada = dataFiltrada.filter(m => 
-      m.estudiante?.persona?.dni.toLowerCase().includes(termino) ||
-      m.estudiante?.persona?.apellidos.toLowerCase().includes(termino) ||
-      m.estudiante?.persona?.nombres.toLowerCase().includes(termino)
+    //cambio segun Vercel- dataFiltrada = dataFiltrada.filter(m => 
+    dataFiltrada = dataFiltrada.filter((m: any) => 
+      // m.estudiante?.persona?.dni.toLowerCase().includes(termino) ||
+      // m.estudiante?.persona?.apellidos.toLowerCase().includes(termino) ||
+      // m.estudiante?.persona?.nombres.toLowerCase().includes(termino)
+m.estudiante?.persona?.dni?.toLowerCase().includes(termino) ||
+m.estudiante?.persona?.apellidos?.toLowerCase().includes(termino) ||
+m.estudiante?.persona?.nombres?.toLowerCase().includes(termino)
     )
   }
 
-  setMatriculas(dataFiltrada)
+  //Cambio segun Vercel- setMatriculas(dataFiltrada)
+  setMatriculas(dataFiltrada as any)
   setLoading(false)
   setSeleccionados([])
   setPaginaActual(1)
@@ -246,9 +253,12 @@ const handleImportMatricula = async (e: React.ChangeEvent<HTMLInputElement>) => 
       supabase.from('matricula').select('idestudiante, idpa')
     ])
 
-    const mapaDni = new Map(estudiantesFull?.map(e => [String(e.persona.dni).trim(), e.idestudiante]))
-    const mapaPeriodo = new Map(periodosDB?.map(p => [String(p.codigo).trim(), p.idpa]))
-    const matriculadosKey = new Set(matriculasDB?.map(m => `${m.idestudiante}-${m.idpa}`))
+    //Cambio segun Vercel-  const mapaDni = new Map(estudiantesFull?.map(e => [String(e.persona.dni).trim(), e.idestudiante]))      
+    // const mapaPeriodo = new Map(periodosDB?.map(p => [String(p.codigo).trim(), p.idpa]))
+    // const matriculadosKey = new Set(matriculasDB?.map(m => `${m.idestudiante}-${m.idpa}`))
+    const mapaDni = new Map((estudiantesFull ?? []).map((e: any) => [String(e.persona.dni).trim(), e.idestudiante]))
+    const mapaPeriodo = new Map((periodosDB ?? []).map((p: any) => [String(p.codigo).trim(), p.idpa]))
+  const matriculadosKey = new Set((matriculasDB ?? []).map((m: any) => `${m.idestudiante}-${m.idpa}`))
 
     const preview: any[] = []
     const paraInsertar: any[] = []
@@ -259,12 +269,16 @@ const handleImportMatricula = async (e: React.ChangeEvent<HTMLInputElement>) => 
       const nombreKey = keys.find(k => k.toLowerCase().includes('apellido') || k.toLowerCase().includes('nombre'))
       const periodoKey = keys.find(k => k.toLowerCase().includes('periodo'))
 
-      let dni = String(row[dniKey] || '').replace(/\D/g, '').padStart(8, '0')
-      const alumnoCompleto = String(row[nombreKey] || '')
+      //Cambio segun Vercel-  let dni = String(row[dniKey] || '').replace(/\D/g, '').padStart(8, '0')
+      let dni = String(row[dniKey?? ''] || '').replace(/\D/g, '').padStart(8, '0')
+      //Cambio segun Vercel-  const alumnoCompleto = String(row[nombreKey] || '')
+      const alumnoCompleto = String(row[nombreKey?? ''] || '')
+
       const [apellidosRaw, nombresRaw] = alumnoCompleto.split(',')
       const apellidos = apellidosRaw?.trim().toUpperCase() || ''
       const nombres = toTitleCase(nombresRaw?.trim() || '')
-      const codigoPeriodo = String(row[periodoKey] || '').trim()
+      //Cambio segun Vercel- const codigoPeriodo = String(row[periodoKey] || '').trim()
+      const codigoPeriodo = String(row[periodoKey?? ''] || '').trim()
 
       const idest = mapaDni.get(dni)
       const idpa = mapaPeriodo.get(codigoPeriodo)
