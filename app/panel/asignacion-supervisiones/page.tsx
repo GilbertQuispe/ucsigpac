@@ -725,9 +725,9 @@ const handleAsignarMasivo = async () => {
 </div>
       <div className="card-sgpc" style={{ padding: '2rem', marginBottom: '2rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(22rem, 1fr))', gap: '1.2rem', alignItems: 'end' }}>
 
-  <SelectSGPCFieldset label="Periodo Académico" options={opcionesPeriodo} value={filtroPeriodo} onChange={(val) => {setFiltroPeriodo(val); setFiltroFilial(''); setFiltroEps(''); setFiltroDocente('')}} disabled={loading}/>
-  <SelectSGPCFieldset label="Filial" options={opcionesFilial} value={filtroFilial} onChange={(val) => {setFiltroFilial(val); setFiltroEps(''); setFiltroDocente('')}} disabled={!filtroPeriodo}/>
-  <SelectSGPCFieldset label="EPS" options={opcionesEps} value={filtroEps} onChange={(val) => {setFiltroEps(val); setFiltroDocente('')}} disabled={!filtroFilial}/>
+  <SelectSGPCFieldset label="Periodo Académico" options={opcionesPeriodo} value={filtroPeriodo} onChange={(val:string) => {setFiltroPeriodo(val); setFiltroFilial(''); setFiltroEps(''); setFiltroDocente('')}} disabled={loading}/>
+  <SelectSGPCFieldset label="Filial" options={opcionesFilial} value={filtroFilial} onChange={(val:string) => {setFiltroFilial(val); setFiltroEps(''); setFiltroDocente('')}} disabled={!filtroPeriodo}/>
+  <SelectSGPCFieldset label="EPS" options={opcionesEps} value={filtroEps} onChange={(val:string) => {setFiltroEps(val); setFiltroDocente('')}} disabled={!filtroFilial}/>
   {/* <SelectSGPCFieldset label="DNI + Docente" options={opcionesDocente} value={filtroDocente} onChange={(val) => setFiltroDocente(val)} disabled={!filtroEps}/> */}
   <SelectSGPCFieldset 
   label="DNI + Docente" 
