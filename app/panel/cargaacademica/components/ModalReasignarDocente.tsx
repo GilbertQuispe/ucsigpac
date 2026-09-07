@@ -54,7 +54,16 @@ type CaType = {
 }
 
 const { data: ca } = await supabase.from('cargaacademica')
-   .select(`...`).eq('nrc', carga.nrc).single<CaType>() // <-- AGREGA <CaType>
+  // .select(`...`).eq('nrc', carga.nrc).single<CaType>() // <-- AGREGA <CaType>
+  .select(`
+      idcargaacad, nrc, idasignatura, idcampocli,
+      asignatura(nombre),
+      campoclinico!inner(
+        idcampocli, ideps, idfilial, idpa, iddocente,
+        periodoacademico(codigo,nombre), docente!inner(persona(apellidos,nombres)),
+        eps(razonsocial)
+      )
+    `).eq('nrc', carga.nrc).single<CaType>()
 
 
     //Segun Vercel- if(!ca) { // <-- AGREGA ESTO
