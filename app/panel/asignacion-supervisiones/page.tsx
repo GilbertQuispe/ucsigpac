@@ -620,7 +620,7 @@ const handleAsignarMasivo = async () => {
   const cargasOmitidas = cargasUnicas.filter(c => idsYaAsignados.has(c.idcargaacad));
 
   if(cargasParaAsignar.length === 0) {
-    return toast.warning(`Ningún NRC seleccionado está vacío. ${cargasOmitidas.length} ya tenían supervisor`);
+    return toast.error(`Ningún NRC seleccionado está vacío. ${cargasOmitidas.length} ya tenían supervisor`);
   }
 
   // === CLAVE 2: FILTRAR EVENTOS SOLO DE LOS NRC VACIOS ===
