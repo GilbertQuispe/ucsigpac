@@ -68,7 +68,9 @@ export default function FichaPage() {
   useEffect(() => { fetchData() }, [])
 
   const puedeGuardar = useMemo(() =>
-    form.idpa && form.tipoactor && form.item?.trim().length > 3
+    //Cambio segun Vercel- form.idpa && form.tipoactor && form.item?.trim().length > 3
+  form.idpa && form.tipoactor && (form.item?.trim() || '').length > 3
+  
 , [form])
 
   const fichasFiltrados = useMemo(() => fichas.filter(f => {
@@ -180,7 +182,8 @@ export default function FichaPage() {
         <div style={{ display: "flex", gap: "1.6rem", flexWrap: "wrap" }}>
           <div className="input-wrapper" style={{flex: 1, minWidth: "18rem"}}>
             <label className="input-label">Periodo Académico</label>
-            <select className="input-sgpc-floating" value={filtroPeriodo} onChange={e => setFiltroPeriodo(e.target.value)}>
+            {/*Cambio segun Vercel- <select className="input-sgpc-floating" value={filtroPeriodo} onChange={e => setFiltroPeriodo(e.target.value)}> */}
+            <select className="input-sgpc-floating" value={filtroPeriodo} onChange={e => setFiltroPeriodo(e.target.value ? Number(e.target.value) : '')}>
               <option value="">-- TODOS --</option>
               {periodos.map(p => <option key={p.idpa} value={p.idpa}>{p.nombre}</option>)}
             </select>
