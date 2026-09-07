@@ -13,7 +13,14 @@ import toast, { Toaster } from 'react-hot-toast'
 
 moment.locale('es') 
 const localizer = momentLocalizer(moment)
-const ESTADO_COLORES: any = { null: { bg: '#fff', border: '#cbd5e1', text: '#000' }, 'PROGRAMADO': { bg: '#3B82F6', border: '#2563EB', text: '#fff' }, 'EN_PROCESO': { bg: '#F59E0B', border: '#D97706', text: '#fff' }, 'SUPERVISADO': { bg: '#22C55E', border: '#16A34A', text: '#fff' } }
+//const ESTADO_COLORES: any = { null: { bg: '#fff', border: '#cbd5e1', text: '#000' }, 'PROGRAMADO': { bg: '#3B82F6', border: '#2563EB', text: '#fff' }, 'EN_PROCESO': { bg: '#F59E0B', border: '#D97706', text: '#fff' }, 'SUPERVISADO': { bg: '#22C55E', border: '#16A34A', text: '#fff' } }
+type EstadoColor = { bg: string, border: string, text: string }
+const ESTADO_COLORES: Record<string, EstadoColor> = { 
+  null: { bg: '#fff', border: '#cbd5e1', text: '#000' }, 
+  'PROGRAMADO': { bg: '#3B82F6', border: '#2563EB', text: '#fff' }, 
+  'EN_PROCESO': { bg: '#F59E0B', border: '#D97706', text: '#fff' }, 
+  'SUPERVISADO': { bg: '#22C55E', border: '#16A34A', text: '#fff' } 
+}
 
 const SelectSGPCFieldset = ({label, value, onChange, options, disabled, isMulti = false}:any) => {
   const selectedOption = isMulti 
