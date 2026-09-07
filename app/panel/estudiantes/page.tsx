@@ -70,8 +70,8 @@ export default function EstudiantesPage() {
   const [showModalConvertir, setShowModalConvertir] = useState(false)
   const [formConvertirMasivo, setFormConvertirMasivo] = useState<any[]>([])
   const [estudianteEdit, setEstudianteEdit] = useState<Estudiante | null>(null)
-  const [form, setForm] = useState({ idcarrera: null, idfilial: null, estado: 'ACTIVO' })
-
+  //Cambio segun Vercel- const [form, setForm] = useState({ idcarrera: null, idfilial: null, estado: 'ACTIVO' })
+const [form, setForm] = useState<{idcarrera: number | null, idfilial: number | null, estado: string}>({ idcarrera: null, idfilial: null, estado: 'ACTIVO' })
   
   const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
   if(type === 'success') toast.success(msg, { duration: 3000 })
@@ -163,7 +163,16 @@ const handleClickImportar = () => {
     else { showToast(`Estudiante ${nuevoEstado.toLowerCase()}`, 'success'); fetchData() }
   }
 
-  const openEditModal = (d: Estudiante) => { setEstudianteEdit(d); setForm({ idcarrera: d.idcarrera, idfilial: d.idfilial, estado: d.estado || 'ACTIVO' }); setShowModal(true) }
+ //Cambio segun Vercel- const openEditModal = (d: Estudiante) => { setEstudianteEdit(d); setForm({ idcarrera: d.idcarrera, idfilial: d.idfilial, estado: d.estado || 'ACTIVO' }); setShowModal(true) }
+  const openEditModal = (d: Estudiante) => { 
+  setEstudianteEdit(d); 
+  setForm({ 
+    idcarrera: d.idcarrera ?? null, 
+    idfilial: d.idfilial ?? null, 
+    estado: d.estado || 'ACTIVO' 
+  }); 
+  setShowModal(true) 
+}
   const handleGuardarEdit = async () => {
     if(!estudianteEdit) return
     const {error} = await supabase.from('estudiante').update(form).eq('idestudiante', estudianteEdit.idestudiante)
