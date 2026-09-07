@@ -55,7 +55,9 @@ export default function FacultadesPage() {
   useEffect(() => { fetchData() }, [])
 
   const puedeGuardar = useMemo(() =>
-    form.nombrefacultad?.trim().length > 3
+    //Cambio segun Vercel- form.nombrefacultad?.trim().length > 3
+  (form.nombrefacultad?.trim() || '').length > 3
+
 , [form])
 
   const facultadesFiltrados = useMemo(() => facultades.filter(f => {
