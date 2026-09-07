@@ -144,7 +144,8 @@ useEffect(() => {
       .eq('idcargaacad', dataWizard1.idcargaacad)
       .single()
 
-      if(validaCampo?.horariodocente?.idcampocli !== idcampocli) {
+      //Cambio segun Vercel- if(validaCampo?.horariodocente?.idcampocli !== idcampocli) {
+      if(validaCampo?.horariodocente?.[0]?.idcampocli!== idcampocli) {
         horDocValido = []
         setHorariosDocente([])
         setTotalDocente(0)
