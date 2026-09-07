@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { X, Save, ArrowRight, UserCheck } from 'lucide-react'
 import { createClient } from '@/lib/client'
 import Select from 'react-select'
+import toast, { Toaster } from 'react-hot-toast' // <-- AGREGA ESTA LINEA
 
 const supabase = createClient()
 
@@ -12,8 +13,8 @@ const ModalReasignarDocente = ({ show, onClose, carga, onReasignado }: any) => {
   const [docenteSeleccionado, setDocenteSeleccionado] = useState<any>(null)
   const [motivo, setMotivo] = useState('')
   const [dataActual, setDataActual] = useState<any>(null)
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+  //const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  //const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
   const normalizarHora = (h: string) => h?.slice(0,5) || ''
 
@@ -22,19 +23,51 @@ useEffect(() => {
     if(!show ||!carga?.nrc) return
     setLoading(true); setDocentesDisponibles([]); setDocenteSeleccionado(null)
 
-    // 1. DATOS ACTUALES + HORARIOS ORIGEN
-    const { data: ca } = await supabase.from('cargaacademica')
-   .select(`
-        idcargaacad, nrc, idasignatura, idcampocli,
-        asignatura(nombre),
-        campoclinico!inner(
-          idcampocli, ideps, idfilial, idpa, iddocente,
-          periodoacademico(codigo,nombre), docente!inner(persona(apellidos,nombres)),
-          eps(razonsocial)
-        )
-      `)
-   .eq('nrc', carga.nrc).single()
-    
+    // Cambio segun Vercel - 1. DATOS ACTUALES + HORARIOS ORIGEN
+  //   const { data: ca } = await supabase.from('cargaacademica')
+  //  .select(`
+  //       idcargaacad, nrc, idasignatura, idcampocli,
+  //       asignatura(nombre),
+  //       campoclinico!inner(
+  //         idcampocli, ideps, idfilial, idpa, iddocente,
+  //         periodoacademico(codigo,nombre), docente!inner(persona(apellidos,nombres)),
+  //         eps(razonsocial)
+  //       )
+  //     `)
+  //  .eq('nrc', carga.nrc).single()
+type CaType = {
+  idcargaacad: number
+  nrc: string
+  idasignatura: number
+  idcampocli: number
+  asignatura: { nombre: string }
+  campoclinico: {
+    idcampocli: number
+    ideps: number
+    idfilial: number
+    idpa: number
+    iddocente: number
+    periodoacademico: { codigo: string, nombre: string }
+    docente: { persona: { apellidos: string, nombres: string } }
+    eps: { razonsocial: string }
+  }
+}
+
+const { data: ca } = await supabase.from('cargaacademica')
+   .select(`...`).eq('nrc', carga.nrc).single<CaType>() // <-- AGREGA <CaType>
+
+
+    //Segun Vercel- if(!ca) { // <-- AGREGA ESTO
+    //   showToast('No se encontró la carga académica', 'error')
+    //   return
+    // }
+      if(!ca || !ca.campoclinico) { // <-- CAMBIA A ESTO
+        toast.error('No se encontró la carga académica')
+        setLoading(false) // <-- AGREGA ESTO
+        return
+      }
+   
+
     const { data: horariosOrigen } = await supabase.from('horariodocente').select('dia_semana, hora_inicio, hora_fin').eq('idcampocli', ca.idcampocli)
     const { count: totalOrigen } = await supabase.from('horario').select('idhorario', {count: 'exact', head: true}).eq('idcargaacad', ca.idcargaacad).eq('estado', 'ACTIVO')
     setDataActual({...ca, total_estudiantes: totalOrigen || 0, horarios: horariosOrigen || []})
@@ -42,11 +75,18 @@ useEffect(() => {
     // 2. ARRAY ORIGEN PARA COMPARAR = TU "datos_arellano"
     const horariosRequeridos = (horariosOrigen || []).map((h:any) => `${h.dia_semana}|${normalizarHora(h.hora_inicio)}|${normalizarHora(h.hora_fin)}`).sort()
 
+    
+
     // 3. TRAER TODOS LOS DOCENTES DEL MISMO EPS/PA/FILIAL
     const { data: docentes } = await supabase.from('docente')
    .select('iddocente, persona(dni, apellidos, nombres)')
    .eq('estado', 'ACTIVO')
    .neq('iddocente', ca.campoclinico.iddocente)
+
+    if(!docentes) { // <-- AGREGA ESTO segun Vercel
+      setLoading(false)
+      return
+    }
 
     // 4. VALIDAR 1 POR 1 = TU "datos_aliaga" + EXCEPT
     const resultados = await Promise.all(
@@ -61,7 +101,7 @@ useEffect(() => {
   .eq('idfilial', ca.campoclinico.idfilial)
   .eq('estado','ACTIVO') // <-- AGREGA ESTO
   .single()
-        if(!cc) return null
+  if(!cc) return null
 
         // 4.2 ¿Tiene los mismos horarios? = TU EXCEPT
         const { data: horariosDest } = await supabase.from('horariodocente').select('dia_semana, hora_inicio, hora_fin').eq('idcampocli', cc.idcampocli)
@@ -73,8 +113,10 @@ useEffect(() => {
         // 4.3 ¿Pasa de 5 estudiantes? = REGLA 2
         const { data: cargasDest } = await supabase.from('cargaacademica').select('idcargaacad').eq('idcampocli', cc.idcampocli).eq('idasignatura', ca.idasignatura).eq('estado','ACTIVO')
         let totalDest = 0
-        if(cargasDest?.length > 0){
-          const { count } = await supabase.from('horario').select('idhorario', {count: 'exact', head: true}).in('idcargaacad', cargasDest.map(c=>c.idcargaacad)).eq('estado','ACTIVO')
+        //Cambio segun Vercel- if(cargasDest?.length > 0){
+        //cargasDest.map(c=>c.idcargaacad))
+        if((cargasDest || []).length > 0){
+          const { count } = await supabase.from('horario').select('idhorario', {count: 'exact', head: true}).in('idcargaacad', (cargasDest || []).map(c=>c.idcargaacad)).eq('estado','ACTIVO')
           totalDest = count || 0
         }
         if((totalDest + (totalOrigen || 0)) > 5) return null // NO PROCEDE
@@ -122,6 +164,8 @@ const handleReasignar = async () => {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   
   if (authError || !user) return toast.error('No hay sesión activa')
+  
+  
 
   // 2. BUSCAR EN TU TABLA usuario EL idusuario QUE CORRESPONDE A ESE UUID
   const { data: usuarioBD, error: errUser } = await supabase
@@ -135,8 +179,8 @@ const handleReasignar = async () => {
   const idUsuarioLogueado = usuarioBD.idusuario // Aquí te va a dar 2 porque eres gquispe
   
   
-  if(!docenteSeleccionado) { showToast('Seleccione un docente', 'error'); return }
-  if(!motivo.trim()) { showToast('Ingrese el motivo', 'error'); return }
+  if(!docenteSeleccionado) { toast.error('Seleccione un docente'); return }
+  if(!motivo.trim()) { toast.error('Ingrese el motivo'); return }
   setLoading(true)
 
   try {
@@ -193,13 +237,13 @@ const handleReasignar = async () => {
 
     if(errHist) { console.error("ERROR HISTORIAL:", errHist); throw errHist }
 
-    showToast('Reasignación realizada correctamente', 'success')
+    toast.success('Reasignación realizada correctamente')
     setLoading(false); 
     onReasignado(); // Esto refresca tu tabla
     setTimeout(() => onClose(), 800)
     
   } catch (error: any) {
-    showToast('Error: ' + error.message, 'error'); 
+    toast.error('Error: ' + error.message); 
     setLoading(false)
   }
 }
@@ -211,7 +255,8 @@ const handleReasignar = async () => {
 
   return (
     <div className="modal-overlay">
-      {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1rem 2rem', borderRadius: '0.8rem', fontWeight: 600 }}>{toast.msg}</div>}
+      {/* {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1rem 2rem', borderRadius: '0.8rem', fontWeight: 600 }}>{toast.msg}</div>} */}
+      <Toaster position="top-center" />
       <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '75rem'}}>
         <div className="modal-header"><h2 style={{display: 'flex', alignItems: 'center', gap: '0.8rem', color: 'var(--color-primario)'}}><UserCheck size={22} /> Reasignar Docente - NRC: {dataActual?.nrc}</h2><button onClick={onClose} className="btn-cerrar-modal"><X size={18} /></button></div>
         <div className="modal-body">
