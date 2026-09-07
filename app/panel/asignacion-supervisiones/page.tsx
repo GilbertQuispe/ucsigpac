@@ -974,7 +974,8 @@ const handleAsignarMasivo = async () => {
 
         </div>
 
-        <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={formAsignar.idsupervisor} onChange={(val) => setFormAsignar({idsupervisor: val})} /> 
+        {/* <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={formAsignar.idsupervisor} onChange={(val) => setFormAsignar({idsupervisor: val})} />  */}
+        <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={formAsignar.idsupervisor} onChange={(val: string | null) => setFormAsignar({idsupervisor: val === '' ? null : Number(val)})} /> 
       </div>
 
       {/* FOOTER BOTON */}
@@ -1052,7 +1053,13 @@ const handleAsignarMasivo = async () => {
           </div>
         </div>
         <p style={{fontSize: '1.2rem', color: '#64748b', marginBottom: '1.5rem'}}>Se asignará el mismo supervisor a todas las horas filtradas que estén sin asignar</p>
-        <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={formAsignar.idsupervisor} onChange={(val) => setFormAsignar({idsupervisor: val})} /> 
+        {/* <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={formAsignar.idsupervisor} onChange={(val) => setFormAsignar({idsupervisor: val})} />  */}
+        <SelectSGPCFieldset 
+  label="Supervisor" 
+  options={opcionesSupervisor} 
+  value={formAsignar.idsupervisor} 
+  onChange={(val: string | null) => setFormAsignar({idsupervisor: val === '' ? null : Number(val)})} 
+/>
       </div> 
       <div style={{display: 'flex', padding: '1.5rem 2rem', background: '#F8FAFC', borderTop: '1px solid #E2E8F0'}}>
         <button 
