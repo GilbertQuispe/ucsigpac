@@ -104,14 +104,13 @@ const [sup] = await Promise.all([
       
       if(error) console.log("ERROR ROL:", error)
 
-//       const rol = usuarioData?.persona?.rol?.nombrerol
-//       //esAdminAhora = rol === 'ADMINISTRADOR' || rol === 'GESTOR'
+//Cambio segun Vercel- const rol = usuarioData?.persona?.rol?.nombrerol?.trim()
+// esAdminAhora = rol === 'Administrador' || rol === 'Gestor'
 
-//       const rolLower = rol?.toLowerCase().trim()
-// esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor' || rolLower === 'supervisor'
+const rol = usuarioData?.persona?.[0]?.rol?.[0]?.nombrerol?.trim()?? ''
 
-const rol = usuarioData?.persona?.rol?.nombrerol?.trim()
-esAdminAhora = rol === 'Administrador' || rol === 'Gestor'
+const rolLower = rol.toLowerCase()
+esAdminAhora = rolLower === 'administrador' || rolLower === 'gestor'
 
       console.log("ROL ENCONTRADO:", rol, "ES ADMIN:", esAdminAhora)
       esAdminRef.current = esAdminAhora
@@ -234,29 +233,59 @@ let query = supabase.from('visitasupervision').select(`
    if(filtroFilial) qPeriodo = qPeriodo.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.idfilial', Number(filtroFilial))
    if(filtroEps) qPeriodo = qPeriodo.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.ideps', Number(filtroEps))
    const {data: dP} = await qPeriodo
-   const periodosUnicos = new Map()
-   dP?.forEach(v => { const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica; if(c?.campoclinico?.idpa) periodosUnicos.set(c.campoclinico.idpa, c.campoclinico.idpa) })
-   setPeriodos(Array.from(periodosUnicos.keys()).map(id => ({idpa: id, codigo: `PA-${id}`})).sort((a,b) => b.idpa - a.idpa))
+  //Cambio segun Vercel-  const periodosUnicos = new Map()
+  //  dP?.forEach(v => { const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica; if(c?.campoclinico?.idpa) periodosUnicos.set(c.campoclinico.idpa, c.campoclinico.idpa) })  
+  //  setPeriodos(Array.from(periodosUnicos.keys()).map(id => ({idpa: id, codigo: `PA-${id}`})).sort((a,b) => b.idpa - a.idpa))
+
+      const periodosUnicos = new Map()
+      dP?.forEach((v: any) => { 
+        const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.[0]?.cargaacademica
+        const idpa = c?.campoclinico?.idpa
+        if(idpa) periodosUnicos.set(idpa, idpa) 
+      }) 
+
+      setPeriodos(Array.from(periodosUnicos.keys()).map((id: any) => ({idpa: id, codigo: `PA-${id}`})).sort((a,b) => b.idpa - a.idpa))
 
    // Para opciones de Filial: aplicar Periodo y EPS
    let qFilial = queryBase
    if(filtroPeriodo) qFilial = qFilial.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.idpa', Number(filtroPeriodo))
    if(filtroEps) qFilial = qFilial.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.ideps', Number(filtroEps))
    const {data: dF} = await qFilial
-   const filialesUnicas = new Map()
-   dF?.forEach(v => { const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica; if(c?.campoclinico?.idfilial) filialesUnicas.set(c.campoclinico.idfilial, {id: c.campoclinico.idfilial, nombre: c.campoclinico.filial?.nombrefilial}) })
-   setFiliales(Array.from(filialesUnicas.values()).map(f => ({idfilial: f.id, nombrefilial: f.nombre})))
+  //Cambio segun Vercel-  const filialesUnicas = new Map()
+  //  dF?.forEach(v => { const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica; if(c?.campoclinico?.idfilial) filialesUnicas.set(c.campoclinico.idfilial, {id: c.campoclinico.idfilial, nombre: c.campoclinico.filial?.nombrefilial}) })
+  //  setFiliales(Array.from(filialesUnicas.values()).map(f => ({idfilial: f.id, nombrefilial: f.nombre})))
+  const filialesUnicas = new Map()
+dF?.forEach((v: any) => { 
+  const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.[0]?.cargaacademica
+  const idfilial = c?.campoclinico?.idfilial
+  if(idfilial) filialesUnicas.set(idfilial, {id: idfilial, nombre: c?.campoclinico?.filial?.nombrefilial || ''}) 
+})
+//Agregue este segun Vercel, me comi
+setFiliales(Array.from(filialesUnicas.values()).map(f => ({idfilial: f.id, nombrefilial: f.nombre}))) 
 
    // Para opciones de EPS: aplicar Periodo y Filial
    let qEps = queryBase
    if(filtroPeriodo) qEps = qEps.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.idpa', Number(filtroPeriodo))
    if(filtroFilial) qEps = qEps.eq('asignacionsupervision.asignacion_nrc_supervisor.cargaacademica.campoclinico.idfilial', Number(filtroFilial))
    const {data: dE} = await qEps
-   const epsUnicas = new Map()
-   dE?.forEach(v => { const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica; if(c?.campoclinico?.ideps) epsUnicas.set(c.campoclinico.ideps, {id: c.campoclinico.ideps, nombre: c.campoclinico.eps?.razonsocial}) })
-   setEps(Array.from(epsUnicas.values()).map(e => ({ideps: e.id, razonsocial: e.nombre})))
-  }
+   console.log("DEBUG VERCEL:", { dP, dF, dE }) // NUEVO PARA DEBUG
+   //Cambio segun Vercel-  const epsUnicas = new Map()
+  //  dE?.forEach(v => { const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica; if(c?.campoclinico?.ideps) epsUnicas.set(c.campoclinico.ideps, {id: c.campoclinico.ideps, nombre: c.campoclinico.eps?.razonsocial}) })
+  //  setEps(Array.from(epsUnicas.values()).map(e => ({ideps: e.id, razonsocial: e.nombre})))
+  // }
+
   
+  const epsUnicas = new Map()
+  dE?.forEach((v: any) => { 
+    const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.[0]?.cargaacademica
+    const ideps = c?.campoclinico?.ideps
+    if(ideps) epsUnicas.set(ideps, {id: ideps, nombre: c?.campoclinico?.eps?.razonsocial || ''}) 
+  })
+//Agregue este segun Vercel, me comí
+  setEps(Array.from(epsUnicas.values()).map(e => ({ideps: e.id, razonsocial: e.nombre}))) // <-- FALTABA ESTO
+
+  } // <-- FALTABA ESTE: CIERRA cargarOpcionesDinamicas
+
   useEffect(() => { if(supervisores.length > 0) fetchVisitas(esAdminRef.current, idSupervisorLogeado) }, [filtroSupervisor, filtroPeriodo, filtroFilial, filtroEps, esAdmin, idSupervisorLogeado, semanaActual])
 
     const opcionesPeriodo = useMemo(() => [
@@ -470,7 +499,8 @@ const { minHora, maxHora, cssHorasVisibles } = useMemo(() => {
 {/* LEYENDA + CONTADOR */}
 <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem'}}>
   <div style={{display: 'flex', gap: '1.5rem', fontSize: '1.2rem', flexWrap: 'wrap'}}>
-    {Object.entries(ESTADO_COLORES).map(([key, val]) => (
+    {/*Cambio segun Vercel- {Object.entries(ESTADO_COLORES).map(([key, val]) => ( */}
+    {Object.entries(ESTADO_COLORES).map(([key, val]: [string, any]) => (
       <div key={key} style={{display: 'flex', alignItems: 'center', gap: '0.5rem'}}>
         <div style={{width: '1.6rem', height: '1.6rem', background: val.bg, border: `2px solid ${val.border}`, borderRadius: '0.3rem'}}></div>
         <span style={{fontWeight: 600}}>{key.replace('_', ' ')}</span>
@@ -565,8 +595,10 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
             defaultView="week"
             views={['week', 'day']}
             date={semanaActual.toDate()}
-            onNavigate={(date) => setSemanaActual(moment(date))}
-            onSelectEvent={(event) => handleClickCard(event.resource)}
+            //Cambio segun Vercel- onNavigate={(date) => setSemanaActual(moment(date))}
+            //onSelectEvent={(event) => handleClickCard(event.resource)}
+            onNavigate={(date: any) => setSemanaActual(moment(date))}            
+            onSelectEvent={(event: any) => handleClickCard(event.resource)}
 
             min={minHora}
             max={maxHora}
@@ -628,7 +660,8 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
         show={showModalConsulta}
         onClose={() => setShowModalConsulta(false)}
         visita={visitaParaConsulta}
-        onAbrirFicha={(v, solo) => {setVisitaSeleccionada(v); setShowFichaModal(true)}}
+        //Cambio segun Vercel- onAbrirFicha={(v, solo) => {setVisitaSeleccionada(v); setShowFichaModal(true)}}
+        onAbrirFicha={(v: any, solo: any) => {setVisitaSeleccionada(v); setShowFichaModal(true)}}
         onRefresh={() => fetchVisitas(esAdmin, idSupervisorLogeado)}
       />
 
