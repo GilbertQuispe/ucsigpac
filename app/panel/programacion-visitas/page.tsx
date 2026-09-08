@@ -1,7 +1,7 @@
 'use client'
 import React, { useEffect, useState, useMemo, useRef } from 'react' // agrega useRef
 import moment from 'moment'
-import 'moment/locale/es'
+//import 'moment/locale/es'
 import { createClient } from '@/lib/client'
 import { Check, X, CalendarDays, FileText, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Check as CheckIcon } from 'lucide-react'
@@ -15,11 +15,6 @@ import ModalConsultaVisita from './components/ModalConsultaVisita' // <-- AGREGA
 moment.locale('es')
 const localizer = momentLocalizer(moment)
 
-// const ESTADO_COLORES: any = {
-//   'PROGRAMADO': { bg: '#3B82F6', border: '#2563EB', text: '#fff' },
-//   'EN_PROCESO': { bg: '#F59E0B', border: '#D97706', text: '#fff' },
-//   'SUPERVISADO': { bg: '#22C55E', border: '#16A34A', text: '#fff' }
-// }
 const ESTADO_COLORES: any = {
   'PROGRAMADO': { bg: '#3B82F6', border: '#2563EB', text: '#fff' },
   'EN_PROCESO': { bg: '#F59E0B', border: '#D97706', text: '#fff' },
@@ -52,6 +47,8 @@ export default function ProgramacionVisitasPage() {
   const [idSupervisorLogeado, setIdSupervisorLogeado] = useState<number | null>(null)
   const [isMobile, setIsMobile] = useState(false)
   const [semanaActual, setSemanaActual] = useState(moment())
+  //para cuando el supervisor no tiene programacion de supervision - NAsig
+  //const [mensajeVacio, setMensajeVacio] = useState('')
 
   const limpiarFiltros = () => {
     setFiltroPeriodo('')
@@ -82,7 +79,8 @@ export default function ProgramacionVisitasPage() {
   useEffect(() => { fetchDataMaestra() }, [])
 
   useEffect(() => { 
-  if(visitas.length >= 0) cargarOpcionesDinamicas() 
+  //08-09if(visitas.length >= 0) cargarOpcionesDinamicas() 
+  if(esAdmin!== undefined) cargarOpcionesDinamicas()
 }, [filtroPeriodo, filtroFilial, filtroEps, esAdmin, idSupervisorLogeado, semanaActual])
 
 const fetchDataMaestra = async () => {
@@ -176,28 +174,6 @@ let query = supabase.from('visitasupervision').select(`
     }
     setVisitas(data || [])
 
-    // // SACAR OPCIONES DINÁMICAS DE LAS VISITAS
-    // const visitasData = data || []
-    
-    // const periodosUnicos = new Map()
-    // const filialesUnicas = new Map()
-    // const epsUnicas = new Map()
-    
-    // visitasData.forEach(v => {
-    //   const carga = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
-    //   if(carga?.campoclinico){
-    //     if(carga.campoclinico.idpa) periodosUnicos.set(carga.campoclinico.idpa, carga.campoclinico.idpa)
-    //     if(carga.campoclinico.idfilial) filialesUnicas.set(carga.campoclinico.idfilial, {id: carga.campoclinico.idfilial, nombre: carga.campoclinico.filial?.nombrefilial})
-    //     if(carga.campoclinico.ideps) epsUnicas.set(carga.campoclinico.ideps, {id: carga.campoclinico.ideps, nombre: carga.campoclinico.eps?.razonsocial})
-    //   }
-    // })
-
-    // // Convertir a array para los selects
-    // setPeriodos(Array.from(periodosUnicos.keys()).map(id => ({idpa: id, codigo: `PA-${id}`}))
-    //  .sort((a,b) => b.idpa - a.idpa))
-    // setFiliales(Array.from(filialesUnicas.values()).map(f => ({idfilial: f.id, nombrefilial: f.nombre})))
-    // setEps(Array.from(epsUnicas.values()).map(e => ({ideps: e.id, razonsocial: e.nombre})))
-
     setLoading(false)
   }
 
@@ -239,7 +215,8 @@ let query = supabase.from('visitasupervision').select(`
 
       const periodosUnicos = new Map()
       dP?.forEach((v: any) => { 
-        const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.[0]?.cargaacademica
+        //08-09const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.[0]?.cargaacademica
+        const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
         const idpa = c?.campoclinico?.idpa
         if(idpa) periodosUnicos.set(idpa, idpa) 
       }) 
@@ -256,7 +233,8 @@ let query = supabase.from('visitasupervision').select(`
   //  setFiliales(Array.from(filialesUnicas.values()).map(f => ({idfilial: f.id, nombrefilial: f.nombre})))
   const filialesUnicas = new Map()
 dF?.forEach((v: any) => { 
-  const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.[0]?.cargaacademica
+  //08-09const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.[0]?.cargaacademica
+  const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
   const idfilial = c?.campoclinico?.idfilial
   if(idfilial) filialesUnicas.set(idfilial, {id: idfilial, nombre: c?.campoclinico?.filial?.nombrefilial || ''}) 
 })
@@ -273,11 +251,18 @@ setFiliales(Array.from(filialesUnicas.values()).map(f => ({idfilial: f.id, nombr
   //  dE?.forEach(v => { const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica; if(c?.campoclinico?.ideps) epsUnicas.set(c.campoclinico.ideps, {id: c.campoclinico.ideps, nombre: c.campoclinico.eps?.razonsocial}) })
   //  setEps(Array.from(epsUnicas.values()).map(e => ({ideps: e.id, razonsocial: e.nombre})))
   // }
-
+  //para supervisiones no asignadas
+  // SI NO HAY ASIGNACIONES MOSTRAR MENSAJE - NAsig
+    // if(!dP || dP.length === 0){
+    //   setMensajeVacio('No tienes visitas asignadas esta semana')
+    // } else {
+    //   setMensajeVacio('')
+    // }
   
   const epsUnicas = new Map()
   dE?.forEach((v: any) => { 
-    const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.[0]?.cargaacademica
+    //08-09const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.[0]?.cargaacademica
+    const c = v.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica
     const ideps = c?.campoclinico?.ideps
     if(ideps) epsUnicas.set(ideps, {id: ideps, nombre: c?.campoclinico?.eps?.razonsocial || ''}) 
   })
@@ -372,50 +357,6 @@ const eventosCalendario = useMemo(() => {
 
   console.log("ES ADMIN:", esAdmin, "ROL DETECTADO")
 
-// const { minHora, maxHora, cssHorasVisibles } = useMemo(() => {
-//   const base = semanaActual.clone()
-//   const horasSet = new Set<number>()
-
-//   visitas.forEach(v => {
-//     if(v.fechavisita && v.horavisita){
-//       const mIni = moment(`${v.fechavisita}T${v.horavisita}`)
-//       const mFin = v.horafin 
-//       ? moment(`${v.fechavisita}T${v.horafin}`) 
-//         : mIni.clone().add(1, 'hour')
-
-//       if(mIni.isValid() && mFin.isValid()){
-//         // +1 hora antes y +1 hora despues como pediste
-//         const horaInicioRango = Math.max(0, mIni.hour() - 1)
-//         const horaFinRango = Math.min(23, mFin.hour() + 1)
-
-//         for(let h = horaInicioRango; h <= horaFinRango; h++){
-//           horasSet.add(h)
-//         }
-//       }
-//     }
-//   })
-
-//   const horasArray = Array.from(horasSet).sort((a,b) => a-b)
-//   const horaMin = horasArray[0] || 6
-//   const horaMax = horasArray[horasArray.length - 1] + 1 || 22
-
-//   // Generar CSS dinámico para ocultar horas
-//   // const css = horasArray.map(h => 
-//   //   `.rbc-time-gutter.rbc-label[data-time="${String(h).padStart(2,'0')}:00"] { display: block!important; }`
-//   // ).join('')
-
-//   const css = horasArray.length > 0 
-//  ? horasArray.map(h => 
-//       `.rbc-time-gutter .rbc-label[data-time="${String(h).padStart(2,'0')}:00:00"] { display: block!important; }` // <- AGREGA ESPACIO
-//     ).join('')
-//   : ''
-
-//   return { 
-//     minHora: base.clone().hour(horaMin).minute(0).second(0).toDate(), 
-//     maxHora: base.clone().hour(horaMax).minute(0).second(0).toDate(),
-//     cssHorasVisibles: css
-//   }
-// }, [visitas, semanaActual])
 const { minHora, maxHora, cssHorasVisibles } = useMemo(() => {
   const base = semanaActual.clone()
   const horasConCarga = new Set<number>()
@@ -464,19 +405,15 @@ const { minHora, maxHora, cssHorasVisibles } = useMemo(() => {
       <h1 style={{display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem', fontSize: '2rem'}}>
         <CalendarDays size={24}/> Programación de Visitas
       </h1>
+      {/* //}Para supervisiones no asignadas NAsig */}
+      {/* {mensajeVacio && (
+          <div className="card-sgpc" style={{background: '#FEF3C7', color: '#92400E', padding: '1.5rem', marginBottom: '1.5rem', textAlign: 'center', fontWeight: 600, fontSize: '1.4rem', border: '1px solid #FDE68A'}}>
+            ⚠️ {mensajeVacio}
+          </div>
+        )} */}
 
       <div className="card-sgpc" style={{ padding: '1.5rem', marginBottom: '1.5rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1.2rem' }}>
-        {/* <SelectSGPCFieldset label="Periodo Académico" options={opcionesPeriodo} value={filtroPeriodo} onChange={setFiltroPeriodo} />
-        {esAdminRef.current ? <>
-          <SelectSGPCFieldset label="Filial" options={opcionesFilial} value={filtroFilial} onChange={setFiltroFilial} />          
-        </> : null}
-        <SelectSGPCFieldset label="EPS" options={opcionesEps} value={filtroEps} onChange={setFiltroEps} />
-  
-        {esAdminRef.current ? <>
-          
-          <SelectSGPCFieldset label="Supervisor" options={opcionesSupervisor} value={filtroSupervisor} onChange={setFiltroSupervisor} />
-        </> : null} */}
-        {/* ESTOS 3 LOS VEN TODOS */}
+       
 <SelectSGPCFieldset label="Periodo Académico" options={opcionesPeriodo} value={filtroPeriodo} onChange={setFiltroPeriodo} />
 <SelectSGPCFieldset label="Filial" options={opcionesFilial} value={filtroFilial} onChange={setFiltroFilial} />
 <SelectSGPCFieldset label="EPS" options={opcionesEps} value={filtroEps} onChange={setFiltroEps} />
@@ -551,14 +488,7 @@ Supervisadas: {visitas.filter(v => v.condicion === 'SUPERVISADO').length}
                   <p style={{margin: '0.4rem 0', fontSize: '1.2rem', color: '#475569'}}>NRC: {carga?.nrc} | {carga?.campoclinico?.filial?.nombrefilial}</p>
                   <p style={{margin: '0.4rem 0', fontSize: '1.2rem', color: '#475569'}}>Doc: {carga?.campoclinico?.docente?.persona?.apellidos}</p>
                   <p style={{margin: '0.4rem 0', fontSize: '1.2rem', color: '#475569'}}>EPS: {carga?.campoclinico?.eps?.razonsocial}</p>
-                  {/* <div style={{marginTop: '1.5rem'}}>
-                    {v.condicion!== 'SUPERVISADO'?
-                      <button className="btn-primario" style={{width: '100%', padding: '1rem'}} onClick={()=>handleRegistrarVisita(v)}>
-                        <FileText size={16}/> Registrar
-                      </button>
-                      : <span style={{display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', color: '#22C55E', fontWeight: 600}}><Check/> Supervisado</span>
-                    }
-                  </div> */}
+                 
                   <div style={{marginTop: '1.5rem'}}>
   {v.condicion!== 'SUPERVISADO'? (
     <button
