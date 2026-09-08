@@ -73,7 +73,8 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
 
     if(err1){ toast.error("Error cargando visita: " + err1.message); setLoading(false); return }
 
-    const idcargaacad = v?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.idcargaacad
+    //Cambio segun Vercel- const idcargaacad = v?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.idcargaacad
+    const idcargaacad = (v as any)?.asignacionsupervision?.[0]?.asignacion_nrc_supervisor?.[0]?.cargaacademica?.[0]?.idcargaacad
 
     // 2. SACAMOS TODO EL HEADER
     const { data: carga, error: err2 } = await supabase
@@ -99,8 +100,10 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     if(err2){ toast.error("Error cargando datos: " + err2.message); setLoading(false); return }
     setHeaderData(carga)
 
-    const idpa = carga?.campoclinico?.idpa
-    const iddocente = carga?.campoclinico?.docente?.iddocente
+    //Cambio segun Vercel- const idpa = carga?.campoclinico?.idpa
+    const idpa = (carga as any)?.campoclinico?.[0]?.idpa
+    //Camnbio segun Vercel- const iddocente = carga?.campoclinico?.docente?.iddocente
+    const iddocente = (carga as any)?.campoclinico?.[0]?.docente?.[0]?.iddocente
 
     // 3. PREGUNTAS DE FICHA SOLO ACTIVOS
     const { data: preguntas } = await supabase
@@ -120,7 +123,8 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
         matricula!inner(estudiante!inner(idestudiante, persona(dni, apellidos, nombres)))
       `)
      .eq('idcargaacad', idcargaacad)
-    setAlumnos(alumnosData?.map(h => h.matricula.estudiante) || [])
+    //Cambio segun Vercel- setAlumnos(alumnosData?.map(h => h.matricula.estudiante) || [])
+    setAlumnos(alumnosData?.map((h: any) => h.matricula?.[0]?.estudiante?.[0]) || [])
 
     // 5. RESPUESTAS Y FOTOS
     const { data: respData } = await supabase.from('fichasupervision').select('*').eq('idvisitas', idvisitas)
@@ -301,7 +305,9 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
 }
 
   const carga = headerData
-  const cc = carga?.campoclinico
+  //Cambio segun Vercel- const cc = carga?.campoclinico
+  const cc = (carga as any)?.campoclinico?.[0] // <- con [0] porque es array
+  const iddocente = cc?.docente?.[0]?.iddocente // <- y docente también es array
 
   return (
     <div className="modal-overlay" style={{zIndex: 1000}}>
@@ -331,18 +337,39 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
               <table className="tabla-sgpc">
                 <thead><tr><th>ITEM</th><th style={{width: '20rem', textAlign:'center'}}>PUNTAJE 1-5</th></tr></thead>
                 <tbody>
-                  {preguntasDocente.map(p => (
+                  {/*Cambio segun Vercel-  {preguntasDocente.map(p => (
                     <tr key={p.idficha}>
                       <td className="col-item-docente" style={{fontSize:'1.1rem'}} >{p.item}</td>
                       <td  className="col-puntaje">
                             <RatingEstrellas
                               valor={respuestas[`doc-${cc?.docente?.iddocente}-${p.idficha}`] || 0}
-                              onChange={(val) => handleRespuesta(`doc-${cc?.docente?.iddocente}-${p.idficha}`, val)}
+                              onChange={(val) => handleRespuesta(`doc-${cc?.docente?.iddocente}-${p.idficha}`, val)}                            
                               disabled={esSoloLectura}
                             />
                       </td>
                     </tr>
-                  ))}
+                  ))} */}
+
+                  {preguntasDocente
+                  .filter(p => p.idficha!= null)
+                  .map(p => {
+                      const idDoc = iddocente?? 0
+                      const idFicha = p.idficha!
+                      const key = `doc-${idDoc}-${idFicha}` // <- SACAMOS LA KEY AFUERA
+
+                      return (
+                        <tr key={idFicha}>
+                          <td className="col-item-docente" style={{fontSize:'1.1rem'}} >{p.item}</td>
+                          <td className="col-puntaje">
+                                <RatingEstrellas
+                                  valor={respuestas[key] || 0}
+                                  onChange={(val: number) => handleRespuesta(key, val)} // <- TIPEAMOS val: number
+                                  disabled={esSoloLectura}
+                                />
+                          </td>
+                        </tr>
+                      )
+                    })}
                 </tbody>
               </table>
             </div>
@@ -360,17 +387,37 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
                         <div style={{fontWeight: 600, fontSize: '1.1rem', paddingLeft: '0.5rem'}}>{a.persona.apellidos}</div>
                         <div style={{fontSize: '1rem', color: '#64748b',paddingLeft: '0.5rem'}}>{a.persona.nombres}</div>
                       </td>
-                      {preguntasAlumno.map(p => (
+                      {/*Cambio segun Vercel- {preguntasAlumno.map(p => (
                         <td className="col-item" key={p.idficha}  >
                           <div style={{display: 'flex', justifyContent: 'center'}}>
                           <RatingEstrellas
-  valor={respuestas[`alu-${a.idestudiante}-${p.idficha}`] || 0}
-  onChange={(val) => handleRespuesta(`alu-${a.idestudiante}-${p.idficha}`, val)}
-  disabled={esSoloLectura}
-/>
-</div>
+                            valor={respuestas[`alu-${a.idestudiante}-${p.idficha}`] || 0}
+                            onChange={(val) => handleRespuesta(`alu-${a.idestudiante}-${p.idficha}`, val)}
+                            disabled={esSoloLectura}
+                          />
+                          </div>
                         </td>
-                      ))}
+                      ))} */}
+
+                      {preguntasAlumno
+                        .filter(p => p.idficha!= null) // <- MATAMOS NULL
+                        .map(p => {
+                            const idAlu = a.idestudiante?? 0 // <- ENCERRAMOS
+                            const idFicha = p.idficha!
+                            const key = `alu-${idAlu}-${idFicha}` // <- KEY AFUERA
+
+                            return (
+                              <td className="col-item" key={idFicha} >
+                                <div style={{display: 'flex', justifyContent: 'center'}}>
+                                <RatingEstrellas
+                                  valor={respuestas[key] || 0}
+                                  onChange={(val: number) => handleRespuesta(key, val)} // <- TIPEAMOS val
+                                  disabled={esSoloLectura}
+                                />
+                                </div>
+                              </td>
+                            )
+                          })}
                     </tr>
                   ))}
                 </tbody>
