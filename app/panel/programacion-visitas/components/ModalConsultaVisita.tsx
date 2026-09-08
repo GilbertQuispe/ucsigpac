@@ -23,7 +23,10 @@ export default function ModalConsultaVisita({ show, onClose, visita, onAbrirFich
     .select(`idvisitas, asignacionsupervision!inner(asignacion_nrc_supervisor!inner(cargaacademica!inner(idcargaacad)))`)
     .eq('idvisitas', idvisitas).single()
 
-    const idcargaacad = v?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.idcargaacad
+    //Cambio segun Vercel- const idcargaacad = v?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.idcargaacad
+    const idcargaacad = (v as any)?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.idcargaacad
+    
+
     if(!idcargaacad) { setLoading(false); return }
 
     const { data: carga } = await supabase
