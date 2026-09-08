@@ -13,7 +13,8 @@ type Plan = {
   carrera?: Carrera & { facultad?: Facultad }
 }
 
-const FORM_INICIAL: Partial<Plan> = { idcarrera: null, nombre: "", estado: true }
+//Cambio segun Vercel- const FORM_INICIAL: Partial<Plan> = { idcarrera: null, nombre: "", estado: true }
+const FORM_INICIAL: Partial<Plan> = { idcarrera: undefined, nombre: "", estado: true }
 
 export default function PlanAsignaturaPage() {
   const supabase = createClient()
@@ -53,10 +54,13 @@ export default function PlanAsignaturaPage() {
   }
   useEffect(() => { fetchData() }, [])
 
-  const carrerasFiltradas = useMemo(() => carreras.filter(c => c.idfacultad === form.idfacultad), [carreras, form.idfacultad])
+  //Cambio segun Vercel- const carrerasFiltradas = useMemo(() => carreras.filter(c => c.idfacultad === form.idfacultad), [carreras, form.idfacultad])
+  const carrerasFiltradas = useMemo(() => carreras.filter((c: any) => c.idfacultad === (form as any).idfacultad), [carreras, (form as any).idfacultad])
+
   const carrerasFiltro = useMemo(() => carreras.filter(c => c.idfacultad === filtroFacultad), [carreras, filtroFacultad])
 
-  const puedeGuardar = useMemo(() => form.nombre?.trim().length > 2 && form.idcarrera, [form])
+  //Cambio segun Vercel- const puedeGuardar = useMemo(() => form.nombre?.trim().length > 2 && form.idcarrera, [form])
+  const puedeGuardar = useMemo(() => (form.nombre?.trim().length?? 0) > 2 &&!!form.idcarrera, [form])
 
   const planesFiltrados = useMemo(() => planes.filter(p => {
     const matchSearch = p.nombre?.toLowerCase().includes(search.toLowerCase()) ||
@@ -81,7 +85,8 @@ export default function PlanAsignaturaPage() {
     if (!puedeGuardar) return showToast("Complete Facultad, Carrera y Nombre del Plan *", "error");
     try {
       let mensaje = "";
-      const { idfacultad,...dataToSave } = form;
+      //Cambio segun Vercel-  const { idfacultad,...dataToSave } = form;
+      const { idfacultad,...dataToSave } = form as any;
       dataToSave.nombre = form.nombre?.trim().toUpperCase() || "";
 
       if (editing) {
@@ -121,7 +126,8 @@ export default function PlanAsignaturaPage() {
       setForm({
         idplan: item.idplan, idcarrera: item.idcarrera,
         nombre: item.nombre, idfacultad: item.carrera?.idfacultad, estado: item.estado
-      });
+      //se quito segun Vercel- });
+      } as any);
     }
     setShowModal(true)
   }
@@ -220,9 +226,36 @@ export default function PlanAsignaturaPage() {
             {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
             <div className="modal-header"><h2><BookOpen size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar Plan" : "Nuevo Plan de Estudio"}</h2><button onClick={handleClose} className="btn-cerrar"><X size={20} /></button></div>
             <div className="modal-body">
-              <div className="grid-2">
+              {/*Cambio segun Vercel- <div className="grid-2">
                 <div className="input-wrapper"><label className="input-label">Facultad *</label><select className="input-sgpc-floating" value={form.idfacultad || ""} onChange={e => setForm({...form, idfacultad: Number(e.target.value), idcarrera: null })}><option value="">-- SELECCIONE --</option>{facultades.map(f => <option key={f.idfacultad} value={f.idfacultad}>{f.nombrefacultad}</option>)}</select></div>
                 <div className="input-wrapper"><label className="input-label">Carrera *</label><select className="input-sgpc-floating" value={form.idcarrera || ""} onChange={e => setForm({...form, idcarrera: Number(e.target.value) })} disabled={!form.idfacultad}><option value="">-- SELECCIONE --</option>{carrerasFiltradas.map(c => <option key={c.idcarrera} value={c.idcarrera}>{c.nombrecarrera}</option>)}</select></div>
+              </div> */}
+
+              <div className="grid-2">
+                <div className="input-wrapper">
+                  <label className="input-label">Facultad *</label>
+                  <select 
+                    className="input-sgpc-floating" 
+                    value={(form as any).idfacultad || ""} 
+                    onChange={e => setForm(prev => ({...prev, idfacultad: Number(e.target.value), idcarrera: undefined } as any))}
+                  >
+                    <option value="">-- SELECCIONE --</option>
+                    {facultades.map(f => <option key={f.idfacultad} value={f.idfacultad}>{f.nombrefacultad}</option>)}
+                  </select>
+                </div>
+                
+                <div className="input-wrapper">
+                  <label className="input-label">Carrera *</label>
+                  <select 
+                    className="input-sgpc-floating" 
+                    value={form.idcarrera || ""} 
+                    onChange={e => setForm(prev => ({...prev, idcarrera: Number(e.target.value) } as any))} 
+                    disabled={!(form as any).idfacultad}
+                  >
+                    <option value="">-- SELECCIONE --</option>
+                    {carrerasFiltradas.map(c => <option key={c.idcarrera} value={c.idcarrera}>{c.nombrecarrera}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="input-wrapper"><label className="input-label">Nombre del Plan *</label><input className="input-sgpc-floating" placeholder="PLAN 2024" value={form.nombre || ""} onChange={e => setForm({...form, nombre: e.target.value.toUpperCase() })} maxLength={20} style={{ textTransform: 'uppercase' }} /></div>
             </div>
