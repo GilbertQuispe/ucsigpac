@@ -202,7 +202,8 @@ const fetchPersonas = async () => {
       setDniInputBloqueado(false)
       setCamposBloqueados(true)
       setTimeout(() => {
-        setForm(prev => ({...prev, dni: '', apellidos: '', nombres: '', telefono: '', sexo: '' }))
+        //Cambio segun Vercel- setForm(prev => ({...prev, dni: '', apellidos: '', nombres: '', telefono: '', sexo: '' }))        
+        setForm(prev => ({...prev, dni: '', apellidos: '', nombres: '', telefono: '', sexo: null }))
         dniInputRef.current?.focus()
       }, 1500)
     } else {
@@ -475,14 +476,16 @@ const fetchPersonas = async () => {
         nombres: persona.nombres,
         apellidos: persona.apellidos,
         telefono: persona.telefono,
-        sexo: persona.sexo || '',
+        //Cambio segun Vercel- sexo: persona.sexo || '',
+        sexo: persona.sexo || null,
         idrol: persona.idrol
       });
       setDniInputBloqueado(true)
       setCamposBloqueados(false)
     } else {
       setEditing(null);
-      setForm({ dni: '', nombres: '', apellidos: '', telefono: '', sexo: '', idrol: 4 });
+      //Cambio segun Vercel- setForm({ dni: '', nombres: '', apellidos: '', telefono: '', sexo: '', idrol: 4 });
+      setForm({ dni: '', nombres: '', apellidos: '', telefono: '', sexo: null, idrol: 4 });
       setDniInputBloqueado(false)
       setCamposBloqueados(true)
       setTimeout(() => dniInputRef.current?.focus(), 100)
@@ -785,7 +788,8 @@ const fetchPersonas = async () => {
       {/* FOOTER BOTONES */}
       <div className='modal-footer' style={{borderTop: '2px solid var(--color-primario)'}}>
         <button className="btn-secundario" style={{flex:1, height: '4.8rem'}} onClick={() => {
-          setForm({ dni: '', nombres: '', apellidos: '', telefono: '', sexo: '', idrol: 4 });
+          //Cambio según Vercel- setForm({ dni: '', nombres: '', apellidos: '', telefono: '', sexo: '', idrol: 4 });
+          setForm({ dni: '', nombres: '', apellidos: '', telefono: '', sexo: null, idrol: 4 });
           setDniInputBloqueado(false);
           setCamposBloqueados(true);
           setTimeout(() => dniInputRef.current?.focus(), 100);
