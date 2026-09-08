@@ -1,7 +1,7 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Stethoscope, Eraser, Save} from 'lucide-react'
+import { Plus, AlertTriangle, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Stethoscope, Eraser, Save} from 'lucide-react'
 
 type Especialidad = {
   idespecialidad: number
@@ -217,11 +217,13 @@ export default function EspecialidadPage() {
       )}
 
       {showConfirm && (
-        <div className="modal-overlay"><div className="modal-content card-sgpc" style={{ maxWidth: "40rem" }}>
-          <div className="modal-header"><h2>Eliminar Especialidad</h2><button onClick={() => setShowConfirm(false)} className="btn-cerrar"><X size={20} /></button></div>
-          <div className="modal-body"><p style={{ textAlign: "center" }}>¿Está seguro de eliminar esta Especialidad? Esta acción no se puede deshacer.</p></div>
-          <div className="modal-footer"><button className="btn-secundario" onClick={() => setShowConfirm(false)}>Cancelar</button><button className="btn-primario btn-danger" onClick={confirmarEliminar}>Eliminar</button></div>
-        </div></div>
+        <div className="modal-overlay">
+          <div className="modal-content card-sgpc" style={{ maxWidth: '45rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden' }}>
+            <div className="modal-header"><h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}><AlertTriangle size={22}/> Eliminar Especialidad</h2><button onClick={() => setShowConfirm(false)} className="btn-cerrar-modal"><X size={20} /></button></div>
+            <div className="modal-body"><p style={{ textAlign: "center" }}>¿Está seguro de eliminar esta Especialidad? Esta acción no se puede deshacer.</p></div>
+            <div className="modal-footer" style={{display: 'flex', padding: '1.5rem 2rem', background: 'var(--color-fondo-card)', borderTop: '1px solid var(--color-borde)', gap: '1rem'}}><button className="btn-secundario" onClick={() => setShowConfirm(false)}><X size={16} />Cancelar</button><button className="btn-primario btn-danger" onClick={confirmarEliminar}><Trash2 size={16} />Eliminar</button></div>
+          </div>
+        </div>
       )}
       <style jsx>{`
        .input-sin-borde {
@@ -281,7 +283,7 @@ export default function EspecialidadPage() {
   background: #f8fafc;
   border-radius: 0 0 1.2rem 1.2rem;
 }
-.btn-cerrar-modal { color: #fff; background: transparent; border: none; }
+.btn-cerrar-modal { color: #fff; background: transparent; border: none; margin-top: -2.5rem; margin-right: -1.5rem;}
     .grid-2-modal {
         display: grid;
         grid-template-columns: 1fr; /* mobil first: 1 columna */

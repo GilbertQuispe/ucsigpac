@@ -34,34 +34,6 @@ const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
   )
 }
 
-// const SelectSGPCFieldset = ({label, value, onChange, options, isAsync = false, loadOptions, isDisabled = false}:any) => {
-//   const Component = isAsync? AsyncSelect : Select
-//   return (
-//     <fieldset className="fieldset-sgpc">
-//       <legend>{label}</legend>
-//       <Component
-//         options={isAsync? undefined : options}
-//         loadOptions={isAsync? loadOptions : undefined}
-//         defaultOptions={isAsync}
-//         cacheOptions={isAsync}
-//         value={value}
-//         onChange={onChange}
-//         isDisabled={isDisabled}
-//         placeholder="Seleccione..." isSearchable maxMenuHeight={200}
-//         classNamePrefix="react-select"
-//         menuPortalTarget={typeof document !== 'undefined' ? document.body : null} // <-- ESTO ES CLAVE
-//         menuPosition="fixed"
-//         styles={{ 
-//           //control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem' }), 
-//           control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), input: (base) => ({...base, margin: 0, padding: 0 }), indicatorsContainer: (base) => ({...base, height: '4.4rem' }), option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }),
-//           menuPortal: (base) => ({...base, zIndex: 99999 }), // <-- ESTO ES CLAVE
-//           menu: (base) => ({...base, zIndex: 9999 }) 
-//         }}
-//       />
-//     </fieldset>
-//   )
-// }
-
 export default function PersonasPage() {
   const supabase = createClient()
   const [personas, setPersonas] = useState<Persona[]>([])
@@ -636,16 +608,8 @@ const fetchPersonas = async () => {
 
       {/* 3. FOOTER DE PAGINACION NUEVO */}
       {totalPaginas > 1 && (
-        <div className="paginacion-footer">
-          {/* <p className="paginacion-info">
-            Mostrando {indiceInicio + 1} al {Math.min(indiceFin, personasFiltradas.length)} de {personasFiltradas.length} registros
-          </p> */}
-          <p className="paginacion-info">
-  Mostrando {indiceInicio + 1} al {Math.min(indiceFin, totalRegistros)} de {totalRegistros} registros
-</p>
-{/* <span className="paginacion-pagina">
-  Pág {paginaActual} de {totalPaginas}
-</span> */}
+        <div className="paginacion-footer">          
+          <p className="paginacion-info">Mostrando {indiceInicio + 1} al {Math.min(indiceFin, totalRegistros)} de {totalRegistros} registros</p>
           <div className="paginacion-controles">
             <button
               className="btn-pag"
@@ -758,7 +722,8 @@ const fetchPersonas = async () => {
         {/* FIELDSET ROL Y SEXO */}
         
           
-          <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem'}}>
+          {/* <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem'}}> */}
+          <div className="grid-modal-2col">
             <SelectSGPCFieldset
               label="Sexo *"
               value={form.sexo || ""}
@@ -766,7 +731,7 @@ const fetchPersonas = async () => {
               options={[{value: "M", label: "Masculino"},{value: "F", label: "Femenino"}]}
             />
             <SelectSGPCFieldset
-              label="Rol"
+              label="Rol *"
               value={form.idrol || ""}
               onChange={(val:any) => setForm({...form, idrol: val })}
               options={roles.map(r => ({value: r.idrol, label: r.nombrerol}))}
@@ -1289,6 +1254,19 @@ const fetchPersonas = async () => {
   font-weight: 600;
   color: var(--color-primario);
   padding: 0 0.8rem;
+}
+  .grid-modal-2col {
+  display: grid;
+  grid-template-columns: 1fr; /* MOBILE FIRST: 1 columna */
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* DESKTOP: 2 columnas en 1 linea */
+@media (min-width: 640px) {
+  .grid-modal-2col {
+    grid-template-columns: 1fr 1fr; /* 2 columnas */
+  }
 }
       `}</style>
     </div>

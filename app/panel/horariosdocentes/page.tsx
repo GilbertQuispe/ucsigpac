@@ -5,6 +5,8 @@ import { Search, Edit, Eraser, ChevronLeft, ChevronRight, Clock } from 'lucide-r
 import Select from 'react-select'
 import AsyncSelect from 'react-select/async'
 import ModalHorarioDocente from '../camposclinicos/components/ModalHorarioDocente'
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
+
 
 type Option = { value: number | string; label: string }
 type Periodo = { idpa: number; codigo: string; nombre: string }
@@ -65,7 +67,7 @@ export default function HorariosDocentesPage() {
   const supabase = createClient()
   const [data, setData] = useState<FilaHorario[]>([])
   const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  // const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
   
   const [periodos, setPeriodos] = useState<Periodo[]>([])
   const [filiales, setFiliales] = useState<Filial[]>([])
@@ -95,7 +97,7 @@ export default function HorariosDocentesPage() {
   const [showModalHorario, setShowModalHorario] = useState(false)
   const [dataParaHorario, setDataParaHorario] = useState<any>(null)
 
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+  // const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
   const provinciasFiltradas = useMemo(() => idDeptoSel ? provincias.filter(p => p.iddepartamento === idDeptoSel) : [], [idDeptoSel, provincias])
   const distritosFiltrados = useMemo(() => idProvSel ? distritos.filter(d => d.idprovincia === idProvSel) : [], [idProvSel, distritos])
@@ -217,7 +219,7 @@ const fetchData = async () => {
       
       setData(formateado)
     } catch (error: any) {
-      showToast(error.message, 'error')
+      toast.error(error.message)
     }
     setLoading(false)
   }
@@ -237,7 +239,23 @@ const fetchData = async () => {
   
   return (
     <div className="main-content campos-clinicos-page">
-      {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem' }}>{toast.msg}</div>}
+      {/* {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem' }}>{toast.msg}</div>} */}
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
 
       <div className="header-responsive">
         <div><h1><Clock size={24} style={{marginRight: '0.8rem'}}/>Gestión de Horarios Docentes</h1><p>Total: {totalRegistros} docentes con campo clínico</p></div>
@@ -293,7 +311,9 @@ const fetchData = async () => {
             ))}
           </tbody>
         </table>
-        {totalPaginas >= 1 && (
+        
+      </div>
+      {totalPaginas >= 1 && (
           <div className="paginacion-footer">
             <p className="paginacion-info">Mostrando {(paginaActual-1)*registrosPorPagina + 1} al {Math.min(paginaActual*registrosPorPagina, totalRegistros)} de {totalRegistros}</p>
             <div className="paginacion-controles">
@@ -303,7 +323,6 @@ const fetchData = async () => {
             </div>
           </div>
         )}
-      </div>
 
       <ModalHorarioDocente
         show={showModalHorario}
@@ -311,6 +330,7 @@ const fetchData = async () => {
         idcampocli={dataParaHorario?.idcampocli}
         dataHeader={dataParaHorario}
       />
+      
     </div>
   )
 }

@@ -473,9 +473,9 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '70rem'}}>
             <div className="modal-header">
-              <div>
+              <div style={{flex: 1}}>
                 <div style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}>                  
-                  <h2 style={{color: 'var(--color-texto-secundario)'}}> <Users size={18}/> Actualizar Datos complementario del Docente</h2>
+                  <h2 style={{color: 'var(--color-texto-secundario)'}}> <Users size={18}/> Actualizar Datos del Docente</h2>
                 </div>
                 {docenteEdit && (
                   <p style={{fontSize: 'var(--text-sm)', color: 'var(--color-texto-secundario)', marginTop: '0.4rem', fontWeight: 400}}>
@@ -516,7 +516,7 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
                     options={[{value: "NOMBRADO", label: "NOMBRADO"}, {value: "CONTRATADO", label: "CONTRATADO"}]}
                   />
                 </fieldset>
-                <fieldset className="fieldset-sgpc" style={{background: '#F0FDF4', borderLeft: '4px solid #F59E0B'}}>
+                <fieldset className="fieldset-sgpc" style={{background: '#FFFBEB', borderLeft: '4px solid #F59E0B'}}>
                   <legend><UserX size={14}/> Tipo Docente *</legend>
                   <SelectSGPCSinLegend                    
                     value={form.tipodocente}
@@ -632,7 +632,7 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
   background: #f8fafc;
   border-radius: 0 0 1.2rem 1.2rem;
 }
-.btn-cerrar-modal { color: #fff; background: transparent; border: none; }
+.btn-cerrar-modal { color: #fff; background: transparent; border: none; margin-top: -5.5rem; margin-right: -1.5rem;}
     .grid-2-modal {
         display: grid;
         grid-template-columns: 1fr; /* mobil first: 1 columna */

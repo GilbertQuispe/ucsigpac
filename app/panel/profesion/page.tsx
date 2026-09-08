@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Briefcase, Eraser, GraduationCap, Check, Save} from 'lucide-react'
+import { Plus, AlertTriangle, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Briefcase, Eraser, GraduationCap, Check, Save} from 'lucide-react'
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 type Profesion = {
   idprofesion: number
@@ -22,15 +23,15 @@ export default function ProfesionPage() {
   const [editing, setEditing] = useState<Profesion | null>(null)
   const [form, setForm] = useState<Partial<Profesion>>(FORM_INICIAL)
   const [search, setSearch] = useState("")
-  const [toast, setToast] = useState<{ msg: string; type: "error" | "success" } | null>(null)
+  // const [toast, setToast] = useState<{ msg: string; type: "error" | "success" } | null>(null)
 
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
 
-  const showToast = (msg: string, type: "error" | "success" = "error") => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
-  }
+  // const showToast = (msg: string, type: "error" | "success" = "error") => {
+  //   setToast({ msg, type })
+  //   setTimeout(() => setToast(null), 3000)
+  // }
 
   const toTitleCase = (str: string) => str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
 
@@ -42,7 +43,7 @@ export default function ProfesionPage() {
    .order("profesion", { ascending: true })
 
     if (error) {
-      showToast("Error cargando Profesiones: " + error.message, "error")
+      toast.error("Error cargando Profesiones: " + error.message)
     } else {
       setProfesiones(data || [])
     }
@@ -73,7 +74,7 @@ const puedeGuardar = useMemo(() =>
   const limpiarFiltros = () => setSearch("")
 
   const handleSave = async () => {
-    if (!puedeGuardar) return showToast("Complete el Nombre de Profesión *", "error");
+    if (!puedeGuardar) return toast.error("Complete el Nombre de Profesión *");
     try {
       let mensaje = "";
       const dataToSave = {
@@ -90,11 +91,11 @@ const puedeGuardar = useMemo(() =>
         if (error) throw error;
         mensaje = "Profesión registrada correctamente";
       }
-      showToast(mensaje, "success");
+      toast.success(mensaje);
       await fetchData();
       handleClose();
     } catch (err: any) {
-      showToast(err.message || "Error al guardar", "error");
+      toast.error(err.message || "Error al guardar");
     }
   }
 
@@ -103,9 +104,9 @@ const puedeGuardar = useMemo(() =>
     if (!idAEliminar) return
     const { error } = await supabase.from("profesion").delete().eq("idprofesion", idAEliminar)
     if (error)
-      showToast("Error al eliminar: " + error.message, "error")
+      toast.error("Error al eliminar: " + error.message)
     else {
-      showToast("Profesión eliminada correctamente", "success");
+      toast.success("Profesión eliminada correctamente");
       fetchData()
     }
     setShowConfirm(false);
@@ -136,6 +137,27 @@ const puedeGuardar = useMemo(() =>
 
   return (
     <div>
+      {/* puro por defecto <Toaster position="top-right" /> */}
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: {
+            iconTheme: { primary: '#22c55e', secondary: '#fff' }
+          },
+          error: {
+            iconTheme: { primary: '#ef4444', secondary: '#fff' }
+          }
+        }}
+      />
       <div className="header-responsive">
         <div><h1>Registro de Profesiones</h1><p>Total: {profesionesFiltradas.length} registros</p></div>
         <button className="btn-primario" onClick={() => openModal()}><Plus size={18} />Nueva Profesión</button>
@@ -187,7 +209,7 @@ const puedeGuardar = useMemo(() =>
       {showModal && (
         <div className="modal-overlay" onClick={handleClose}>
           <div className="modal-content card-sgpc" style={{maxWidth: '50rem', display: 'flex', flexDirection: 'column', padding: 0 }} onClick={(e) => e.stopPropagation()}>
-            {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
+            {/* {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)} */}
             <div className="modal-header"><h2 style={{color: 'var(--color-texto-secundario)'}}><GraduationCap size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar Profesión" : "Nueva Profesión"}</h2><button onClick={handleClose} className="btn-cerrar-modal"><X size={20} /></button></div>
             <div className="modal-body">       
             
@@ -215,11 +237,13 @@ const puedeGuardar = useMemo(() =>
       )}
 
       {showConfirm && (
-        <div className="modal-overlay"><div className="modal-content card-sgpc" style={{ maxWidth: "40rem" }}>
-          <div className="modal-header"><h2>Eliminar Profesión</h2><button onClick={() => setShowConfirm(false)} className="btn-cerrar"><X size={20} /></button></div>
-          <div className="modal-body"><p style={{ textAlign: "center" }}>¿Está seguro de eliminar esta Profesión? Esta acción no se puede deshacer.</p></div>
-          <div className="modal-footer"><button className="btn-secundario" onClick={() => setShowConfirm(false)}>Cancelar</button><button className="btn-primario btn-danger" onClick={confirmarEliminar}>Eliminar</button></div>
-        </div></div>
+        <div className="modal-overlay">
+          <div className="modal-content card-sgpc" style={{ maxWidth: '45rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden' }}>          
+            <div className="modal-header"><h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}> <AlertTriangle size={22}/>Eliminar Profesión</h2><button onClick={() => setShowConfirm(false)} className="btn-cerrar-modal"><X size={20} /></button></div>
+            <div className="modal-body"><p style={{ textAlign: "center" }}>¿Está seguro de eliminar esta Profesión? Esta acción no se puede deshacer.</p></div>
+            <div className="modal-footer" style={{display: 'flex', padding: '1.5rem 2rem', background: 'var(--color-fondo-card)', borderTop: '1px solid var(--color-borde)', gap: '1rem'}}><button className="btn-secundario" onClick={() => setShowConfirm(false)}><X size={16} />Cancelar</button><button className="btn-primario btn-danger" onClick={confirmarEliminar}><Trash2 size={16} />Eliminar</button></div>
+          </div>
+        </div>
       )}
 
       <style jsx>{`
@@ -280,7 +304,7 @@ const puedeGuardar = useMemo(() =>
   background: #f8fafc;
   border-radius: 0 0 1.2rem 1.2rem;
 }
-.btn-cerrar-modal { color: #fff; background: transparent; border: none; }
+.btn-cerrar-modal { color: #fff; background: transparent; border: none; margin-top: -2.5rem; margin-right: -1.5rem;}
     .grid-2-modal {
         display: grid;
         grid-template-columns: 1fr; /* mobil first: 1 columna */
@@ -303,9 +327,9 @@ const puedeGuardar = useMemo(() =>
      .input-sgpc-floating { width: 100%; box-sizing: border-box; padding: 1.2rem 1.4rem 1.2rem 1.4rem; border: 1px solid #e2e8f0; border-radius: 0.8rem; font-size: 1.4rem; font-family: var(--font-principal); background: var(--color-blanco); outline: none; transition: all 0.2s ease; color: var(--color-texto); height: 4.4rem; appearance: none; }
      .input-sgpc-floating:focus { border: 1px solid var(--color-primario); box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1); }
      .input-label { position: absolute; left: 1.2rem; top: -0.7rem; font-size: 1.1rem; color: var(--color-primario); font-weight: 600; background: var(--color-blanco); padding: 0 0.5rem; pointer-events: none; z-index: 1; }
-     .toast-sgpc { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); padding: 2rem 2rem; border-radius: 0.8rem; font-size: var(--text-sm); font-weight: 700; color: var(--color-blanco); box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 9999; animation: fadeInScale 0.3s ease-out forwards; white-space: nowrap; text-align:center; }
-     .toast-sgpc.error { background: #ef4444; }
-     .toast-sgpc.success { background: #22c55e; }
+    //  .toast-sgpc { position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); padding: 2rem 2rem; border-radius: 0.8rem; font-size: var(--text-sm); font-weight: 700; color: var(--color-blanco); box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 9999; animation: fadeInScale 0.3s ease-out forwards; white-space: nowrap; text-align:center; }
+    //  .toast-sgpc.error { background: #ef4444; }
+    //  .toast-sgpc.success { background: #22c55e; }
       @keyframes fadeInScale { from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
       `}</style>
     </div>

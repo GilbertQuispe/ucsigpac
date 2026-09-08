@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, MapPin, Building, Globe, ChevronLeft, ChevronRight, Eraser } from 'lucide-react' // <-- 1. Agregue iconos
+import { Plus, Edit, Trash2, X, Save, Search, MapPin, Building, Globe, ChevronLeft, ChevronRight, Eraser, AlertTriangle, } from 'lucide-react' // <-- 1. Agregue iconos
 import Select from 'react-select'
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 type Departamento = { iddepartamento: number, nombred: string }
 type Provincia = { idprovincia: number, iddepartamento: number, nombrep: string }
@@ -24,35 +25,6 @@ const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
   )
 }
 
-// const SelectSGPCFieldset = ({label, value, onChange, options, isAsync = false, loadOptions, isDisabled = false}:any) => {
-//   const Component = isAsync? AsyncSelect : Select
-//   return (
-//     <fieldset className="fieldset-sgpc">
-//       <legend>{label}</legend>
-//       <Component
-//         options={isAsync? undefined : options}
-//         loadOptions={isAsync? loadOptions : undefined}
-//         defaultOptions={isAsync}
-//         cacheOptions={isAsync}
-//         value={value}
-//         onChange={onChange}
-//         isDisabled={isDisabled}
-//         placeholder="Seleccione..." isSearchable maxMenuHeight={200}
-//         classNamePrefix="react-select"
-//         menuPortalTarget={typeof document !== 'undefined' ? document.body : null} // <-- ESTO ES CLAVE
-//         menuPosition="fixed"
-//         styles={{ 
-//           //control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem' }), 
-//           control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), input: (base) => ({...base, margin: 0, padding: 0 }), indicatorsContainer: (base) => ({...base, height: '4.4rem' }), option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }),
-//           menuPortal: (base) => ({...base, zIndex: 99999 }), // <-- ESTO ES CLAVE
-//           menu: (base) => ({...base, zIndex: 9999 }) 
-//         }}
-//       />
-//     </fieldset>
-//   )
-// }
-
-
 export default function UbigeoPage() {
 
   const supabase = createClient()
@@ -61,7 +33,7 @@ export default function UbigeoPage() {
   const [showModal, setShowModal] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [idDistritoEdit, setIdDistritoEdit] = useState<number | null>(null)
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  // const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
 
   const [departamentos, setDepartamentos] = useState<Departamento[]>([])
   const [provincias, setProvincias] = useState<Provincia[]>([])
@@ -77,10 +49,10 @@ export default function UbigeoPage() {
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
 
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
-  }
+  // const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
+  //   setToast({ msg, type })
+  //   setTimeout(() => setToast(null), 3000)
+  // }
 
 
   const SelectSGPC = ({label, value, onChange, options, placeholder, isDisabled = false}:any) => {
@@ -229,42 +201,58 @@ export default function UbigeoPage() {
     setIdProvSel('')
     setNombreDist('')
     setProvincias([])
-    showToast('Formulario limpiado', 'success')
+    toast.success('Formulario limpiado')
   }
 
   const handleGuardar = async () => {
-    if(!puedeGuardar) return showToast('Complete todos los campos obligatorios', 'error')
+    if(!puedeGuardar) return toast.error('Complete todos los campos obligatorios')
     const payload = { idprovincia: idProvSel, nombredt: nombreDist.trim() }
 
     try {
       if(isEditing) {
         const { error } = await supabase.from('distrito').update(payload).eq('iddistrito', idDistritoEdit)
         if(error) throw error
-        showToast('Cambio actualizado', 'success')
+        toast.success('Cambio actualizado')
       } else {
         const { error } = await supabase.from('distrito').insert({...payload, estado: 'ACTIVO'})
         if(error) throw error
-        showToast('Distrito registrado correctamente', 'success')
+        toast.success('Distrito registrado correctamente')
       }
 
       await fetchTodo()
       setTimeout(() => { closeModal() }, 3000)
 
     } catch (error: any) {
-      showToast(error.message, 'error')
+      toast.error(error.message)
     }
   }
 
   const handleAnular = async (id: number) => {
     if(!confirm('¿Anular este distrito?')) return
     await supabase.from('distrito').update({estado: 'ANULADO'}).eq('iddistrito', id)
-    showToast('Distrito anulado correctamente', 'success')
+    toast.success('Distrito anulado correctamente')
     fetchTodo()
   }
 
   return (
     <div>
-      <div className="header-responsive">
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
+      <div className="header-responsive">        
         <div>
           <h1>Gestión de Ubigeo</h1>
           <p>Total: {ubigeosFiltrados.length} registros ACTIVOS</p>
@@ -373,60 +361,59 @@ export default function UbigeoPage() {
 
       {showModal && (
         <div className="modal-overlay">
-          <div className="modal-content card-sgpc" style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-            {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
+          <div className="modal-content card-sgpc" style={{ maxWidth: '45rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+            {/* {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)} */}
             <div className="modal-header">
-              <h2 style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}>
-    <MapPin size={22} strokeWidth={2} /> 
-    {isEditing? 'Editar Distrito' : 'Nuevo Distrito'}
-  </h2>
-              <button onClick={closeModal} className="btn-cerrar"><X size={20} /></button>
+              <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}>
+                <MapPin size={22} strokeWidth={2} /> 
+                {isEditing? 'Editar Distrito' : 'Nuevo Distrito'}
+              </h2>
+              <button onClick={closeModal} className="btn-cerrar-modal"><X size={20} /></button>
             </div>
    <div className="modal-body">
 
-  <div className="grid-2">
-    <div className="input-wrapper">
-      <SelectSGPC
-        label="Departamento *"
-        value={idDeptoSel || ""}
-        onChange={(val:any) => setIdDeptoSel(val)}
-        options={departamentos.map(d => ({value: d.iddepartamento, label: d.nombred}))}
-        isDisabled={isEditing}
-      />
-      
-    </div>
+            <div className="grid-2">
+              <div className="input-wrapper">
+                <SelectSGPC
+                  label="Departamento *"
+                  value={idDeptoSel || ""}
+                  onChange={(val:any) => setIdDeptoSel(val)}
+                  options={departamentos.map(d => ({value: d.iddepartamento, label: d.nombred}))}
+                  isDisabled={isEditing}
+                />      
+              </div>
 
-    <div className="input-wrapper">
-      <SelectSGPC
-        label="Provincia *"
-        value={idProvSel || ""}
-        onChange={(val:any) => setIdProvSel(val)}
-        options={provincias.map(p => ({value: p.idprovincia, label: p.nombrep}))}
-        isDisabled={!idDeptoSel || isEditing}
-      />
-      
-    </div>
-  </div>
+              <div className="input-wrapper">
+                <SelectSGPC
+                  label="Provincia *"
+                  value={idProvSel || ""}
+                  onChange={(val:any) => setIdProvSel(val)}
+                  options={provincias.map(p => ({value: p.idprovincia, label: p.nombrep}))}
+                  isDisabled={!idDeptoSel || isEditing}
+                />
+                
+              </div>
+            </div>
 
-  <div className="input-wrapper">
-    <label className="input-label">Nombre del Distrito *</label>
-    <input 
-      className="input-sgpc-floating" 
-      placeholder="Ej: Huancayo" 
-      value={nombreDist} 
-      onChange={e => setNombreDist(e.target.value)} 
-    />
-    <div className="input-icon-wrapper"><MapPin size={18} strokeWidth={1.5} /></div>
-  </div>
+            <div className="input-wrapper">
+              <label className="input-label">Nombre del Distrito *</label>
+              <input 
+                className="input-sgpc-floating" 
+                placeholder="Ej: Huancayo" 
+                value={nombreDist} 
+                onChange={e => setNombreDist(e.target.value)} 
+              />
+              <div className="input-icon-wrapper"><MapPin size={18} strokeWidth={1.5} /></div>
+            </div>
 
-</div>
+   </div>
 
-<div className="modal-footer">
+<div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
   <button className="btn-secundario" onClick={handleCancelar}>
     <Eraser size={16} /> Limpiar
   </button>
   <button className="btn-primario" onClick={handleGuardar} disabled={!puedeGuardar}>
-    Guardar
+    <Save size={16} />Guardar
   </button>
 </div>         
           </div>
@@ -434,6 +421,8 @@ export default function UbigeoPage() {
       )}
 
       <style jsx>{`
+
+      .btn-cerrar-modal { color: #fff; background: transparent; border: none; margin-top: -1.5rem; margin-right: -1.5rem;}
     .btn-cerrar {
           background: #f1f5f9;
           border: none;
@@ -473,14 +462,23 @@ export default function UbigeoPage() {
           flex-direction:column;
           max-height:90vh;
         }
-    .modal-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 2.4rem;
-          border-bottom: 1px solid var(--color-borde);
-          padding-bottom: 1.6rem;
-        }
+    // .modal-header {
+    //       display: flex;
+    //       justify-content: space-between;
+    //       align-items: center;
+    //       margin-bottom: 2.4rem;
+    //       border-bottom: 1px solid var(--color-borde);
+    //       padding-bottom: 1.6rem;
+    //     }
+    .modal-header { 
+  background: var(--color-primario); 
+  color: #fff; 
+  padding: 2rem 2.4rem; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border-radius: 1.2rem 1.2rem 0 0;
+}
     .modal-header h2 {
           font-size: var(--text-xl);
           color: var(--color-primario);
@@ -491,6 +489,7 @@ export default function UbigeoPage() {
           flex-direction: column;
           gap: 2rem;
           margin-bottom: 2.4rem;
+          padding: 2.4rem;
         }
 
         .grid-2 {
@@ -537,35 +536,44 @@ export default function UbigeoPage() {
   pointer-events: none;
   z-index: 2;
 }
-    .modal-footer {
-          display: flex;
-          justify-content: flex-end;
-          gap: 1.2rem;
-          border-top: 1px solid var(--color-borde);
-          padding-top: 1.6rem;
-        }
+    // .modal-footer {
+    //       display: flex;
+    //       justify-content: flex-end;
+    //       gap: 1.2rem;
+    //       border-top: 1px solid var(--color-borde);
+    //       padding-top: 1.6rem;
+    //     }
+      .modal-footer { 
+  padding: 1.6rem 2.4rem; 
+  border-top: 1px solid #e2e8f0; 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1.2rem;
+  background: #f8fafc;
+  border-radius: 0 0 1.2rem 1.2rem;
+}
     .btn-primario:disabled,.btn-secundario:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
-    .toast-sgpc {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          transform: translate(-50%,-50%);
-          padding: 2rem 2rem;
-          border-radius: 0.8rem;
-          font-size: var(--text-sm);
-          font-weight: 700;
-          color: var(--color-blanco);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-          z-index: 9999;
-          animation: fadeInScale 0.3s ease-out forwards;
-          white-space: nowrap;
-          text-align:center;
-        }
-    .toast-sgpc.error { background: #ef4444; }
-    .toast-sgpc.success { background: #22c55e; }
+    // .toast-sgpc {
+    //       position: absolute;
+    //       top: 50%;
+    //       left: 50%;
+    //       transform: translate(-50%,-50%);
+    //       padding: 2rem 2rem;
+    //       border-radius: 0.8rem;
+    //       font-size: var(--text-sm);
+    //       font-weight: 700;
+    //       color: var(--color-blanco);
+    //       box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    //       z-index: 9999;
+    //       animation: fadeInScale 0.3s ease-out forwards;
+    //       white-space: nowrap;
+    //       text-align:center;
+    //     }
+    // .toast-sgpc.error { background: #ef4444; }
+    // .toast-sgpc.success { background: #22c55e; }
        @keyframes fadeInScale { from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
 
        .paginacion-footer {

@@ -1,8 +1,9 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Building, MapPin, Phone, Eraser, Filter} from 'lucide-react'
+import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Building, MapPin, Phone, Eraser, Filter, AlertTriangle, Save} from 'lucide-react'
 import Select from 'react-select'
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 type Eps = {
   ideps: number
@@ -20,31 +21,6 @@ type Eps = {
   nivelatencion?: { codigo: string | null, nombre: string } // 1. AGREGADO CODIGO
   tipoeps?: { nombretipoeps: string }
 }
-
-// type Eps = {
-//   ideps: number
-//   iddistrito: number | null
-//   idnivela: number | null
-//   ruc: string | null
-//   razonsocial: string | null
-//   direccion: string | null
-//   telefono: string | null
-//   contacto: string | null
-//   estado: string | null
-//   idtipoeps: number | null
-//   distrito?: { 
-//     nombredt: string
-//     idprovincia: number
-//     provincia?: { 
-//       nombrep: string
-//       iddepartamento: number
-//       departamento?: { nombred: string }[]
-//     }[]
-//   }[]
-//   nivelatencion?: { codigo: string | null, nombre: string }[]
-//   tipoeps?: { nombretipoeps: string }[]
-// }
-
 
 type Distrito = { iddistrito: number, nombredt: string, idprovincia: number }
 type Provincia = { idprovincia: number, nombrep: string, iddepartamento: number }
@@ -79,7 +55,7 @@ export default function EpsPage() {
   const [editing, setEditing] = useState<Eps | null>(null)
   const [form, setForm] = useState<Partial<Eps>>(FORM_INICIAL)
   const [search, setSearch] = useState("")
-  const [toast, setToast] = useState<{ msg: string; type: "error" | "success" } | null>(null)
+  // const [toast, setToast] = useState<{ msg: string; type: "error" | "success" } | null>(null)
 
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
@@ -92,10 +68,10 @@ export default function EpsPage() {
   const [filtroDist, setFiltroDist] = useState<number | null>(null)
   const [filtroTipo, setFiltroTipo] = useState<number | null>(null)
 
-  const showToast = (msg: string, type: "error" | "success" = "error") => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
-  }
+  // const showToast = (msg: string, type: "error" | "success" = "error") => {
+  //   setToast({ msg, type })
+  //   setTimeout(() => setToast(null), 3000)
+  // }
 
   const toTitleCase = (str: string) => str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
 
@@ -150,8 +126,8 @@ const fetchData = async () => {
   const { data: epsData, error, count } = await query.order("razonsocial").range(from, to)
 
   if (error) {
-    console.error("ERROR SUPABASE EPS:", error)
-    showToast("Error cargando EPS: " + error.message, "error")
+    //console.error("ERROR SUPABASE EPS:", error)
+    toast.error("Error cargando EPS: " + error.message)
   }
 
   // Maestras solo 1 vez
@@ -260,7 +236,7 @@ useEffect(() => { fetchData() }, [paginaActual, search, filtroDepto, filtroProv,
   }
 
   const handleSave = async () => {
-  if (!puedeGuardar) return showToast("Complete todos los campos obligatorios *", "error");
+  if (!puedeGuardar) return toast.error("Complete todos los campos obligatorios *");
   try {
     let mensaje = "";
     const dataToSave = {
@@ -285,14 +261,14 @@ useEffect(() => { fetchData() }, [paginaActual, search, filtroDepto, filtroProv,
       if (error) throw error;
       mensaje = "EPS registrada correctamente";
     }
-    showToast(mensaje, "success");
+    toast.success(mensaje);
     await fetchData();
     handleClose();
   } catch (err: any) {
     if (err.code === "23505")
-      showToast("El RUC ya está registrado", "error")
+      toast.error("El RUC ya está registrado")
     else
-      showToast(err.message || "Error al guardar", "error");
+      toast.error(err.message || "Error al guardar");
   }
 }
 
@@ -301,9 +277,9 @@ useEffect(() => { fetchData() }, [paginaActual, search, filtroDepto, filtroProv,
     if (!idAEliminar) return
     const { error } = await supabase.from("eps").update({ estado: "INACTIVO" }).eq("ideps", idAEliminar)
     if (error)
-      showToast("Error al anular: " + error.message, "error")
+      toast.error("Error al anular: " + error.message)
     else {
-      showToast("EPS anulada correctamente", "success");
+      toast.success("EPS anulada correctamente");
       fetchData()
     }
     setShowConfirm(false);
@@ -392,6 +368,23 @@ useEffect(() => { fetchData() }, [paginaActual, search, filtroDepto, filtroProv,
 
   return (
     <div>
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
+
       <div className="header-responsive">
         <div><h1>Registro de EPS</h1><p>Total: {totalRegistros} registros</p></div>
         <button className="btn-primario" onClick={() => openModal()}><Plus size={18} />Nueva EPS</button>
@@ -467,11 +460,13 @@ useEffect(() => { fetchData() }, [paginaActual, search, filtroDepto, filtroProv,
       )}
 
       {showModal && (
-        <div className="modal-overlay" >
-          <div className="modal-content card-sgpc" style={{maxWidth: "78rem"}} onClick={(e) => e.stopPropagation()}>
-            {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
-            <div className="modal-header"><h2><Building size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar EPS" : "Nueva EPS"}</h2><button onClick={handleClose} className="btn-cerrar"><X size={20} /></button></div>
-            <div className="modal-body">
+        <div className="modal-overlay"  >
+          <div className="modal-content card-sgpc" style={{maxWidth: '78rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden'}} onClick={(e) => e.stopPropagation()}>
+            {/* {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)} */}
+            <div className="modal-header" style={{background: 'var(--color-primario)', color: '#fff', padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+              <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}><Building size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar EPS" : "Nueva EPS"}</h2>
+              <button onClick={handleClose} className="btn-cerrar-modal"><X size={20} /></button></div>
+            <div className="modal-body" style={{overflowY: 'auto', padding: '2rem'}}>
               <div className="grid-2">
                 <div className="input-wrapper"><label className="input-label">RUC *</label><input className="input-sgpc-floating" placeholder="20123456789" value={form.ruc || ""} onChange={e => setForm({...form, ruc: e.target.value.replace(/\D/g,"") })} maxLength={11} /></div>
                 <div className="input-wrapper"><label className="input-label">Razón Social *</label><input className="input-sgpc-floating" placeholder="EPS RIMAC S.A." value={form.razonsocial || ""} onChange={e => setForm({...form, razonsocial: e.target.value })} maxLength={250} /></div>
@@ -509,23 +504,50 @@ useEffect(() => { fetchData() }, [paginaActual, search, filtroDepto, filtroProv,
                 </div>
               </div>
             </div>
-            <div className="modal-footer">
+            <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
               <button className="btn-secundario" onClick={resetForm} type="button"><Eraser size={16} style={{marginRight: "0.5rem"}} />Limpiar</button>
-              <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>Guardar</button>
+              <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}><Save size={16}/>Guardar</button>
             </div>
           </div>
         </div>
       )}
 
       {showConfirm && (
-        <div className="modal-overlay"><div className="modal-content card-sgpc" style={{ maxWidth: "40rem" }}>
-          <div className="modal-header"><h2>Anular EPS</h2><button onClick={() => setShowConfirm(false)} className="btn-cerrar"><X size={20} /></button></div>
-          <div className="modal-body"><p style={{ textAlign: "center" }}>¿Está seguro de anular esta EPS? No se eliminará, solo cambiará a INACTIVO.</p></div>
-          <div className="modal-footer"><button className="btn-secundario" onClick={() => setShowConfirm(false)}>Cancelar</button><button className="btn-primario btn-danger" onClick={confirmarEliminar}>Anular</button></div>
+        <div className="modal-overlay"><div className="modal-content card-sgpc" style={{maxWidth: '40rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden'}}>
+          <div className="modal-header"><h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}><AlertTriangle size={22}/>Anular EPS</h2><button onClick={() => setShowConfirm(false)} className="btn-cerrar-modal"><X size={20} /></button></div>
+          <div className="modal-body" style={{overflowY: 'auto', padding: '2rem'}}><p style={{ textAlign: "center" }}>¿Está seguro de anular esta EPS? No se eliminará, solo cambiará a INACTIVO.</p></div>
+          <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}><button className="btn-secundario" onClick={() => setShowConfirm(false)}> <X size={16} />Cancelar</button><button className="btn-primario btn-danger" onClick={confirmarEliminar}> <Trash2 size={16} />Anular</button></div>
         </div></div>
       )}
 
       <style jsx>{`
+            .modal-header { 
+  background: var(--color-primario); 
+  color: #fff; 
+  padding: 2rem 2.4rem; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border-radius: 1.2rem 1.2rem 0 0;
+}
+      .btn-cerrar-modal { color: #fff; background: transparent; border: none; margin-top: -1rem; margin-right: -1rem;}
+      .modal-footer { 
+  padding: 1.6rem 2.4rem; 
+  border-top: 1px solid #e2e8f0; 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1.2rem;
+  background: #f8fafc;
+  border-radius: 0 0 1.2rem 1.2rem;
+}
+
+.modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem; /* <-- Separación entre secciones */
+  overflow-y: auto; /* <-- CLAVE PARA SCROLL EN CELULAR */
+  padding-right: 0.4rem; /* para que no tape la barra */
+}
 .badge-nivel { background: #eff6ff; color: #1d4ed8; padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 1.2rem; font-weight: 700; letter-spacing: 0.5px; } // 6. NUEVO ESTILO
 .chip-estado { padding: 0.4rem 1rem; border-radius: 2rem; font-size: 1.1rem; font-weight: 700; }
 .chip-activo { background: #dcfce7; color: #166534; }

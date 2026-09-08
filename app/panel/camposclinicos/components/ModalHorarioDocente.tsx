@@ -150,23 +150,18 @@ export default function ModalHorarioDocente({
     <div className="modal-overlay" onClick={onClose}>
       {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem' }}>{toast.msg}</div>}
 
-      <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '60rem'}}>
-        <div className="modal-header" style={{borderBottom: '2px solid #e5e7eb', marginBottom:'0rem'}}>
+      <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '60rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden'}}>
+        <div className="modal-header" style={{background: 'var(--color-primario)', color: '#fff', padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
           <div>
-            <h1 style={{display: 'flex', marginTop:'0rem', alignItems: 'center', gap: '0.8rem', color: 'var(--color-primario)', fontSize: '2rem'}}>
-              <Clock size={20} /> Registrar Horario Laboral
-            </h1>
-            <p style={{fontSize: '1.6rem', marginTop: '0rem'}}>
-              <b>Docente:</b> {dataHeader?.docente} - DNI: {dataHeader?.dni}
-            </p>
-            <p style={{fontSize: '1.2rem', marginBottom:'0rem'}}>
-              <b>EPS:</b> {dataHeader?.eps} <br/> <b>Servicio:</b> {dataHeader?.servicio} - <b>Periodo:</b> {dataHeader?.periodo}
-            </p>
+            <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}><Clock size={20} /> Registrar Horario Laboral</h2>
+            <p style={{fontSize: '1.4rem', marginTop: '1rem'}}><b>Docente:</b> {dataHeader?.docente} - DNI: {dataHeader?.dni}</p>
+            {/* <p style={{fontSize: '1.2rem', marginBottom:'0rem'}}><b>EPS:</b> {dataHeader?.eps} <br/> <b>Servicio:</b> {dataHeader?.servicio} - <b>Periodo:</b> {dataHeader?.periodo}</p> */}
+            <p style={{fontSize: '1.2rem', marginBottom:'0rem'}}><b>EPS:</b> {dataHeader?.eps} <br/><b>Periodo:</b> {dataHeader?.periodo}</p>
           </div>
           <button onClick={onClose} className="btn-cerrar-modal"><X size={18} /></button>
         </div>
 
-        <div className="modal-body" style={{padding: '0.8rem'}}>
+        <div className="modal-body" style={{overflowY: 'auto', padding: '2rem'}}>
           <p style={{fontSize: '1.2rem', opacity: 0.8, marginBottom: '0.6rem'}}>Marque los días y coloque el horario. Solo se guardarán los días marcados.</p>
 
           {/* TABLA */}
@@ -221,15 +216,58 @@ export default function ModalHorarioDocente({
 
         </div>
 
-        <div className="modal-footer" style={{justifyContent: 'space-between', padding: '1.6rem'}}>
-          <button className="btn-secundario" onClick={handleLimpiar} disabled={loading} style={{minWidth: '20rem', background: '#fff', color: '#0EA5E9', border: '2px solid #0EA5E9'}}>
+        <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
+          <button className="btn-secundario" onClick={handleLimpiar} disabled={loading} >
             <Eraser size={16} /> Limpiar
           </button>
-          <button className="btn-primario" onClick={handleGuardar} disabled={loading} style={{minWidth: '20rem', background: '#2563EB'}}>
+          <button className="btn-primario" onClick={handleGuardar} disabled={loading} >
             <Save size={16} /> {loading? 'Guardando...' : 'Guardar Horario'}
           </button>
         </div>
       </div>
+      <style jsx>{`
+
+.modal-header { 
+  background: var(--color-primario); 
+  color: #fff; 
+  padding: 2rem 2.4rem; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border-radius: 1.2rem 1.2rem 0 0;
+}
+
+    .modal-content {
+  background: #f8fafc; /* gris clarito de fondo */
+  padding: 0;
+  border-radius: 1.2rem;
+  overflow: hidden; /* para que el header azul no se salga */
+}
+.modal-body {
+  background: #fff; /* blanco para los campos */
+  padding: 2.4rem;
+}
+  .modal-footer { 
+  padding: 1.6rem 2.4rem; 
+  border-top: 1px solid #e2e8f0; 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1.2rem;
+  background: #f8fafc;
+  border-radius: 0 0 1.2rem 1.2rem;
+}
+.btn-cerrar-modal { color: #fff; background: transparent; border: none; margin-top: -7.5rem; margin-right: -1rem;}
+    .grid-2-modal {
+        display: grid;
+        grid-template-columns: 1fr; /* mobil first: 1 columna */
+        gap: 1.6rem;
+      }
+      @media (min-width: 768px) {
+        .grid-2-modal {
+          grid-template-columns: 1fr 1fr; /* tablet/desktop: 2 columnas */
+        }
+      }
+  `}</style>
     </div>
   )
 }

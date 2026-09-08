@@ -1,7 +1,8 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Building2, Eraser } from 'lucide-react'
+import { Plus, Edit, Save, Trash2, X, Search, ChevronLeft, ChevronRight, Building2, Eraser, AlertTriangle, } from 'lucide-react'
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 type NivelAtencion = {
   idnivela: number
@@ -19,16 +20,16 @@ export default function NivelesPage() {
   const [editing, setEditing] = useState<NivelAtencion | null>(null)
   const [form, setForm] = useState<Partial<NivelAtencion>>({})
   const [search, setSearch] = useState('')
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  // const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
 
   // PAGINACION
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
 
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
-  }
+  // const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
+  //   setToast({ msg, type })
+  //   setTimeout(() => setToast(null), 3000)
+  // }
 
   const toTitleCase = (str: string) =>
     str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
@@ -91,11 +92,11 @@ export default function NivelesPage() {
         if (error) throw error;
         mensaje = 'Nivel registrado correctamente';
       }
-      showToast(mensaje, 'success');
+      toast.success(mensaje);
       await fetchNiveles();
       closeModal();
     } catch (err: any) {
-      showToast(err.message || 'Error al guardar', 'error');
+      toast.error(err.message || 'Error al guardar');
     }
   }
 
@@ -111,9 +112,9 @@ export default function NivelesPage() {
      .delete()
      .eq('idnivela', idAEliminar)
     if (error) {
-      showToast('Error al eliminar: ' + error.message, 'error')
+      toast.error('Error al eliminar: ' + error.message)
     } else {
-      showToast('Registro eliminado correctamente', 'success')
+      toast.success('Registro eliminado correctamente')
       fetchNiveles()
     }
     setShowConfirm(false)
@@ -139,6 +140,23 @@ export default function NivelesPage() {
 
   return (
     <div>
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
+
       <div className="header-responsive">
         <div>
           <h1>Niveles de Atención</h1>
@@ -183,33 +201,61 @@ export default function NivelesPage() {
       )}
 
       {showModal && (
-        <div className="modal-overlay"><div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()}>
-          {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
-          <div className="modal-header"><h2><Building2 size={20} style={{marginRight: '0.8rem'}}/>{editing? 'Editar Nivel' : 'Nuevo Nivel'}</h2><button onClick={closeModal} className="btn-cerrar"><X size={20} /></button></div>
+        <div className="modal-overlay"><div className="modal-content card-sgpc" style={{ maxWidth: '45rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden' }} onClick={(e) => e.stopPropagation()}>
+          {/* {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)} */}
+          <div className="modal-header"><h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}><Building2 size={20} style={{marginRight: '0.8rem'}}/>{editing? 'Editar Nivel' : 'Nuevo Nivel'}</h2><button onClick={closeModal} className="btn-cerrar-modal"><X size={20} /></button></div>
           <div className="modal-body">
             <div className="input-wrapper"><label className="input-label">Código *</label><input className="input-sgpc-floating" placeholder="I-1" value={form.codigo || ''} onChange={e => setForm({...form, codigo: e.target.value.toUpperCase() })} maxLength={100} /></div>
             <div className="input-wrapper"><label className="input-label">Nombre *</label><input className="input-sgpc-floating" placeholder="Puesto de Salud" value={form.nombre || ''} onChange={e => setForm({...form, nombre: e.target.value })} maxLength={100} /></div>
           </div>
-          <div className="modal-footer">
+          <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
   <button className="btn-secundario" onClick={() => {
       setForm({ codigo: '', nombre: '' }) // Limpia el form
     }}>
     <Eraser size={16} /> Limpiar
   </button>
-  <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}>Guardar</button>
+  <button className="btn-primario" onClick={handleSave} disabled={!puedeGuardar}><Save size={16} />Guardar</button>
 </div>
         </div></div>
       )}
 
       {showConfirm && (
-        <div className="modal-overlay"><div className="modal-content card-sgpc" style={{ maxWidth: '40rem' }}>
-          <div className="modal-header"><h2>Confirmar Eliminación</h2><button onClick={() => setShowConfirm(false)} className="btn-cerrar"><X size={20} /></button></div>
+        <div className="modal-overlay" ><div className="modal-content card-sgpc" style={{ maxWidth: '45rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden' }}>
+          <div className="modal-header"><h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}> <AlertTriangle size={20} />Confirmar Eliminación</h2><button onClick={() => setShowConfirm(false)} className="btn-cerrar-modal"><X size={20} /></button></div>
           <div className="modal-body"><p style={{ textAlign: 'center' }}>¿Está seguro de eliminar este registro?</p></div>
-          <div className="modal-footer"><button className="btn-secundario" onClick={() => setShowConfirm(false)}>Cancelar</button><button className="btn-primario btn-danger" onClick={confirmarEliminar}>Eliminar</button></div>
+          <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}><button className="btn-secundario" onClick={() => setShowConfirm(false)}>Cancelar</button><button className="btn-primario btn-danger" onClick={confirmarEliminar}>Eliminar</button></div>
         </div></div>
       )}
 
       <style jsx>{`
+.btn-cerrar-modal { color: #fff; background: transparent; border: none; margin-top: -1.5rem; margin-right: -1.5rem;}
+          .modal-header { 
+  background: var(--color-primario); 
+  color: #fff; 
+  padding: 2rem 2.4rem; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border-radius: 1.2rem 1.2rem 0 0;
+}
+
+      .modal-footer { 
+  padding: 1.6rem 2.4rem; 
+  border-top: 1px solid #e2e8f0; 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1.2rem;
+  background: #f8fafc;
+  border-radius: 0 0 1.2rem 1.2rem;
+}
+   .modal-body {
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+          // margin-bottom: 2.4rem;
+          padding: 2.4rem;
+        }
+
        .btn-danger { background: #ef4444; color: white; }
        .btn-primario:disabled { opacity: 0.5; cursor: not-allowed; }
        .btn-cerrar { background: #f1f5f9; border: none; border-radius: 0.8rem; padding: 0.8rem; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease; }

@@ -375,7 +375,9 @@ const toTitleCase = (str: string) =>
           <tbody>{datosPaginados.map((d:any, i) => (<tr key={i}>{tab==='personas' && <td><input type="checkbox" checked={seleccionados.includes(d.idpersona)} onChange={() => toggleCheck(d.idpersona)} /></td>}<td>{indiceInicio + i + 1}</td><td>{d.dni || d.persona?.dni}</td><td>{d.apellidos || d.persona?.apellidos}, {d.nombres || d.persona?.nombres}</td>{tab==='estudiantes' && <><td>{d.carrera?.nombrecarrera}</td><td>{d.carrera?.facultad?.nombrefacultad}</td><td>{d.filial?.nombrefilial}</td><td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: d.estado === 'ACTIVO'? '#F0FDF4' : '#FEF2F2', color: d.estado === 'ACTIVO'? '#22C55E' : '#EF4444'}}>{d.estado || 'ACTIVO'}</span></td></>}<td style={{display: 'flex', gap: '0.8rem'}}>{tab==='estudiantes' && <><button onClick={() => openEditModal(d)} className="btn-icon btn-icon-editar" title="Editar"><Edit size={15} /></button><button onClick={() => handleCambiarEstadoEstudiante(d.idestudiante, d.estado || 'ACTIVO')} className={d.estado === 'ACTIVO'? "btn-icon btn-icon-eliminar" : "btn-icon btn-icon-activar"} title={d.estado === 'ACTIVO'? 'Inactivar' : 'Activar'}>{d.estado === 'ACTIVO'? <UserX size={15} color="#fff" /> : <UserCheck size={15} color="#fff" />}</button></>}</td></tr>))}</tbody>
         </table>
 
-        {totalPaginas > 1 && (
+        
+      </div>
+      {totalPaginas > 1 && (
           <div className="paginacion-footer">
             <p className="paginacion-info">Mostrando {indiceInicio + 1} al {Math.min(indiceFin, datosFiltrados.length)} de {datosFiltrados.length} registros</p>
             <div className="paginacion-controles">
@@ -385,7 +387,6 @@ const toTitleCase = (str: string) =>
             </div>
           </div>
         )}
-      </div>
 
       {/* MODAL CONVERTIR MASIVO */}
       {showModalConvertir && (
@@ -450,7 +451,7 @@ const toTitleCase = (str: string) =>
               </fieldset>  
             </div> */}
             <div className="modal-body" style={{background: '#fff', padding: '2.4rem'}}>
-              <div className="grid-1-modal">
+              <div className="grid-1-modal" style={{display: 'grid',gap: '1rem'}}>
                 
                 {/* CARD AZUL - CARRERA */}
                 <fieldset className="fieldset-sgpc" style={{background: '#EFF6FF', borderLeft: '4px solid #3B82F6'}}>
@@ -464,14 +465,14 @@ const toTitleCase = (str: string) =>
                 
                 {/* CARD MORADO - FILIAL */}
                 <fieldset className="fieldset-sgpc" style={{background: '#F5F3FF', borderLeft: '4px solid #8B5CF6'}}>
-                  <legend><Users size={14}/> Filial</legend>
+                  <legend><Users size={14}/> Filial *</legend>
                   <SelectSGPCSinLegend 
                     value={form.idfilial} 
                     onChange={(val:any) => setForm({...form, idfilial: val})} 
                     options={filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))} 
                   />
                 </fieldset>
-              </div>
+              
 
               {/* CARD VERDE - ESTADO */}
               <fieldset className="fieldset-sgpc" style={{background: '#F0FDF4', borderLeft: '4px solid #22C55E'}}>
@@ -482,6 +483,7 @@ const toTitleCase = (str: string) =>
                   options={[{value: "ACTIVO", label: "ACTIVO"}, {value: "INACTIVO", label: "INACTIVO"}]} 
                 />
               </fieldset>
+              </div>
             </div>
             
             <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
@@ -594,7 +596,7 @@ const toTitleCase = (str: string) =>
 }
 .modal-header h2 { color: #fff; margin: 0; }
 .modal-header p { color: #dbeafe; margin: 0.4rem 0 0 0; }
-.btn-cerrar-modal { color: #fff; background: transparent; border: none; }
+.btn-cerrar-modal { color: #fff; background: transparent; border: none; margin-top: -4.5rem; margin-right: -1.5rem;}
 
 .modal-footer { 
   padding: 1.6rem 2.4rem; 

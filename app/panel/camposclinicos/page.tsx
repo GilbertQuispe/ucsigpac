@@ -1,10 +1,11 @@
 'use client'
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, X, Search, Trash2, Hospital, BookOpen, User, Building, Calendar, Eraser, Save, ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
+import { Plus, AlertTriangle, Edit, X, Search, Trash2, Hospital, BookOpen, User, Building, Calendar, Eraser, Save, ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 import Select from 'react-select'
 import AsyncSelect from 'react-select/async' // <-- NUEVO 1
 import ModalHorarioDocente from './components/ModalHorarioDocente'
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 type Persona = { idpersona: number; dni: string; apellidos: string; nombres: string }
 type Profesion = { idprofesion: number; profesion: string }
@@ -88,7 +89,7 @@ const distritosConEps = useMemo(() => {
 
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  // const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
 
   const [showModal, setShowModal] = useState(false)
   const [campoEdit, setCampoEdit] = useState<CampoClinico | null>(null)
@@ -185,7 +186,7 @@ const [dataParaHorario, setDataParaHorario] = useState<any>(null)
   // 3. DOCENTES SIN FILTRO
   const docentesFiltrados = docentes
 
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+  // const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
   useEffect(() => { fetchData() }, [filtroPeriodo, filtroFilialTabla, search, paginaActual])
 
@@ -324,8 +325,8 @@ const [dataParaHorario, setDataParaHorario] = useState<any>(null)
       setCampos(camposDB as CampoClinico[] || [])
       
     } catch (error: any) {
-      console.error("ERROR FETCH:", error)
-      showToast(error.message, 'error')
+      //console.error("ERROR FETCH:", error)
+      toast.error(error.message)
     }
     setLoading(false)
   }
@@ -389,7 +390,7 @@ const openModal = (campo: CampoClinico | null = null) => {
 , [form])
 
   const handleGuardar = async () => {
-    if(!puedeGuardar) { showToast('Complete todos los campos obligatorios *', 'error'); return }
+    if(!puedeGuardar) { toast.error('Complete todos los campos obligatorios *'); return }
     setLoading(true)
 
     const dataToSave = {
@@ -405,9 +406,9 @@ const openModal = (campo: CampoClinico | null = null) => {
      ? await supabase.from('campoclinico').update(dataToSave).eq('idcampocli', campoEdit.idcampocli).select().single()
       : await supabase.from('campoclinico').insert(dataToSave).select().single() // <-- AQUI ESTA EL CAMBIO
 
-    if(error) showToast(error.message, 'error')
+    if(error) toast.error(error.message)
     else {
-      showToast(campoEdit? 'Campo actualizado' : 'Campo registrado', 'success')
+      toast.success(campoEdit? 'Campo actualizado' : 'Campo registrado')
       setShowModal(false); // Cierra modal 1
 
       // NUEVO: SI ES REGISTRO NUEVO, ABRIMOS MODAL 2
@@ -437,8 +438,8 @@ const openModal = (campo: CampoClinico | null = null) => {
   const confirmarEliminar = async () => {
     if(!campoAEliminar) return
     const {error} = await supabase.from('campoclinico').update({estado: 'INACTIVO'}).eq('idcampocli', campoAEliminar.idcampocli)
-    if(error) showToast(error.message, 'error')
-    else { showToast('Campo inactivado', 'success'); fetchData() }
+    if(error) toast.error(error.message)
+    else { toast.error('Campo inactivado'); fetchData() }
     setModalEliminar(false); setCampoAEliminar(null)
   }
 
@@ -448,7 +449,24 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
   
   return (
     <div className="main-content campos-clinicos-page">
-      {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem' }}>{toast.msg}</div>}
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
+
+      {/* {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem' }}>{toast.msg}</div>} */}
 
       <div className="header-responsive">
         <div><h1><Hospital size={24} style={{marginRight: '0.8rem'}}/>Gestión de Campos Clínicos</h1><p>Total: {totalRegistros} registros</p></div> {/* <-- CAMBIO: usar totalRegistros */}
@@ -484,16 +502,16 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
                 <td>{c.eps?.razonsocial} <br/><span style={{fontSize: '1.1rem', opacity: 0.7}}>{c.eps?.distrito?.nombredt} - {c.eps?.distrito?.provincia?.nombrep}</span></td>
                 {/* <td>{c.serviciosalud?.nombre}</td> */}
                 <td>
-  <div style={{fontWeight: 600}}>{c.docente?.persona?.dni}</div>
-  <div>{c.docente?.persona?.apellidos}, {c.docente?.persona?.nombres}</div>
-  <span style={{fontSize: '1.1rem', opacity: 0.7}}>
-    {c.docente?.profesion?.profesion} / {c.docente?.especialidad?.especialidad}
-  </span>
-</td>
+                    <div style={{fontWeight: 600}}>{c.docente?.persona?.dni}</div>
+                    <div>{c.docente?.persona?.apellidos}, {c.docente?.persona?.nombres}</div>
+                    <span style={{fontSize: '1.1rem', opacity: 0.7}}>
+                      {c.docente?.profesion?.profesion} / {c.docente?.especialidad?.especialidad}
+                    </span>
+                </td>
                 <td>{c.periodoacademico?.codigo}</td>
                 <td>{c.filial?.nombrefilial || '-'}</td>
                 <td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: c.estado === 'ACTIVO'? '#F0FDF4' : '#FEF2F2', color: c.estado === 'ACTIVO'? '#22C55E' : '#EF4444'}}>{c.estado}</span></td>
-                <td style={{display: 'flex', gap: '0.8rem'}}>
+                <td style={{display: 'flex', justifyContent:'center', alignItems:'center', gap: '0.8rem', height:'6rem'}}>
                   <button onClick={() => openModal(c)} className="btn-icon btn-icon-editar" title="Editar"><Edit size={15} /></button>
                   <button onClick={() => abrirModalEliminar(c)} className="btn-icon btn-icon-eliminar" title="Inactivar"><Trash2 size={15} /></button>
                 </td>
@@ -501,7 +519,9 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
             ))}
           </tbody>
         </table>
-        {totalPaginas >= 1 && ( // <-- CAMBIO: >= 1 para que siempre se vea
+        
+      </div>
+      {totalPaginas >= 1 && ( // <-- CAMBIO: >= 1 para que siempre se vea
           <div className="paginacion-footer">
             <p className="paginacion-info">Mostrando {(paginaActual-1)*registrosPorPagina + 1} al {Math.min(paginaActual*registrosPorPagina, totalRegistros)} de {totalRegistros}</p>
             <div className="paginacion-controles">
@@ -511,20 +531,19 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
             </div>
           </div>
         )}
-      </div>
 
       {/* MODAL REGISTRO/EDICION */}
       {showModal && (
         <div className="modal-overlay" onClick={() => setShowModal(false)}>
           <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '95rem'}}>
-            <div className="modal-header">
-              <h2 style={{display: 'flex', alignItems: 'center', gap: '0.8rem', color: 'var(--color-primario)'}}>
+            <div className="modal-header" style={{background: 'var(--color-primario)', color: '#fff', padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+              <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}>
                 <Hospital size={22} /> {campoEdit? 'Editar' : 'Nuevo'} Campo Clínico
               </h2>
               <button onClick={() => setShowModal(false)} className="btn-cerrar-modal"><X size={18} /></button>
             </div>
 
-            <div className="modal-body" style={{gap: '2.4rem'}}>
+            <div className="modal-body" style={{overflowY: 'auto', padding: '2rem'}}>
 
   {/* SECCION 1: ESTABLECIMIENTO DE SALUD EPS */}
   <fieldset className="fieldset-sgpc-section">
@@ -623,7 +642,7 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
 
 </div>
 
-            <div className="modal-footer" style={{justifyContent: 'center', gap: '1.6rem'}}>
+            <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
               <button className="btn-secundario btn-outline-azul" onClick={() => setShowModal(false)} style={{minWidth: '18rem'}}>Cancelar</button>
               <button className="btn-primario btn-azul-solido" onClick={handleGuardar} disabled={!puedeGuardar} style={{minWidth: '18rem'}}><Save size={16} />Guardar</button>
             </div>
@@ -634,15 +653,17 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
       {/* MODAL ELIMINAR */}
       {modalEliminar && (
         <div className="modal-overlay" onClick={() => setModalEliminar(false)}>
-          <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header"><h2>Confirmar Inactivación</h2><button className="btn-cerrar-modal" onClick={() => setModalEliminar(false)}><X size={18}/></button></div>
-            <div className="modal-body">
+          <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '45rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden' }}>
+            <div className="modal-header" style={{background: 'var(--color-primario)', color: '#fff', padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+              <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}><AlertTriangle size={22}/>Confirmar Inactivación</h2>
+              <button className="btn-cerrar-modal" onClick={() => setModalEliminar(false)}><X size={18}/></button></div>
+            <div className="modal-body" style={{overflowY: 'auto', padding: '2rem'}}>
               <p>¿Seguro de inactivar este campo clínico?</p>
               <p style={{fontWeight: 600, color: 'var(--color-primario)'}}>{campoAEliminar?.eps?.razonsocial} - {campoAEliminar?.serviciosalud?.nombre}</p>
             </div>
-            <div className="modal-footer">
-              <button className="btn-secundario" onClick={() => setModalEliminar(false)}>Cancelar</button>
-              <button className="btn-terciario" onClick={confirmarEliminar}>Inactivar</button>
+            <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
+              <button className="btn-secundario" onClick={() => setModalEliminar(false)} style={{flex:1, height: '4.8rem'}}>Cancelar</button>
+              <button className="btn-terciario" onClick={confirmarEliminar} style={{flex:1, height: '4.8rem', background: '#ef4444'}}>Inactivar</button>
             </div>
           </div>
         </div>
@@ -654,7 +675,49 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
   idcampocli={dataParaHorario?.idcampocli}
   dataHeader={dataParaHorario}
 />
+      <style jsx>{`
 
+.modal-header { 
+  background: var(--color-primario); 
+  color: #fff; 
+  padding: 2rem 2.4rem; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border-radius: 1.2rem 1.2rem 0 0;
+}
+
+    .modal-content {
+  background: #f8fafc; /* gris clarito de fondo */
+  padding: 0;
+  border-radius: 1.2rem;
+  overflow: hidden; /* para que el header azul no se salga */
+}
+.modal-body {
+  background: #fff; /* blanco para los campos */
+  padding: 2.4rem;
+}
+  .modal-footer { 
+  padding: 1.6rem 2.4rem; 
+  border-top: 1px solid #e2e8f0; 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 1.2rem;
+  background: #f8fafc;
+  border-radius: 0 0 1.2rem 1.2rem;
+}
+.btn-cerrar-modal { color: #fff; background: transparent; border: none;}
+    .grid-2-modal {
+        display: grid;
+        grid-template-columns: 1fr; /* mobil first: 1 columna */
+        gap: 1.6rem;
+      }
+      @media (min-width: 768px) {
+        .grid-2-modal {
+          grid-template-columns: 1fr 1fr; /* tablet/desktop: 2 columnas */
+        }
+      }
+  `}</style>
     </div>
   )
 }
