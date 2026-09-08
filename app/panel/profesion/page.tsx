@@ -52,9 +52,12 @@ export default function ProfesionPage() {
 
   useEffect(() => { fetchData() }, [])
 
-  const puedeGuardar = useMemo(() =>
-    form.profesion?.trim().length > 3
-, )
+//Cambio segun Vercel-   const puedeGuardar = useMemo(() =>
+//     form.profesion?.trim().length > 3  
+// , )
+const puedeGuardar = useMemo(() => 
+  (form.profesion?.trim().length ?? 0) > 3
+, [form.profesion])
 
   const profesionesFiltradas = useMemo(() => profesiones.filter(p => {
     const matchSearch = p.profesion?.toLowerCase().includes(search.toLowerCase())
