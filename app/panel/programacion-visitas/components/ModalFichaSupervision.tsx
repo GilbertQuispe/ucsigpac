@@ -74,8 +74,8 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     if(err1){ toast.error("Error cargando visita: " + err1.message); setLoading(false); return }
 
     //Cambio segun Vercel- const idcargaacad = v?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.idcargaacad
-    const idcargaacad = (v as any)?.asignacionsupervision?.[0]?.asignacion_nrc_supervisor?.[0]?.cargaacademica?.[0]?.idcargaacad
-
+    //cambio solucionando error 09-09- const idcargaacad = (v as any)?.asignacionsupervision?.[0]?.asignacion_nrc_supervisor?.[0]?.cargaacademica?.[0]?.idcargaacad
+    const idcargaacad = (v as any)?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.idcargaacad
     // 2. SACAMOS TODO EL HEADER
     const { data: carga, error: err2 } = await supabase
     .from('cargaacademica')
@@ -101,9 +101,11 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     setHeaderData(carga)
 
     //Cambio segun Vercel- const idpa = carga?.campoclinico?.idpa
-    const idpa = (carga as any)?.campoclinico?.[0]?.idpa
+    //cambio solucionando erro 09-09- const idpa = (carga as any)?.campoclinico?.[0]?.idpa
+    const idpa = (carga as any)?.campoclinico?.idpa
     //Camnbio segun Vercel- const iddocente = carga?.campoclinico?.docente?.iddocente
-    const iddocente = (carga as any)?.campoclinico?.[0]?.docente?.[0]?.iddocente
+    //Cabio solucionando error 09-09- const iddocente = (carga as any)?.campoclinico?.[0]?.docente?.[0]?.iddocente
+    const iddocente = (carga as any)?.campoclinico?.docente?.iddocente
 
     // 3. PREGUNTAS DE FICHA SOLO ACTIVOS
     const { data: preguntas } = await supabase
@@ -124,7 +126,8 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
       `)
      .eq('idcargaacad', idcargaacad)
     //Cambio segun Vercel- setAlumnos(alumnosData?.map(h => h.matricula.estudiante) || [])
-    setAlumnos(alumnosData?.map((h: any) => h.matricula?.[0]?.estudiante?.[0]) || [])
+    //Cambio error 09-09- setAlumnos(alumnosData?.map((h: any) => h.matricula?.[0]?.estudiante?.[0]) || [])
+    setAlumnos(alumnosData?.map((h: any) => h.matricula?.estudiante) || [])
 
     // 5. RESPUESTAS Y FOTOS
     const { data: respData } = await supabase.from('fichasupervision').select('*').eq('idvisitas', idvisitas)
@@ -306,9 +309,10 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
 
   const carga = headerData
   //Cambio segun Vercel- const cc = carga?.campoclinico
-  const cc = (carga as any)?.campoclinico?.[0] // <- con [0] porque es array
-  const iddocente = cc?.docente?.[0]?.iddocente // <- y docente también es array
-
+  //error 09-09- const cc = (carga as any)?.campoclinico?.[0] // <- con [0] porque es array
+  //error 09-09- const iddocente = cc?.docente?.[0]?.iddocente // <- y docente también es array
+const cc = carga?.campoclinico
+const iddocente = cc?.docente?.iddocente
   return (
     <div className="modal-overlay" style={{zIndex: 1000}}>
       <Toaster position="top-center" />
