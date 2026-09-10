@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { X, Save, ArrowRight, UserCheck } from 'lucide-react'
 import { createClient } from '@/lib/client'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 import toast, { Toaster } from 'react-hot-toast' // <-- AGREGA ESTA LINEA
 
 const supabase = createClient()

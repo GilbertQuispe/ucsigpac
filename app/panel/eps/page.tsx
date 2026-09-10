@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, Building, MapPin, Phone, Eraser, Filter, AlertTriangle, Save} from 'lucide-react'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 type Eps = {

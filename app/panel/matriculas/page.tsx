@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Edit, X, Search, Upload, GraduationCap, ChevronLeft, ChevronRight, Eraser, Check, Save, Download, Users, Calendar, UserX } from 'lucide-react'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 import * as XLSX from 'xlsx'
 
 type Persona = { idpersona: number; dni: string; apellidos: string; nombres: string }

@@ -34,11 +34,11 @@ const MENU_COMPLETO: MenuModule[] = [
 ]}, {name:'3.6 Asignación Docente', href:'/panel/asignacion-docente', icon: UserCheck} ]},
 
  { title:'Gestión Académica', icon: GraduationCap, items:[
-    {name:'4.1 Plan Asignatura', href:'/panel/plan-asignatura', icon: BookOpen}, // NUEVO
+    {name:'4.1 Plan Asignatura', href:'/panel/plan-asignatura', icon: BookOpen},
     {name:'4.2 Filiales', href:'/panel/filiales', icon: Building2},
-    {name:'4.3 Facultades', href:'/panel/facultades', icon: GraduationCap}, // NUEVO
-    {name:'4.4 Carreras', href:'/panel/carreras', icon: BookOpen}, // NUEVO
-    {name:'4.5 Asignaturas', href:'/panel/asignaturas', icon: FileText}, // NUEVO
+    {name:'4.3 Facultades', href:'/panel/facultades', icon: GraduationCap},
+    {name:'4.4 Carreras', href:'/panel/carreras', icon: BookOpen},
+    {name:'4.5 Asignaturas', href:'/panel/asignaturas', icon: FileText},
     {name:'4.6 Periodo Académico', href:'/panel/periodo', icon: Calendar},
     {name:'4.7 Matrículas', href:'/panel/matriculas', icon: FileText},
     {name:'4.8 Carga Académica', href:'/panel/cargaacademica', icon: BookOpen},
@@ -62,42 +62,53 @@ export default function Sidebar({ user }: { user: any }) {
   const router = useRouter()
   const supabase = createClient()
   const [openMenu, setOpenMenu] = useState<string | null>(null)
-  const [openSubMenu, setOpenSubMenu] = useState<string | null>(null) // NUEVO
+  const [openSubMenu, setOpenSubMenu] = useState<string | null>(null)
   const [isMobileOpen, setIsMobileOpen] = useState(false)
 
- useEffect(() => {
-  // 1. Busca coincidencia EXACTA primero
-  let activeModule = MENU_COMPLETO.find(mod => 
-    mod.items.some(item => item.href === pathname || item.children?.some(c => c.href === pathname))
-  )
-  
-  // 2. Si no hay exacta, busca con startsWith
-  if(!activeModule) {
-    activeModule = MENU_COMPLETO.find(mod =>
-      mod.items.some(item => pathname.startsWith(item.href) || item.children?.some(c => pathname.startsWith(c.href)))
+  // AGREGADO: FILTRO DE PERMISOS
+  const MENU_FILTRADO = MENU_COMPLETO.map(modulo => ({
+   ...modulo,
+    items: modulo.items
+     .map(item => ({
+       ...item,
+        children: item.children?.filter(child => user.permisos?.includes(child.href))
+      }))
+     .filter(item => 
+        user.permisos?.includes(item.href) || 
+        (item.children && item.children.length > 0)
+      )
+  })).filter(modulo => modulo.items.length > 0)
+
+  useEffect(() => {
+    let activeModule = MENU_FILTRADO.find(mod => 
+      mod.items.some(item => item.href === pathname || item.children?.some(c => c.href === pathname))
     )
-  }
+    
+    if(!activeModule) {
+      activeModule = MENU_FILTRADO.find(mod =>
+        mod.items.some(item => pathname.startsWith(item.href) || item.children?.some(c => pathname.startsWith(c.href)))
+      )
+    }
 
-  if(activeModule) setOpenMenu(activeModule.title)
+    if(activeModule) setOpenMenu(activeModule.title)
 
-  // 3. Busca submenú activo. Si no encuentra, lo limpia
-  const activeSub = activeModule?.items.find(item => 
-    item.children?.some(c => pathname === c.href)
-  )
-  
-  if(activeSub) {
-    setOpenSubMenu(activeSub.name) // Si hay submenú, lo abre
-  } else {
-    setOpenSubMenu(null) // Si NO hay submenú, lo cierra <-- ESTA ERA LA CLAVE
-  }
+    const activeSub = activeModule?.items.find(item => 
+      item.children?.some(c => pathname === c.href)
+    )
+    
+    if(activeSub) {
+      setOpenSubMenu(activeSub.name)
+    } else {
+      setOpenSubMenu(null)
+    }
 
-  if (typeof window!== 'undefined' && window.innerWidth < 1024) {
-    setIsMobileOpen(false)
-  }
-}, [pathname])
+    if (typeof window!== 'undefined' && window.innerWidth < 1024) {
+      setIsMobileOpen(false)
+    }
+  }, [pathname])
 
   const toggleMenu = (title: string) => setOpenMenu(openMenu === title? null : title)
-  const toggleSubMenu = (name: string) => setOpenSubMenu(openSubMenu === name? null : name) // NUEVO
+  const toggleSubMenu = (name: string) => setOpenSubMenu(openSubMenu === name? null : name)
   const logout = async () => { await supabase.auth.signOut(); router.push('/login') }
   const iniciales = `${user.nombres?.[0] || ''}${user.apellidos?.[0] || ''}`.toUpperCase()
 
@@ -119,7 +130,7 @@ export default function Sidebar({ user }: { user: any }) {
         </div>
 
         <nav className="sidebar-nav">
-          {MENU_COMPLETO.map(mod => {
+          {MENU_FILTRADO.map(mod => { // CAMBIADO A MENU_FILTRADO
             const ModuleIcon = mod.icon
             const isOpen = openMenu === mod.title
             return (
@@ -140,25 +151,22 @@ export default function Sidebar({ user }: { user: any }) {
                     {mod.items.map(item => {
                       const ItemIcon = item.icon
                       const isActive = pathname === item.href
-                      const hasChildren =!!item.children
+                      const hasChildren =!!item.children && item.children.length > 0 // CAMBIADO
                       const isSubOpen = openSubMenu === item.name
 
                       return (
                         <div key={item.name}>
                           {hasChildren? (
-                            // ITEM CON SUBMENU
                             <button onClick={() => toggleSubMenu(item.name)} className={`submenu-item ${isSubOpen? 'active':''}`} style={{width: '100%', background: 'transparent', border: 'none'}}>
                               <ItemIcon size={17} /><span>{item.name}</span>
                               <ChevronDown size={15} style={{ marginLeft: 'auto', transform: isSubOpen? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.3s' }} />
                             </button>
                           ) : (
-                            // ITEM NORMAL
                             <Link href={item.href} className={`submenu-item ${isActive? 'active':''}`}>
                               <ItemIcon size={17} /><span>{item.name}</span>
                             </Link>
                           )}
 
-                          {/* SUBMENU NIVEL 3 */}
                           {hasChildren && (
                             <div className={`submenu-wrapper ${isSubOpen? 'open' : ''}`} style={{paddingLeft: '1.5rem'}}>
                               <div className="submenu">
@@ -235,7 +243,6 @@ export default function Sidebar({ user }: { user: any }) {
    }
 .sidebar-mobile-open { transform:translateX(0); box-shadow:0 0 3rem rgba(0,0,0,0.3); }
   }
-/* FIX HOVER PARA SUBMENU BUTTON */
 button.submenu-item {
   width: 100%;
   text-align: left;
@@ -244,8 +251,8 @@ button.submenu-item {
 }
 button.submenu-item:hover, 
 button.submenu-item.active { 
-  background: rgba(255,255,255,0.15) !important; 
-  font-weight: 600 !important; 
+  background: rgba(255,255,255,0.15)!important; 
+  font-weight: 600!important; 
 }
   @media (min-width: 1024px) {.sidebar-overlay { display:none; }}
 .sidebar-nav::-webkit-scrollbar { width: 6px; }

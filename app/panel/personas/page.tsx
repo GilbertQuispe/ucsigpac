@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo, useRef } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, Trash2, X, Search, Upload, Phone, User, IdCard, Users, Shield, AlertTriangle, Check, Ban, ChevronLeft, ChevronRight, Eraser, Save } from 'lucide-react' // <- Agregue 2 iconos
 import * as XLSX from 'xlsx'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 import toast, { Toaster } from 'react-hot-toast' // NUEVO
 
 type Persona = {

@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, X, Search, UserCog, ChevronLeft, ChevronRight, Eraser, Users, Check, UserX, UserCheck, GraduationCap } from 'lucide-react'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 
 type Persona = { idpersona: number; dni: string; apellidos: string; nombres: string; telefono: string | null; sexo: 'M' | 'F' | null }
 type Supervisor = { idsupervisor: number; idpersona: number; idprofesion: number | null; estado: string | null; persona?: Persona; profesion?: { profesion: string } }

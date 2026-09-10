@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, X, Search, Upload, GraduationCap, ChevronLeft, ChevronRight, Eraser, Users, Check, UserX, UserStar, UserCheck, Award, Medal, BadgeCheck, School } from 'lucide-react'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 

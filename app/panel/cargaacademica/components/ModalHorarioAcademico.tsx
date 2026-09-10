@@ -3,7 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { X, Save, Eraser, Clock, BookOpen, Plus, Users, AlertCircle, Lock } from 'lucide-react'
 import { createClient } from '@/lib/client'
 import AsyncSelect from 'react-select/async'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 
 const supabase = createClient()
 const DIAS_SEMANA = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']

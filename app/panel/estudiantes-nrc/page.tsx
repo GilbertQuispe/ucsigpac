@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/client'
 import { Users, Eye, Trash2, RefreshCcw, Eraser, ChevronLeft, ChevronRight, AlertCircle, X } from 'lucide-react'
 import AsyncSelect from 'react-select/async'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 import ModalVerHorarioSoloLectura from './components/ModalVerHorarioSoloLectura'
 import ModalReasignarEstudiante from './components/ModalReasignarEstudiante'
 import { Toaster, toast } from 'react-hot-toast' // NUEVO

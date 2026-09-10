@@ -2,7 +2,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, Trash2, X, Save, User, GraduationCap, Search, MapPin, Building, Globe, ChevronLeft, ChevronRight, Eraser, AlertTriangle, } from 'lucide-react' // <-- 1. Agregue iconos
-import Select from 'react-select'
+//import Select from '@/components/ui/SelectClient'
+import Select from '@/components/ui/SelectClient'
 import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 type Departamento = { iddepartamento: number, nombred: string }

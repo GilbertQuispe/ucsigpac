@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo, useCallback } from 'react'
 import { createClient } from '@/lib/client'
 import { Search, Edit, Eraser, ChevronLeft, ChevronRight, Clock } from 'lucide-react'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 import AsyncSelect from 'react-select/async'
 import ModalHorarioDocente from '../camposclinicos/components/ModalHorarioDocente'
 import { Toaster, toast } from 'react-hot-toast' // NUEVO

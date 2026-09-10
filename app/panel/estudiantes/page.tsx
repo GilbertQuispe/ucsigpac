@@ -2,7 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, X, Search, Upload, Users, ChevronLeft, ChevronRight, Eraser, Check, UserX, UserCheck, GraduationCap, Save, Download } from 'lucide-react'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 import * as XLSX from 'xlsx' // <-- AGREGADO
 import toast from 'react-hot-toast' // AGREGAR
 import { Toaster } from 'react-hot-toast' // AGREGAR

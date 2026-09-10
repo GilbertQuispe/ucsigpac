@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, X, Eye, Search, Trash2, Hospital, BookOpen, User, Building, Calendar, Eraser, Save, ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 import AsyncSelect from 'react-select/async'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 import ModalHorarioAcademico from './components/ModalHorarioAcademico' // <-- NUEVO IMPORT
 import ModalVerCargaDocente from './components/ModalVerCargaDocente' // <-- NUEVO
 

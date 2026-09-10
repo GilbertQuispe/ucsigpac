@@ -1,31 +1,25 @@
-'use client'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/client'
+// QUITAR: 'use client'
+import { createClient } from '@/lib/supabase/server' // AGREGAR: Import del server
+import { redirect } from 'next/navigation' // AGREGAR: Para redirigir desde server
+import { getPerfilUsuario } from '@/app/actions/permisos' // AGREGAR: Nuestra función
 import Sidebar from './Sidebar'
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const supabase = createClient()
-  const router = useRouter()
+export default async function DashboardLayout({ children }: { children: React.ReactNode }) { // QUITAR: useState, useEffect
+  const supabase = await createClient() // AGREGAR: Server client
 
-  useEffect(() => {
-    const getUser = async () => {
-      const { data: { session }}= await supabase.auth.getSession()
-      if (!session) return router.push('/login')
-      const { data } = await supabase.from('v_usuario_completo').select('*').eq('id', session.user.id).single()
-      setUser(data)
-      setLoading(false)
-    }
-    getUser()
-  }, [supabase, router])
+  // AGREGAR: Obtener sesión en servidor
+  const { data: { session }} = await supabase.auth.getSession()
+  if (!session) redirect('/login') // QUITAR: router.push
 
-  if (loading) return <div style={{display:'flex', justifyContent:'center', alignItems:'center', height:'100vh'}}><div className="spinner"></div></div>
+  // AGREGAR: Llamar a nuestra Server Action con permisos
+  const user = await getPerfilUsuario(session.user.id)
+  if (!user) redirect('/login')
+
+  // QUITAR: loading state. Server render ya no necesita spinner
 
   return (
     <div className="layout-wrapper">
-      <Sidebar user={user} />
+      <Sidebar user={user} /> {/* user ya viene con.permisos */}
       <main className="content-area">
         {children}
       </main>

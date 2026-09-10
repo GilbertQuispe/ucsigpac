@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { X, Save, RefreshCw, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/client'
-import Select from 'react-select'
+import Select from '@/components/ui/SelectClient'
 
 const supabase = createClient()
 
