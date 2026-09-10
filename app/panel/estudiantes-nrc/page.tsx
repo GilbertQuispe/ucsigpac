@@ -6,6 +6,7 @@ import AsyncSelect from 'react-select/async'
 import Select from 'react-select'
 import ModalVerHorarioSoloLectura from './components/ModalVerHorarioSoloLectura'
 import ModalReasignarEstudiante from './components/ModalReasignarEstudiante'
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 type RegistroNRC = any
 
@@ -55,7 +56,7 @@ const [filtroFilial, setFiltroFilial] = useState<any>({value: '', label: 'TODOS'
 const [filtroEstado, setFiltroEstado] = useState<any>({value: 'ACTIVO', label: 'ACTIVO'})
 
   const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  // const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
 
   const [searchNRC, setSearchNRC] = useState('')
   const [filtroPeriodo, setFiltroPeriodo] = useState<any>({value: '', label: 'TODOS'})
@@ -69,7 +70,7 @@ const [filtroEstado, setFiltroEstado] = useState<any>({value: 'ACTIVO', label: '
 const [showBaja, setShowBaja] = useState(false)
 const [dataBaja, setDataBaja] = useState<any>(null)
 
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+  // const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
 // useEffect(() => {
 //   const cargarFiliales = async () => {
@@ -278,7 +279,7 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
 
   const {data, count, error} = await query.order('idhorario', {ascending: false}).limit(1000).returns<any[]>() // Trae max 1000 Se agrego Segun Vercel
   
-  if(error) { showToast(error.message, 'error') }
+  if(error) { toast.error(error.message) }
 
   let dataFiltrada = data || []
   
@@ -325,19 +326,19 @@ const handlePeriodoChange = (opt: any) => {
 const confirmarBaja = async () => {
   if(!dataBaja) return
   const {error} = await supabase.from('horario').update({estado: 'INACTIVO'}).eq('idhorario', dataBaja.idhorario)
-  if(error) showToast(error.message, 'error') 
+  if(error) toast.error(error.message) 
   else { 
-    showToast('Estudiante dado de baja del NRC', 'success'); 
+    toast.success('Estudiante dado de baja del NRC'); 
     fetchData() 
   }
 }
 
   const handleReasignar = (reg: any) => {
-    showToast(`Próximamente: Reasignar a otro NRC`, 'success')
+    toast.success(`Próximamente: Reasignar a otro NRC`)
   }
 
   const handleVerHorario = (reg: any) => {
-    showToast(`Próximamente: Ver horario del estudiante`, 'success')
+    toast.success(`Próximamente: Ver horario del estudiante`)
   }
 
  const limpiarFiltros = () => {
@@ -353,7 +354,23 @@ const confirmarBaja = async () => {
 
   return (
     <div className="main-content">
-      {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}><AlertCircle size={16}/>{toast.msg}</div>}
+      {/* {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}><AlertCircle size={16}/>{toast.msg}</div>} */}
+    <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
 
       <div className="header-responsive">
         <div><h1><Users size={24} style={{marginRight: '0.8rem'}}/>Gestión Estudiantes con NRC</h1><p>Total: {totalRegistros} registros</p></div>
@@ -454,8 +471,8 @@ const confirmarBaja = async () => {
         title="Reactivar"
         onClick={async () => {
           const {error} = await supabase.from('horario').update({estado: 'ACTIVO'}).eq('idhorario', r.idhorario)
-          if(error) showToast(error.message, 'error') 
-          else { showToast('Estudiante reactivado en el NRC', 'success'); fetchData() }
+          if(error) toast.error(error.message) 
+          else { toast.success('Estudiante reactivado en el NRC'); fetchData() }
         }}
       >
         <RefreshCcw size={15} />

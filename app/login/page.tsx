@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/client';
 import Link from 'next/link';
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 const EyeIcon = ({ open }: { open: boolean }) => open? (
   <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-primario)" strokeWidth="1.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
@@ -17,14 +18,14 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null);
+  // const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null);
   const router = useRouter();
   const supabase = createClient();
 
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3500);
-  };
+  // const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
+  //   setToast({ msg, type });
+  //   setTimeout(() => setToast(null), 3500);
+  // };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,23 +34,24 @@ export default function LoginPage() {
     ? await supabase.auth.signInWithPassword({ email, password })
       : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${location.origin}/dashboard` } });
 
-    if (error) showToast(error.message, 'error');
+    //if (error) toast.error(error.message);
+    if (error) toast.error("Credenciales inválidas");
     else {
       if (isLogin) {
-        showToast('¡Login exitoso!', 'success');
+        toast.success('¡Login exitoso!');
         router.push('/panel');
       } else {
-        showToast('Revisa tu correo para confirmar tu cuenta', 'success');
+        toast.success('Revisa tu correo para confirmar tu cuenta');
       }
     }
     setLoading(false);
   };
 
   const handleForgotPassword = async () => {
-    if (!email) return showToast('Ingresa tu correo primero');
+    if (!email) return toast('Ingresa tu correo primero');
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${location.origin}` });
-    if (error) showToast(error.message);
-    else showToast('Revisa tu correo para restablecer', 'success');
+    if (error) toast.error(error.message);
+    else toast.success('Revisa tu correo para restablecer');
   };
 
   return (
@@ -60,6 +62,23 @@ export default function LoginPage() {
       backgroundColor: 'var(--color-fondo)'
     }}>
       
+       <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
+
       {/* HEADER AZUL */}
        <header style={{ 
         backgroundColor: 'var(--color-primario)', 
@@ -106,14 +125,7 @@ export default function LoginPage() {
             Bienvenido de vuelta
           </p>
 
-          <h2 style={{ 
-            fontSize: 'var(--text-3xl)', 
-            /* fontFamily:'--font-principal', */
-            marginBottom: '2.4rem',
-            color: 'var(--color-dark-2)',
-            textAlign:'center',
-            lineHeight: 1.2
-          }}>
+          <h2 style={{ fontSize: 'var(--text-3xl)', marginBottom: '2.4rem', color: 'var(--color-primario)', textAlign:'center', fontFamily: 'var(--font-titulos)' }}>
             Sistema de Gestión de <br /> Prácticas Clínicas
           </h2>
 
@@ -205,7 +217,7 @@ export default function LoginPage() {
 
           </form>
 
-          {/* TOAST */}
+          {/* TOAST
           {toast && (
             <div style={{
               position: 'fixed', bottom: '2rem', right: '2rem',
@@ -214,7 +226,7 @@ export default function LoginPage() {
             }}>
               {toast.msg}
             </div>
-          )}
+          )} */}
 
         </div>
       </section>

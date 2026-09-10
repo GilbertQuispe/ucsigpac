@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, BookOpen, Eraser} from 'lucide-react'
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 type Facultad = { idfacultad: number, nombrefacultad: string }
 type Carrera = {
@@ -29,15 +30,15 @@ export default function CarrerasPage() {
   const [editing, setEditing] = useState<Carrera | null>(null)
   const [form, setForm] = useState<Partial<Carrera>>(FORM_INICIAL)
   const [search, setSearch] = useState("")
-  const [toast, setToast] = useState<{ msg: string; type: "error" | "success" } | null>(null)
+  // const [toast, setToast] = useState<{ msg: string; type: "error" | "success" } | null>(null)
 
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
 
-  const showToast = (msg: string, type: "error" | "success" = "error") => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
-  }
+  // const showToast = (msg: string, type: "error" | "success" = "error") => {
+  //   setToast({ msg, type })
+  //   setTimeout(() => setToast(null), 3000)
+  // }
 
   const fetchData = async () => {
     setLoading(true)
@@ -48,7 +49,7 @@ export default function CarrerasPage() {
    .order("idcarrera", { ascending: true })
 
     if (error) {
-      showToast("Error cargando Carreras: " + error.message, "error")
+      toast.error("Error cargando Carreras: " + error.message)
     } else {
       setCarreras(data || [])
     }
@@ -84,7 +85,7 @@ export default function CarrerasPage() {
   const limpiarFiltros = () => setSearch("")
 
   const handleSave = async () => {
-    if (!puedeGuardar) return showToast("Complete Facultad y Nombre de Carrera *", "error");
+    if (!puedeGuardar) return toast.error("Complete Facultad y Nombre de Carrera *");
     try {
       let mensaje = "";
       const dataToSave = {
@@ -104,14 +105,14 @@ export default function CarrerasPage() {
         if (error) throw error;
         mensaje = "Carrera registrada correctamente";
       }
-      showToast(mensaje, "success");
+      toast.success(mensaje);
       await fetchData();
       handleClose();
     } catch (err: any) {
       if (err.code === "23505")
-        showToast("El Código de Carrera ya está registrado", "error")
+        toast.error("El Código de Carrera ya está registrado")
       else
-        showToast(err.message || "Error al guardar", "error");
+        toast.error(err.message || "Error al guardar");
     }
   }
 
@@ -120,9 +121,9 @@ export default function CarrerasPage() {
     if (!idAEliminar) return
     const { error } = await supabase.from("carrera").delete().eq("idcarrera", idAEliminar)
     if (error)
-      showToast("Error al eliminar: " + error.message, "error")
+      toast.error("Error al eliminar: " + error.message)
     else {
-      showToast("Carrera eliminada correctamente", "success");
+      toast.success("Carrera eliminada correctamente");
       fetchData()
     }
     setShowConfirm(false);
@@ -155,6 +156,23 @@ export default function CarrerasPage() {
 
   return (
     <div>
+       <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
+
       <div className="header-responsive">
         <div><h1>Registro de Carreras</h1><p>Total: {carrerasFiltrados.length} registros</p></div>
         <button className="btn-primario" onClick={() => openModal()}><Plus size={18} />Nueva Carrera</button>
@@ -210,7 +228,7 @@ export default function CarrerasPage() {
       {showModal && (
         <div className="modal-overlay" onClick={handleClose}>
           <div className="modal-content card-sgpc" style={{maxWidth: "60rem"}} onClick={(e) => e.stopPropagation()}>
-            {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
+            {/* {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)} */}
             <div className="modal-header"><h2><BookOpen size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar Carrera" : "Nueva Carrera"}</h2><button onClick={handleClose} className="btn-cerrar"><X size={20} /></button></div>
             <div className="modal-body">
               <div className="grid-2">

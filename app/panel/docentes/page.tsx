@@ -3,6 +3,8 @@ import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, X, Search, Upload, GraduationCap, ChevronLeft, ChevronRight, Eraser, Users, Check, UserX, UserStar, UserCheck, Award, Medal, BadgeCheck, School } from 'lucide-react'
 import Select from 'react-select'
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
+
 
 type Persona = { idpersona: number; dni: string; apellidos: string; nombres: string; telefono: string | null; sexo: 'M' | 'F' | null }
 type Docente = { iddocente: number; idpersona: number; condicion: string | null; tipodocente: string | null; idprofesion: number | null; idespecialidad: number | null; estado: string | null; persona?: Persona; profesion?: { profesion: string }; especialidad?: { especialidad: string } }
@@ -112,17 +114,17 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
   const [seleccionados, setSeleccionados] = useState<number[]>([])
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  // const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
 
   const [showModal, setShowModal] = useState(false)
   const [docenteEdit, setDocenteEdit] = useState<Docente | null>(null)
   //Se cambia segun Vercel- const [form, setForm] = useState({ idprofesion: null, idespecialidad: null, condicion: 'CONTRATADO', tipodocente: 'P' })
   const [form, setForm] = useState<FormDocente>({ idprofesion: null, idespecialidad: null, condicion: 'CONTRATADO', tipodocente: 'P' })
 
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
-    setToast({ msg, type })
-    setTimeout(() => setToast(null), 3000)
-  }
+  // const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
+  //   setToast({ msg, type })
+  //   setTimeout(() => setToast(null), 3000)
+  // }
 
   const [previewDataDoc, setPreviewDataDoc] = useState<any[]>([])
   const [showPreviewModalDoc, setShowPreviewModalDoc] = useState(false)
@@ -180,14 +182,14 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
 
   const handleConvertirMasivo = async () => {
     if(seleccionados.length === 0) {
-      showToast('Seleccione un registro', 'error')
+      toast.error('Seleccione un registro')
       return
     }
     const paraInsertar = seleccionados.map(id => ({ idpersona: id, condicion: 'CONTRATADO', tipodocente: 'P', estado: 'ACTIVO' }))
     const {error} = await supabase.from('docente').insert(paraInsertar)
-    if(error) showToast(error.message, 'error')
+    if(error) toast.error(error.message)
     else {
-      showToast(`${seleccionados.length} docentes registrados`, 'success')
+      toast.success(`${seleccionados.length} docentes registrados`)
       fetchData()
     }
   }
@@ -196,9 +198,9 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
   const handleCambiarEstadoDocente = async (iddocente: number, estadoActual: string) => {
     const nuevoEstado = estadoActual === 'ACTIVO'? 'INACTIVO' : 'ACTIVO'
     const {error} = await supabase.from('docente').update({estado: nuevoEstado}).eq('iddocente', iddocente)
-    if(error) showToast(error.message, 'error')
+    if(error) toast.error(error.message)
     else {
-      showToast(`Docente ${nuevoEstado.toLowerCase()}`, 'success')
+      toast.success(`Docente ${nuevoEstado.toLowerCase()}`)
       fetchData()
     }
   }
@@ -212,9 +214,9 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
   const handleGuardarEdit = async () => {
     if(!docenteEdit) return
     const {error} = await supabase.from('docente').update(form).eq('iddocente', docenteEdit.iddocente)
-    if(error) showToast(error.message, 'error')
+    if(error) toast.error(error.message)
     else {
-      showToast('Docente actualizado', 'success')
+      toast.success('Docente actualizado')
       setShowModal(false); fetchData()
     }
   }
@@ -231,7 +233,7 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
     const jsonData: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' })
 
     const filas = jsonData.slice(1).filter(row => row[0]?.toString().trim()!== '')
-    if(filas.length === 0){ showToast('El Excel no tiene datos válidos', 'error'); return }
+    if(filas.length === 0){ toast.error('El Excel no tiene datos válidos'); return }
 
     const {data: todasPersonas} = await supabase.from('persona').select('idpersona, dni, apellidos, nombres').eq('estado', 'ACTIVO')
     const mapaPersonas = new Map(todasPersonas?.map(p => [p.dni, p]))
@@ -264,7 +266,7 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
 
   } catch (err: any) {
     console.error("ERROR COMPLETO:", err)
-    showToast('ERROR: ' + err.message, 'error')
+    toast.error('ERROR: ' + err.message)
   } finally {
     setLoading(false)
     e.target.value = ''
@@ -273,7 +275,7 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
   const handleConfirmImportDoc = async () => {
     const validos = previewDataDoc.filter(p => p.estado === 'ok')
     if(validos.length === 0) {
-      showToast('No hay registros válidos para importar', 'error')
+      toast.error('No hay registros válidos para importar')
       return
     }
 
@@ -285,9 +287,9 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
     }))
 
     const {error} = await supabase.from('docente').insert(paraInsertar)
-    if(error) showToast(error.message, 'error')
+    if(error) toast.error(error.message)
     else {
-      showToast(`${paraInsertar.length} docentes importados correctamente`, 'success')
+      toast.success(`${paraInsertar.length} docentes importados correctamente`)
       setShowPreviewModalDoc(false)
       fetchData()
     }
@@ -304,6 +306,22 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
 
   return (
     <div className="main-content">
+       <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
 
       <div className="header-responsive">
         <div>
@@ -399,11 +417,11 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
 </div>
 
       <div className="card-sgpc" style={{ overflowX: 'auto', position: 'relative', minHeight: '20rem' }}>
-        {toast && (
+        {/* {toast && (
           <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '0.9rem 2rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', animation: 'fadeInOut 3s ease-in-out', whiteSpace: 'nowrap' }}>
             {toast.msg}
           </div>
-        )}
+        )} */}
 
         {loading? <p style={{padding: '2rem', textAlign: 'center'}}>Cargando...</p> : (
           <table className='tabla-sgpc'>

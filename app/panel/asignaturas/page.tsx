@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { createClient } from '@/lib/client'
 import { Plus, Edit, Trash2, X, Search, ChevronLeft, ChevronRight, FileText, Eraser, Filter} from 'lucide-react'
+import { Toaster, toast } from 'react-hot-toast' // NUEVo
 
 type Facultad = { idfacultad: number, nombrefacultad: string }
 type Carrera = { idcarrera: number, idfacultad: number, nombrecarrera: string }
@@ -46,11 +47,11 @@ export default function AsignaturasPage() {
   const [search, setSearch] = useState("")
   const [filtroFacultad, setFiltroFacultad] = useState<number | null>(null) // NUEVO
   const [filtroCarrera, setFiltroCarrera] = useState<number | null>(null) // NUEVO
-  const [toast, setToast] = useState<{ msg: string; type: "error" | "success" } | null>(null)
+  // const [toast, setToast] = useState<{ msg: string; type: "error" | "success" } | null>(null)
 
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
-  const showToast = (msg: string, type: "error" | "success" = "error") => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+  // const showToast = (msg: string, type: "error" | "success" = "error") => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
   const fetchData = async () => {
     setLoading(true)
@@ -108,7 +109,7 @@ export default function AsignaturasPage() {
   }
 
   const handleSave = async () => {
-    if (!puedeGuardar) return showToast("Complete Facultad, Carrera, Plan y Nombre *", "error");
+    if (!puedeGuardar) return toast.error("Complete Facultad, Carrera, Plan y Nombre *");
     try {
       let mensaje = "";
       const dataToSave = {...form, idcarrera: form.idcarrera, idplan: form.idplan, codigo: form.codigo?.trim().toUpperCase() || null, nombre: form.nombre?.trim().toUpperCase() || "" }
@@ -119,10 +120,10 @@ export default function AsignaturasPage() {
         const { error } = await supabase.from("asignatura").insert(dataToSave);
         if (error) throw error; mensaje = "Asignatura registrada correctamente";
       }
-      showToast(mensaje, "success"); await fetchData(); handleClose();
+      toast.success(mensaje); await fetchData(); handleClose();
     } catch (err: any) {
-      if (err.code === "23505") showToast("El Código de Asignatura ya está registrado", "error")
-      else showToast(err.message || "Error al guardar", "error");
+      if (err.code === "23505") toast.error("El Código de Asignatura ya está registrado")
+      else toast.error(err.message || "Error al guardar");
     }
   }
 
@@ -130,8 +131,8 @@ export default function AsignaturasPage() {
   const confirmarEliminar = async () => {
     if (!idAEliminar) return
     const { error } = await supabase.from("asignatura").delete().eq("idasignatura", idAEliminar)
-    if (error) showToast("Error al eliminar: " + error.message, "error")
-    else { showToast("Asignatura eliminada correctamente", "success"); fetchData() }
+    if (error) toast.error("Error al eliminar: " + error.message)
+    else { toast.success("Asignatura eliminada correctamente"); fetchData() }
     setShowConfirm(false); setIdAEliminar(null)
   }
 
@@ -151,6 +152,23 @@ export default function AsignaturasPage() {
 
   return (
     <div>
+       <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
+
       <div className="header-responsive">
         <div><h1>Registro de Asignaturas</h1><p>Total: {asignaturasFiltrados.length} registros</p></div>
         <button className="btn-primario" onClick={() => openModal()}><Plus size={18} />Nueva Asignatura</button>
@@ -237,7 +255,7 @@ export default function AsignaturasPage() {
       {showModal && (
         <div className="modal-overlay" onClick={handleClose}>
           <div className="modal-content card-sgpc" style={{maxWidth: "70rem"}} onClick={(e) => e.stopPropagation()}>
-            {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)}
+            {/* {toast && (<div className={`toast-sgpc ${toast.type}`}>{toast.msg}</div>)} */}
             <div className="modal-header"><h2><FileText size={20} style={{marginRight: "0.8rem"}}/>{editing? "Editar Asignatura" : "Nueva Asignatura"}</h2><button onClick={handleClose} className="btn-cerrar"><X size={20} /></button></div>
             <div className="modal-body">
               <div className="grid-3">
