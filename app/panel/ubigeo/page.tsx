@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect, useMemo } from 'react'
 import { createClient } from '@/lib/client'
-import { Plus, Edit, Trash2, X, Save, Search, MapPin, Building, Globe, ChevronLeft, ChevronRight, Eraser, AlertTriangle, } from 'lucide-react' // <-- 1. Agregue iconos
+import { Plus, Edit, Trash2, X, Save, User, GraduationCap, Search, MapPin, Building, Globe, ChevronLeft, ChevronRight, Eraser, AlertTriangle, } from 'lucide-react' // <-- 1. Agregue iconos
 import Select from 'react-select'
 import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
@@ -24,6 +24,27 @@ const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
     </fieldset>
   )
 }
+
+const SelectSGPCSinLegend = ({value, onChange, options}:any) => {
+  const selectedOption = options.find((o:any) => o.value === value) || null
+  return (
+    <Select 
+      options={options} 
+      value={selectedOption} 
+      onChange={(opt:any) => onChange(opt?.value || null)} 
+      placeholder="Seleccione..." 
+      isSearchable 
+      classNamePrefix="react-select"
+      menuPortalTarget={typeof document !== 'undefined' ? document.body : null} // <-- CLAVE PARA MOBIL
+      menuPosition="fixed"
+      styles={{ 
+        control: (base) => ({...base, height: '4.4rem', border: '1px solid #cbd5e1', boxShadow: 'none', fontSize: '1.4rem' }), 
+        menuPortal: (base) => ({...base, zIndex: 99999 }) // <-- Para que no se corte
+      }} 
+    />
+  )
+}
+
 
 export default function UbigeoPage() {
 
@@ -372,38 +393,45 @@ export default function UbigeoPage() {
             </div>
    <div className="modal-body">
 
-            <div className="grid-2">
-              <div className="input-wrapper">
-                <SelectSGPC
-                  label="Departamento *"
+            <div className="grid-1-modal" style={{display: 'grid',gap: '1rem'}}>
+              
+                <fieldset className="fieldset-sgpc" style={{background: '#EFF6FF', borderLeft: '4px solid #3B82F6'}}>
+                  <legend><MapPin size={14}/> Departamento *</legend>
+                <SelectSGPCSinLegend
+                
                   value={idDeptoSel || ""}
                   onChange={(val:any) => setIdDeptoSel(val)}
                   options={departamentos.map(d => ({value: d.iddepartamento, label: d.nombred}))}
                   isDisabled={isEditing}
-                />      
-              </div>
+                /> 
+                   </fieldset>  
 
-              <div className="input-wrapper">
-                <SelectSGPC
-                  label="Provincia *"
+                 <fieldset className="fieldset-sgpc" style={{background: '#F5F3FF', borderLeft: '4px solid #8B5CF6'}}>
+                <legend><MapPin size={14}/> Provincia *</legend>
+                <SelectSGPCSinLegend                  
                   value={idProvSel || ""}
                   onChange={(val:any) => setIdProvSel(val)}
                   options={provincias.map(p => ({value: p.idprovincia, label: p.nombrep}))}
                   isDisabled={!idDeptoSel || isEditing}
                 />
+                </fieldset>
                 
-              </div>
+              
             </div>
 
-            <div className="input-wrapper">
-              <label className="input-label">Nombre del Distrito *</label>
+            {/* <div className="input-wrapper">
+              <label className="input-label">Nombre del Distrito *</label> */}
+               <div className="card-info-ejecutiva" style={{borderLeft: '4px solid #10B981', background: '#ECFDF5'}}>
+          <User size={20} color="#10B981"/>
+          <div style={{flex: 1}}>
+            <div className="card-info-label">Nombre del Distrito *</div>
               <input 
-                className="input-sgpc-floating" 
+                className="input-sin-borde" 
                 placeholder="Ej: Huancayo" 
                 value={nombreDist} 
                 onChange={e => setNombreDist(e.target.value)} 
               />
-              <div className="input-icon-wrapper"><MapPin size={18} strokeWidth={1.5} /></div>
+              </div>
             </div>
 
    </div>
@@ -421,7 +449,40 @@ export default function UbigeoPage() {
       )}
 
       <style jsx>{`
+ .card-info-ejecutiva {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+  padding: 1.2rem 1.6rem;
+  border-radius: 0.8rem;
+}
 
+.card-info-label {
+  font-size: 1.2rem;
+  color: #475569; /* Nombre oscuro */
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.input-sin-borde {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  font-weight: 700; /* Valor fuerte */
+  color: #1e293b; /* Nombre oscuro */
+  outline: none;
+  padding: 0;
+}
+  .input-sin-borde::placeholder {
+  font-weight: 400; /* Placeholder finito */
+  color: #94a3b8; /* Gris suave */
+  opacity: 1;
+}
+.input-sin-borde:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
       .btn-cerrar-modal { color: #fff; background: transparent; border: none; margin-top: -1.5rem; margin-right: -1.5rem;}
     .btn-cerrar {
           background: #f1f5f9;

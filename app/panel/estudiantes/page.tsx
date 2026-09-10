@@ -434,22 +434,7 @@ const toTitleCase = (str: string) =>
               <div><div style={{display: 'flex', alignItems: 'center', gap: '0.8rem'}}><h2><GraduationCap size={18}/> Actualizar Datos del Estudiante</h2></div>{estudianteEdit && (<p style={{fontSize: 'var(--text-sm)', color: 'var(--color-texto-secundario)', marginTop: '0.4rem', fontWeight: 400}}>{estudianteEdit.persona?.apellidos}, {estudianteEdit.persona?.nombres} - DNI: {estudianteEdit.persona?.dni}</p>)}</div>
               <button onClick={() => setShowModal(false)} className="btn-cerrar-modal"><X size={18} /></button>
             </div>
-            {/* <div className="modal-body">
-              <div className="grid-2-modal">
-                <fieldset className="fieldset-sgpc" style={{borderLeft: '4px solid var(--color-primario)'}}>
-                  <legend><GraduationCap size={14}/> Carrera *</legend>      
-                  <SelectSGPCFieldset label="Carrera" value={form.idcarrera} onChange={(val:any) => setForm({...form, idcarrera: val})} options={carreras.map(c=>({value:c.idcarrera, label:c.nombrecarrera}))} />
-                </fieldset>
-                 <fieldset className="fieldset-sgpc" style={{borderLeft: '4px solid #8B5CF6'}}>
-                  <legend><Users size={14}/> Filial</legend>
-                  <SelectSGPCFieldset label="Filial" value={form.idfilial} onChange={(val:any) => setForm({...form, idfilial: val})} options={filiales.map(f=>({value:f.idfilial, label:f.nombrefilial}))} />
-                </fieldset>  
-              </div>
-              <fieldset className="fieldset-sgpc" style={{borderLeft: '4px solid #22C55E'}}>
-                <legend><Check size={14}/> Estado *</legend>
-                <SelectSGPCFieldset label="Estado *" value={form.estado} onChange={(val:any) => setForm({...form, estado: val})} options={[{value: "ACTIVO", label: "ACTIVO"}, {value: "INACTIVO", label: "INACTIVO"}]} />
-              </fieldset>  
-            </div> */}
+           
             <div className="modal-body" style={{background: '#fff', padding: '2.4rem'}}>
               <div className="grid-1-modal" style={{display: 'grid',gap: '1rem'}}>
                 
