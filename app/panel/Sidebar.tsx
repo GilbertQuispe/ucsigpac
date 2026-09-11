@@ -15,7 +15,7 @@ type MenuItem = { name: string; href: string; icon: any; children?: SubItem[] }
 type MenuModule = { title: string; icon: any; items: MenuItem[] }
 
 const MENU_COMPLETO: MenuModule[] = [
-  { title:'Administración y Seguridad', icon: Shield, items:[ {name:'1.1 Roles', href:'/panel/roles', icon: UserCog}, {name:'1.2 Permisos', href:'/panel/permisos', icon: Shield}, {name:'1.3 Usuarios', href:'/panel/usuarios', icon: Users}, {name:'1.4 Asignación de Roles', href:'/panel/asignacion', icon: UserCheck} ]},
+  { title:'Administración y Seguridad', icon: Shield, items:[ {name:'1.1 Roles', href:'/panel/roles', icon: UserCog}, {name:'1.2 Permisos', href:'/panel/permisos', icon: Shield}, {name:'1.3 Usuarios', href:'/panel/usuarios', icon: Users}, {name:'1.4 Asignación de Módulos por Usuario', href:'/panel/asignacion-modulos', icon: UserCheck} ]},
 
   { title:'Gestión de miembros', icon: Users, items:[
     {name:'2.1 Personas', href:'/panel/personas', icon: Users},

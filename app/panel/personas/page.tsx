@@ -8,6 +8,7 @@ import toast, { Toaster } from 'react-hot-toast' // NUEVO
 
 type Persona = {
   idpersona: number
+  id: string
   dni: string
   apellidos: string
   nombres: string
@@ -62,10 +63,9 @@ export default function PersonasPage() {
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
 
-  // const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
-  //   setToast({ msg, type })
-  //   setTimeout(() => setToast(null), 3000)
-  // }
+  // NUEVO: ESTADOS DE PERMISOS PASO 2 - 11-09
+  const [userId, setUserId] = useState<string | null>(null)
+  const [tieneVerTodos, setTieneVerTodos] = useState(false)  
 
 const SelectSGPC = ({label, value, onChange, options, placeholder, isDisabled = false}:any) => {
   const selectedOption = options.find((o:any) => o.value === value) || null
@@ -117,46 +117,119 @@ const SelectSGPC = ({label, value, onChange, options, placeholder, isDisabled = 
   const toTitleCase = (str: string) =>
     str.toLowerCase().replace(/\b\w/g, char => char.toUpperCase())
 
+//11-09  const fetchPersonas = async () => {
+//   setLoading(true)
+//   const desde = (paginaActual - 1) * registrosPorPagina
+//   const hasta = desde + registrosPorPagina - 1
 
-const fetchPersonas = async () => {
+//   // 1. Traer solo la página + contar total
+//   let query = supabase
+//     .from('persona')
+//     .select('*, rol(nombrerol)', { count: 'exact' }) // <-- JOIN directo
+//     //.eq('estado', 'ACTIVO')
+//       if(filtroEstado !== 'TODOS') {
+//         query = query.eq('estado', filtroEstado)
+//       }
+
+//   if(search) {
+//     query = query.or(`dni.ilike.%${search}%,nombres.ilike.%${search}%,apellidos.ilike.%${search}%`)
+//   }
+//   if(filtroSexo) query = query.eq('sexo', filtroSexo)
+//   if(filtroRol) query = query.eq('idrol', filtroRol)
+
+//   const { data, count, error } = await query
+//     .order('idpersona', { ascending: false }) // <-- Mas nuevo primero
+//     .range(desde, hasta)
+
+//   if(error) {
+//     toast.error(error.message)
+//     console.error(error)
+//   } else {
+//     setPersonas(data as Persona[] || []) // ya viene con rol
+//     setTotalRegistros(count || 0) // <-- NUEVO ESTADO
+//   }
+  
+//   const { data: rolesData } = await supabase.from('rol').select('idrol, nombrerol')
+//   setRoles(rolesData || [])
+//   setLoading(false)
+// }
+  
+  //11-09 useEffect(() => { fetchPersonas() }, [paginaActual, search, filtroSexo, filtroRol, filtroEstado])
+ 
+  /// De aqui en adelante es para el buscar solo docente sus datos
+// NUEVO: INIT CON PERMISOS PASO 2
+useEffect(() => { initPage() }, [])
+
+const initPage = async () => {
+  const { data: { user } }= await supabase.auth.getUser()
+  setUserId(user?.id || null)
+
+  // Jalar permisos de rol + usuario
+  const { data: persona } = await supabase.from('persona').select('idrol').eq('id', user?.id).single()
+  const idrol = persona?.idrol
+
+  const { data: permsRol } = await supabase.from('rolpermiso').select('permiso(nombrepermiso)').eq('idrol', idrol)
+  const { data: permsUser } = await supabase.from('usuariopermiso').select('permiso(nombrepermiso)').eq('idusuario', user?.id).eq('estado', true)
+
+  const todosPermisos = [
+    ...(permsRol?.map((p:any) => p.permiso.nombrepermiso) || []),
+    ...(permsUser?.map((p:any) => p.permiso.nombrepermiso) || [])
+  ]
+  const puedeVerTodos = todosPermisos.includes('PERSONAS.VER.TODOS')
+  setTieneVerTodos(puedeVerTodos)
+  
+  fetchRoles()
+  fetchPersonas(user?.id || '', puedeVerTodos)
+}
+
+const fetchRoles = async () => {
+  const { data: rolesData } = await supabase.from('rol').select('idrol, nombrerol')
+  setRoles(rolesData || [])
+}
+
+const fetchPersonas = async (uid: string, puedeVerTodos: boolean) => {
   setLoading(true)
   const desde = (paginaActual - 1) * registrosPorPagina
   const hasta = desde + registrosPorPagina - 1
 
-  // 1. Traer solo la página + contar total
   let query = supabase
     .from('persona')
-    .select('*, rol(nombrerol)', { count: 'exact' }) // <-- JOIN directo
-    //.eq('estado', 'ACTIVO')
-      if(filtroEstado !== 'TODOS') {
-        query = query.eq('estado', filtroEstado)
-      }
+    .select('*, rol(nombrerol)', { count: 'exact' })
 
-  if(search) {
-    query = query.or(`dni.ilike.%${search}%,nombres.ilike.%${search}%,apellidos.ilike.%${search}%`)
+  // CAPA 3: FILTRO SEGÚN PERMISO PASO 2
+  if(!puedeVerTodos && uid) {
+    query = query.eq('id', uid) // Solo su fila
+  } else {
+    // Si es admin, aplica todos los filtros normales
+    if(filtroEstado !== 'TODOS') query = query.eq('estado', filtroEstado)
+    if(search) query = query.or(`dni.ilike.%${search}%,nombres.ilike.%${search}%,apellidos.ilike.%${search}%`)
+    if(filtroSexo) query = query.eq('sexo', filtroSexo)
+    if(filtroRol) query = query.eq('idrol', filtroRol)
   }
-  if(filtroSexo) query = query.eq('sexo', filtroSexo)
-  if(filtroRol) query = query.eq('idrol', filtroRol)
 
   const { data, count, error } = await query
-    .order('idpersona', { ascending: false }) // <-- Mas nuevo primero
+    .order('idpersona', { ascending: false })
     .range(desde, hasta)
 
   if(error) {
     toast.error(error.message)
-    console.error(error)
+    //console.error(error)
+     console.error('ERROR SUPABASE:', error.message, error.details, error.hint)
+  alert('Error BD: ' + error.message) // para verlo en pantalla
   } else {
-    setPersonas(data as Persona[] || []) // ya viene con rol
-    setTotalRegistros(count || 0) // <-- NUEVO ESTADO
+    setPersonas(data as Persona[] || [])
+    setTotalRegistros(count || 0)
   }
-  
-  const { data: rolesData } = await supabase.from('rol').select('idrol, nombrerol')
-  setRoles(rolesData || [])
   setLoading(false)
 }
-  //useEffect(() => { fetchPersonas() }, [])
-  useEffect(() => { fetchPersonas() }, [paginaActual, search, filtroSexo, filtroRol, filtroEstado])
-  //useEffect(() => { fetchPersonas() }, [paginaActual, search, filtroSexo, filtroRol, filtroEstado]) // <-- AGREGAR filtroEstado
+
+// ACTUALIZAR ESTE useEffect PARA QUE DEPENDA DE PERMISOS
+useEffect(() => { 
+  if(userId !== null) fetchPersonas(userId, tieneVerTodos) 
+}, [paginaActual, search, filtroSexo, filtroRol, filtroEstado, userId, tieneVerTodos])
+ 
+
+//aqui termina
 
   const validarDNI = async (dniValue: string) => {
     if (!dniValue || dniValue.length!== 8) return
@@ -269,7 +342,8 @@ const fetchPersonas = async () => {
       }
 
       toast.success(mensaje);
-      await fetchPersonas();
+      //await fetchPersonas();
+      await fetchPersonas(userId!, tieneVerTodos)
       closeModal();
 
     } catch (err: any) {
@@ -294,7 +368,7 @@ const fetchPersonas = async () => {
       toast.error('Error al anular: ' + error.message)
     } else {
       toast.success('Registro anulado correctamente')
-      fetchPersonas()
+      await fetchPersonas(userId!, tieneVerTodos)
     }
     setShowConfirm(false)
     setIdAEliminar(null)
@@ -310,7 +384,7 @@ const fetchPersonas = async () => {
     toast.error('Error al restaurar: ' + error.message)
   } else {
     toast.success('Persona restaurada correctamente')
-    fetchPersonas()
+    await fetchPersonas(userId!, tieneVerTodos)
   }
 }
 
@@ -409,7 +483,7 @@ const fetchPersonas = async () => {
       console.error(error)
     } else {
       toast.success(`Se importaron ${paraGrabar.length} personas correctamente`)
-      fetchPersonas()
+      await fetchPersonas(userId!, tieneVerTodos)
     }
     setShowPreviewModal(false)
     setPreviewData([])
@@ -500,11 +574,7 @@ const fetchPersonas = async () => {
           {/* <p>Total: {totalRegistros} registros ACTIVOS</p> */}
           <p>Total: {totalRegistros} registros {filtroEstado === 'TODOS' ? '' : filtroEstado}</p>
         </div>
-        <div style={{ display: 'flex', gap: '1.2rem' }}>
-          {/* <label htmlFor="import-excel" className="btn-secundario" style={{ cursor: 'pointer' }}>
-            <Upload size={18} />
-            Importar Excel
-          </label> */}
+        {/*11-09 <div style={{ display: 'flex', gap: '1.2rem' }}>        
           <button
   type="button"
   className="btn-secundario"
@@ -530,62 +600,94 @@ const fetchPersonas = async () => {
             <Plus size={18} />
             Nueva Persona
           </button>
+        </div> */}
+        <div style={{ display: 'flex', gap: '1.2rem' }}>
+          {/* CAPA 3: OCULTAR BOTONES SI NO ES ADMIN PASO 3 */}
+          {tieneVerTodos && (
+            <>
+              <button
+                type="button"
+                className="btn-secundario"
+                style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.8rem' }}
+                onClick={() => {
+                  toast('Estructura del excel: DNI | APELLIDOS | NOMBRES | TELEFONO | SEXO | ROL',
+                    { icon: 'ℹ️', duration: 6000 }
+                  )
+                  setTimeout(() => document.getElementById('import-excel')?.click(), 100)
+                }}
+              >
+                <Upload size={18} />
+                Importar Excel
+              </button>
+              <input
+                id="import-excel"
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleImportExcel}
+                style={{ display: 'none' }}
+              />
+              <button className="btn-primario" onClick={() => openModal()}>
+                <Plus size={18} />
+                Nueva Persona
+              </button>
+            </>
+          )}
         </div>
       </div>
-
+    {tieneVerTodos && (
     <div className="card-sgpc" style={{ marginBottom: '2.4rem', padding: '2rem' }}>
-  <div className="grid-filtros-personas">
-    
-    <SelectSGPCFieldset 
-      label="Sexo"
-      value={filtroSexo || ""}
-      onChange={(val:any) => setFiltroSexo(val)}
-      placeholder="Todos"
+      <div className="grid-filtros-personas">
+        
+        <SelectSGPCFieldset 
+          label="Sexo"
+          value={filtroSexo || ""}
+          onChange={(val:any) => setFiltroSexo(val)}
+          placeholder="Todos"
+          options={[
+            {value: "M", label: "Masculino"},
+            {value: "F", label: "Femenino"}
+          ]}
+        />
+
+        <SelectSGPCFieldset 
+          label="Rol"
+          value={filtroRol || ""}
+          onChange={(val:any) => setFiltroRol(val)}
+          placeholder="Todos"
+          options={roles.map(r => ({value: r.idrol, label: r.nombrerol}))}
+        />
+        <SelectSGPCFieldset 
+      label="Estado"
+      value={filtroEstado || "ACTIVO"}
+      onChange={(val:any) => setFiltroEstado(val)}
       options={[
-        {value: "M", label: "Masculino"},
-        {value: "F", label: "Femenino"}
+        {value: "ACTIVO", label: "ACTIVOS"},
+        {value: "ANULADO", label: "ANULADOS"},
+        {value: "TODOS", label: "Todos"}
       ]}
     />
 
-    <SelectSGPCFieldset 
-      label="Rol"
-      value={filtroRol || ""}
-      onChange={(val:any) => setFiltroRol(val)}
-      placeholder="Todos"
-      options={roles.map(r => ({value: r.idrol, label: r.nombrerol}))}
-    />
-    <SelectSGPCFieldset 
-  label="Estado"
-  value={filtroEstado || "ACTIVO"}
-  onChange={(val:any) => setFiltroEstado(val)}
-  options={[
-    {value: "ACTIVO", label: "ACTIVOS"},
-    {value: "ANULADO", label: "ANULADOS"},
-    {value: "TODOS", label: "Todos"}
-  ]}
-/>
+        <div style={{ position: 'relative', width: "100%" }}>
+          <Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5, zIndex: 1 }} />
+          <input 
+            className="input-sgpc" 
+            placeholder="Buscar por DNI, Nombres, Apellidos..." 
+            value={search} 
+            onChange={e => setSearch(e.target.value)} 
+            style={{ paddingLeft: '4rem', height: "4.4rem", width: "100%" }} 
+          />
+        </div>
 
-    <div style={{ position: 'relative', width: "100%" }}>
-      <Search size={18} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', opacity: 0.5, zIndex: 1 }} />
-      <input 
-        className="input-sgpc" 
-        placeholder="Buscar por DNI, Nombres, Apellidos..." 
-        value={search} 
-        onChange={e => setSearch(e.target.value)} 
-        style={{ paddingLeft: '4rem', height: "4.4rem", width: "100%" }} 
-      />
+        <button 
+          className="btn-secundario btn-limpiar" 
+          // onClick={() => {setSearch(""); setFiltroSexo(null); setFiltroRol(null)}}
+          onClick={() => {setSearch(""); setFiltroSexo(""); setFiltroRol(null); setFiltroEstado("ACTIVO")}}
+        >
+          <Eraser size={16} />Limpiar
+        </button>
+      </div>
     </div>
-
-    <button 
-      className="btn-secundario btn-limpiar" 
-      // onClick={() => {setSearch(""); setFiltroSexo(null); setFiltroRol(null)}}
-      onClick={() => {setSearch(""); setFiltroSexo(""); setFiltroRol(null); setFiltroEstado("ACTIVO")}}
-    >
-      <Eraser size={16} />Limpiar
-    </button>
-  </div>
-</div>
-
+    )}
       <div className="card-sgpc" style={{ overflowX: 'auto' }}>
         {loading? <p>Cargando...</p> : (
           <table className='tabla-sgpc'>
@@ -603,19 +705,32 @@ const fetchPersonas = async () => {
             </thead>
             <tbody>
               <>{personas.map((p, index) => (<tr key={p.idpersona} style={{ borderBottom: '1px solid var(--color-borde)' }}><td style={{ padding: '1rem', fontWeight: 600 }}>{indiceInicio + index + 1}</td><td style={{ padding: '1rem' }}>{p.dni}</td><td style={{ padding: '1rem' }}>{p.apellidos}</td><td style={{ padding: '1rem' }}>{p.nombres}</td><td style={{ padding: '1rem' }}>{p.telefono || '-'}</td><td style={{ padding: '1rem' }}>{p.sexo === 'M'? 'Masculino' : p.sexo === 'F'? 'Femenino' : '-'}</td><td style={{ padding: '1rem', fontWeight: 600 }}>{p.rol?.nombrerol || 'Sin Rol'}</td>
-              {/* <td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}><button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button><button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button></td> */}
+              
+              {/*11-09 <td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}>
+                {p.estado === 'ACTIVO' ? (
+                  <>
+                    <button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button>
+                    <button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button>
+                  </>
+                ) : (
+                  <>
+                    <button className="btn-icon" style={{background: '#10b981', color: '#fff'}} onClick={() => handleRestaurar(p.idpersona)}><Check size={15} /></button>
+                  </>
+                )}
+              </td> */}
               <td style={{ padding: '1rem', display: 'flex', gap: '0.8rem' }}>
-  {p.estado === 'ACTIVO' ? (
-    <>
-      <button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button>
-      <button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button>
-    </>
-  ) : (
-    <>
-      <button className="btn-icon" style={{background: '#10b981', color: '#fff'}} onClick={() => handleRestaurar(p.idpersona)}><Check size={15} /></button>
-    </>
-  )}
-</td>
+                {/* CAPA 3: BOTON EDITAR SOLO SI ES ADMIN O ES EL MISMO PASO 3 */}
+                {(tieneVerTodos || p.id === userId) && p.estado === 'ACTIVO' && (
+                  <button className="btn-icon btn-icon-editar" onClick={() => openModal(p)}><Edit size={15} /></button>
+                )}
+                {tieneVerTodos && p.estado === 'ACTIVO' && (
+                  <button className="btn-icon btn-icon-eliminar" onClick={() => handleDelete(p.idpersona)}><Trash2 size={15} /></button>
+                )}
+                {tieneVerTodos && p.estado === 'ANULADO' && (
+                  <button className="btn-icon" style={{background: '#10b981', color: '#fff'}} onClick={() => handleRestaurar(p.idpersona)}><Check size={15} /></button>
+                )}
+              </td>
+
               </tr>))}</>
             </tbody>
           </table>
