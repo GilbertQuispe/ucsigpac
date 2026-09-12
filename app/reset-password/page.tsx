@@ -120,11 +120,11 @@ export default function ResetPasswordPage() {
         <div className="card-sgpc" style={{ maxWidth: '42rem', width: '100%', padding: '3.2rem' }}>
           
           <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-texto)', marginBottom: '0.8rem', textAlign:'left' }}>
-            Paso final
+            Restablecer Contraseña
           </p>
 
           <h2 style={{ fontSize: 'var(--text-3xl)', marginBottom: '2.4rem', color: 'var(--color-primario)', textAlign:'center', fontFamily: 'var(--font-titulos)' }}>
-            Restablecer Contraseña
+            Sistema de Gestión de <br /> Prácticas Clínicas
           </h2>
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
@@ -188,12 +188,12 @@ export default function ResetPasswordPage() {
               />
             </div>
 
-            <button 
-              type="submit" 
-              disabled={loading} 
-              className="btn-primario" 
-              style={{ width: '100%' }}
+           <button 
+              type="button" 
+              onClick={() => setShowPassword(!showPassword)} 
+              style={{ position: 'absolute', right: '1.2rem', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primario)', padding:0 }}
             >
+              <EyeIcon open={showPassword} />
               {loading? 'Guardando...' : 'Guardar Contraseña'}
             </button>
 
