@@ -27,23 +27,54 @@ export default function LoginPage() {
   //   setTimeout(() => setToast(null), 3500);
   // };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  // 13-09- const handleSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setLoading(true);
+  //   const { error } = isLogin
+  //   ? await supabase.auth.signInWithPassword({ email, password })
+  //     : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${location.origin}/dashboard` } });
+
+  //   //if (error) toast.error(error.message);
+  //   if (error) toast.error("Credenciales inválidas");
+  //   else {
+  //     if (isLogin) {
+  //       toast.success('¡Login exitoso!');
+  //       router.push('/panel');
+  //     } else {
+  //       toast.success('Revisa tu correo para confirmar tu cuenta');
+  //     }
+  //   }
+  //   setLoading(false);
+  // };
+const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    const { error } = isLogin
+
+    const { data, error } = isLogin // 1. Agregamos 'data'
     ? await supabase.auth.signInWithPassword({ email, password })
       : await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${location.origin}/dashboard` } });
 
-    //if (error) toast.error(error.message);
-    if (error) toast.error("Credenciales inválidas");
-    else {
-      if (isLogin) {
-        toast.success('¡Login exitoso!');
+    if (error) {
+      toast.error("Credenciales inválidas");
+      setLoading(false);
+      return;
+    } 
+    
+    if (isLogin) {
+      toast.success('¡Login exitoso!');
+      
+      // 2. CLAVE 1: Forzar que Next vuelva a leer las cookies
+      router.refresh(); 
+
+      // 3. CLAVE 2: Darle 500ms a Supabase para que guarde la cookie
+      setTimeout(() => {
         router.push('/panel');
-      } else {
-        toast.success('Revisa tu correo para confirmar tu cuenta');
-      }
+      }, 500);
+
+    } else {
+      toast.success('Revisa tu correo para confirmar tu cuenta');
     }
+    
     setLoading(false);
   };
 

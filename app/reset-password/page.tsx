@@ -44,7 +44,12 @@ export default function ResetPasswordPage() {
 
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password });
-    
+    ///agregando para la vista v_usuario_completo
+    const { data: { user }} = await supabase.auth.getUser();
+if (user?.email) {
+  await supabase.from('usuario').update({ id: user.id }).eq('email', user.email);
+}
+
     if (error) toast.error(error.message);
     else {
       toast.success('Contraseña actualizada correctamente');

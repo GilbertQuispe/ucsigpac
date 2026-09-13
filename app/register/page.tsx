@@ -48,8 +48,8 @@ export default function RegisterPage() {
       const { data: usuario } = await supabase.from('usuario').select('idusuario').eq('idpersona', persona.idpersona).maybeSingle();
       if (usuario) { toast.error('Usuario existente'); setIsDniValid(false); setCheckingDni(false); return; }
       // FIX: nombre de vista sin espacio
-      const { data: vUsuario } = await supabase.from('v_usuario_completo').select('dni').eq('dni', dni).maybeSingle(); 
-      if (vUsuario) { toast.error('Usuario existente'); setIsDniValid(false); setCheckingDni(false); return; }
+      //13-09 const { data: vUsuario } = await supabase.from('v_usuario_completo').select('dni').eq('dni', dni).maybeSingle(); 
+      //13-09 if (vUsuario) { toast.error('Usuario existente'); setIsDniValid(false); setCheckingDni(false); return; }
       setIsDniValid(true); setCheckingDni(false);
       toast.success(`DNI validado: ${persona.nombres} ${persona.apellidos}`); // <-- YA CON APELLIDOS
     }, 600);
@@ -76,6 +76,39 @@ export default function RegisterPage() {
       setLoading(false);
       return;
     }
+
+    // AGREGAR: BLINDAJE - Amarrar tablas manualmente porque no hay trigger
+    if (authData.user) {
+      // 1. Amarrar persona.id con el UUID
+      const { error: errPersona } = await supabase
+        .from('persona')
+        .update({ id: authData.user.id })
+        .eq('idpersona', idPersona);
+      
+      if(errPersona) {
+        toast.error('Error al actualizar persona: ' + errPersona.message);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Crear en usuario
+      const { error: errUsuario } = await supabase
+        .from('usuario')
+        .insert({
+          id: authData.user.id,
+          idpersona: idPersona,
+          email: email,
+          estado: true
+          // AGREGAR AQUI: idrol: 3, si quieres poner rol por defecto
+        });
+
+      if(errUsuario) {
+        toast.error('Error al crear usuario: ' + errUsuario.message);
+        setLoading(false);
+        return;
+      }
+    }
+    // FIN AGREGAR
 
     toast.success('Revisa tu correo para activar tu cuenta');
     handleCancel(); // <-- AHORA SI LIMPIA
