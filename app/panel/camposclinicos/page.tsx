@@ -56,6 +56,14 @@ export default function CamposClinicosPage() {
   const [filiales, setFiliales] = useState<Filial[]>([])
   const [servicios, setServicios] = useState<Servicio[]>([])
   const [docentes, setDocentes] = useState<Docente[]>([])
+  //14-09 Inicio
+  const [miIdPersona, setMiIdPersona] = useState<number | null>(null)
+  const [miIdDocente, setMiIdDocente] = useState<number | null>(null)
+  const [esDocente, setEsDocente] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+  const [validandoUsuario, setValidandoUsuario] = useState(true)
+  const [esAdminGestor, setEsAdminGestor] = useState(false) // <- NUEVO
+  //14-09 fin
   const [eps, setEps] = useState<Eps[]>([]) // <-- Se mantiene pero ya no se llena con 6000
   const [departamentos, setDepartamentos] = useState<Departamento[]>([])
   const [provincias, setProvincias] = useState<Provincia[]>([])
@@ -110,6 +118,7 @@ const distritosConEps = useMemo(() => {
 
 // estate para paginacion real
 const [totalRegistros, setTotalRegistros] = useState(0)
+const [primeraCarga, setPrimeraCarga] = useState(true) // <- NUEVO
 
 // NUEVO 2: STATES PARA ASYNC EPS
 const [epsOptions, setEpsOptions] = useState<any[]>([])
@@ -188,7 +197,69 @@ const [dataParaHorario, setDataParaHorario] = useState<any>(null)
 
   // const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
 
-  useEffect(() => { fetchData() }, [filtroPeriodo, filtroFilialTabla, search, paginaActual])
+  //14-09useEffect(() => { fetchData() }, [filtroPeriodo, filtroFilialTabla, search, paginaActual])
+// 1. Carga inicial cuando ya sabemos quien es
+// useEffect(() => {
+//   if(userId!== null){
+//     fetchData()
+//   }
+// }, [userId]) // solo depende de userId
+
+// 2. Recarga cuando cambian filtros
+// useEffect(() => {
+//   if(userId!== null){
+//     fetchData()
+//   }
+// }, [filtroPeriodo, filtroFilialTabla, search, paginaActual]) // solo filtros
+// useEffect(() => {
+//   if(userId!== null){
+//     fetchData()
+//   }
+// }, [filtroPeriodo, filtroFilialTabla, search, paginaActual, esDocente, miIdDocente]) // <- agrega estas 2
+
+useEffect(() => {
+  if(!validandoUsuario){ // <- clave: solo carga cuando ya validamos
+    fetchData()
+  }
+//}, [validandoUsuario, filtroPeriodo, filtroFilialTabla, search, paginaActual])
+}, [validandoUsuario, esAdminGestor, esDocente, miIdDocente, filtroPeriodo, filtroFilialTabla, search, paginaActual]) // <- AGREGADOS
+  //14-09 Inicio
+  useEffect(() => {
+    const getUser = async () => {
+      setLoading(true)
+      const { data: { user }} = await supabase.auth.getUser()
+      //if(!user) return
+      if(!user) {
+        setValidandoUsuario(false) // <- para que no se quede cargando
+        return
+      }
+      setUserId(user.id)
+
+      const { data: persona } = await supabase.from('persona').select('idpersona').eq('id', user.id).single()
+      if(persona){
+        setMiIdPersona(persona.idpersona)
+        const { data: docente } = await supabase.from('docente').select('iddocente, idprofesion, idespecialidad').eq('idpersona', persona.idpersona).single()
+        if(docente){
+          setMiIdDocente(docente.iddocente)
+          setEsDocente(true)
+        }
+
+        // VALIDAR SI ES ADMIN/GESTOR SEGUN usuariopermiso
+      const { data: permisos } = await supabase
+        .from('usuariopermiso')
+        .select('idpermiso')
+        .eq('idusuario', user.id)
+        .eq('estado', true)
+
+      const esAdmin = permisos?.some(p => p.idpermiso === 4) // 4 = /panel/asignacion-modulos
+      setEsAdminGestor(esAdmin || false)
+
+      }
+     setValidandoUsuario(false) // <- ya sabemos quien es 
+    }
+    getUser()
+  }, [])
+  // 14-09 Fin
 
   useEffect(() => {
     if(showModal){
@@ -301,6 +372,14 @@ const [dataParaHorario, setDataParaHorario] = useState<any>(null)
       let countQuery = supabase.from('campoclinico').select('*', { count: 'exact', head: true })
       if(filtroPeriodo!== '') countQuery = countQuery.eq('idpa', filtroPeriodo)
       if(filtroFilialTabla!== '') countQuery = countQuery.eq('idfilial', filtroFilialTabla)
+        //14-09 FILTRO DOCENTE
+      // if(esDocente && miIdDocente){
+      //   countQuery = countQuery.eq('iddocente', miIdDocente)
+      // }
+      //14-09 FILTRO DOCENTE: Solo si NO es Admin/Gestor
+      if(!esAdminGestor && esDocente && miIdDocente){
+        countQuery = countQuery.eq('iddocente', miIdDocente)
+      }
       if(idsFinales !== null) {
         if(idsFinales.length > 0) countQuery = countQuery.in('idcampocli', idsFinales)
         else countQuery = countQuery.eq('idcampocli', -1)
@@ -316,6 +395,14 @@ const [dataParaHorario, setDataParaHorario] = useState<any>(null)
 
       if(filtroPeriodo!== '') dataQuery = dataQuery.eq('idpa', filtroPeriodo)
       if(filtroFilialTabla!== '') dataQuery = dataQuery.eq('idfilial', filtroFilialTabla)
+        //14-09 Inicio
+      // if(esDocente && miIdDocente){
+      //     dataQuery = dataQuery.eq('iddocente', miIdDocente)
+      //   }
+      if(!esAdminGestor && esDocente && miIdDocente){
+          dataQuery = dataQuery.eq('iddocente', miIdDocente)
+        }
+        //14-09 Fin
       if(idsFinales !== null) {
         if(idsFinales.length > 0) dataQuery = dataQuery.in('idcampocli', idsFinales)
         else dataQuery = dataQuery.eq('idcampocli', -1)
@@ -323,6 +410,7 @@ const [dataParaHorario, setDataParaHorario] = useState<any>(null)
 
       const {data: camposDB} = await dataQuery
       setCampos(camposDB as CampoClinico[] || [])
+      setPrimeraCarga(false) // <- NUEVO
       
     } catch (error: any) {
       //console.error("ERROR FETCH:", error)
@@ -380,6 +468,17 @@ const openModal = (campo: CampoClinico | null = null) => {
       setIdTipoEpsSel(campo.eps?.idtipoeps ?? null)
     }, 50)
   }
+
+  //14-09 Inicio
+  if(!campo && esDocente && miIdDocente){ // Si es NUEVO y es Docente
+    const miDoc = docentes.find(d => d.iddocente === miIdDocente)
+    //14-09-setForm({...form, iddocente: miIdDocente})
+    setForm({estado: 'ACTIVO', ideps: null, idservicios: null, iddocente: miIdDocente, idpa: null, idfilial: null})
+    setProfesionSel(miDoc?.profesion?.profesion || '')
+    setEspecialidadSel(miDoc?.especialidad?.especialidad || '')
+  }
+  //14-09 Fin
+
   
   setShowModal(true)
 }
@@ -391,6 +490,12 @@ const openModal = (campo: CampoClinico | null = null) => {
 
   const handleGuardar = async () => {
     if(!puedeGuardar) { toast.error('Complete todos los campos obligatorios *'); return }
+    //14-09 Inicio
+    if(esDocente && form.iddocente !== miIdDocente){
+      toast.error('No puede registrar campos para otro docente')
+      return
+    }
+    //14-09 Fin
     setLoading(true)
 
     const dataToSave = {
@@ -447,6 +552,10 @@ const openModal = (campo: CampoClinico | null = null) => {
 useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabla])
   const totalPaginas = Math.ceil(totalRegistros / registrosPorPagina) // <-- CAMBIO: usar totalRegistros
   
+  if(validandoUsuario) {
+    return <div className="main-content" style={{padding: '4rem', textAlign: 'center'}}>Cargando...</div>
+  }
+
   return (
     <div className="main-content campos-clinicos-page">
       <Toaster 
@@ -496,7 +605,7 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
             </tr>
           </thead>
           <tbody>
-            {loading? <tr><td colSpan={7} style={{textAlign: 'center', padding: '2rem'}}>Cargando...</td></tr> : campos.map((c,i) => (
+            {loading && primeraCarga? <tr><td colSpan={7} style={{textAlign: 'center', padding: '2rem'}}>Cargando...</td></tr> : campos.map((c,i) => (
               <tr key={c.idcampocli}>
                 <td>{(paginaActual-1)*registrosPorPagina + i + 1}</td>
                 <td>{c.eps?.razonsocial} <br/><span style={{fontSize: '1.1rem', opacity: 0.7}}>{c.eps?.distrito?.nombredt} - {c.eps?.distrito?.provincia?.nombrep}</span></td>
@@ -513,7 +622,9 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
                 <td><span style={{padding: '0.4rem 0.8rem', borderRadius: '999px', fontSize: '1.2rem', fontWeight: 600, background: c.estado === 'ACTIVO'? '#F0FDF4' : '#FEF2F2', color: c.estado === 'ACTIVO'? '#22C55E' : '#EF4444'}}>{c.estado}</span></td>
                 <td style={{display: 'flex', justifyContent:'center', alignItems:'center', gap: '0.8rem', height:'6rem'}}>
                   <button onClick={() => openModal(c)} className="btn-icon btn-icon-editar" title="Editar"><Edit size={15} /></button>
+                  {!esDocente && (
                   <button onClick={() => abrirModalEliminar(c)} className="btn-icon btn-icon-eliminar" title="Inactivar"><Trash2 size={15} /></button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -617,6 +728,7 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
       <SelectSGPCFieldset
         label="Docente Responsable *"
         value={form.iddocente}
+        //isDisabled={esDocente}
         onChange={(val:any) => {
           const docSel = docentes.find(d => d.iddocente === val)
           setForm({...form, iddocente: val})
@@ -674,6 +786,8 @@ useEffect(() => { setPaginaActual(1) }, [search, filtroPeriodo, filtroFilialTabl
   onClose={() => setShowModalHorario(false)}
   idcampocli={dataParaHorario?.idcampocli}
   dataHeader={dataParaHorario}
+  miIdDocente={miIdDocente}
+  esAdminGestor={esAdminGestor} // <- NUEVO
 />
       <style jsx>{`
 

@@ -68,6 +68,12 @@ export default function HorariosDocentesPage() {
   const [data, setData] = useState<FilaHorario[]>([])
   const [loading, setLoading] = useState(true)
   // const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  //14-09  Inicio
+  const [miIdDocente, setMiIdDocente] = useState<number | null>(null)
+const [esAdminGestor, setEsAdminGestor] = useState(false)
+const [validandoUsuario, setValidandoUsuario] = useState(true)
+//14-09- Fin
+
   
   const [periodos, setPeriodos] = useState<Periodo[]>([])
   const [filiales, setFiliales] = useState<Filial[]>([])
@@ -102,8 +108,46 @@ export default function HorariosDocentesPage() {
   const provinciasFiltradas = useMemo(() => idDeptoSel ? provincias.filter(p => p.iddepartamento === idDeptoSel) : [], [idDeptoSel, provincias])
   const distritosFiltrados = useMemo(() => idProvSel ? distritos.filter(d => d.idprovincia === idProvSel) : [], [idProvSel, distritos])
 
-  useEffect(() => { fetchMaestros() }, [])
-  useEffect(() => { fetchData() }, [filtroPeriodo, filtroServicio, filtroFilial, filtroEps, search, paginaActual, idDeptoSel, idProvSel, idDistSel, idTipoEpsSel]) // <-- AGREGUE LOS FILTROS NUEVOS
+  //14-09useEffect(() => { fetchMaestros() }, [])
+      useEffect(() => { 
+        const init = async () => {
+          await fetchMaestros()
+          await getUser() // <- NUEVO
+        }
+        init()
+      }, [])
+
+      const getUser = async () => {
+        const { data: { user }} = await supabase.auth.getUser()
+        if(!user) {
+          setValidandoUsuario(false)
+          return
+        }
+
+        const { data: persona } = await supabase.from('persona').select('idpersona').eq('id', user.id).single()
+        if(persona){
+          const { data: docente } = await supabase.from('docente').select('iddocente').eq('idpersona', persona.idpersona).maybeSingle()
+          if(docente){
+            setMiIdDocente(docente.iddocente)
+          }
+        }
+
+        // VALIDAR SI ES ADMIN/GESTOR
+        const { data: permisos } = await supabase
+          .from('usuariopermiso')
+          .select('idpermiso')
+          .eq('idusuario', user.id)
+          .eq('estado', true)
+        setEsAdminGestor(permisos?.some(p => p.idpermiso === 4) || false)
+
+        setValidandoUsuario(false)
+      }
+      //se agrego 14-09 Fin
+
+//14-09  useEffect(() => { fetchData() }, [filtroPeriodo, filtroServicio, filtroFilial, filtroEps, search, paginaActual, idDeptoSel, idProvSel, idDistSel, idTipoEpsSel]) // <-- AGREGUE LOS FILTROS NUEVOS
+useEffect(() => { 
+  if(!validandoUsuario) fetchData() }, [validandoUsuario, esAdminGestor, miIdDocente, filtroPeriodo, filtroServicio, filtroFilial, filtroEps, search, paginaActual, idDeptoSel, idProvSel, idDistSel, idTipoEpsSel])
+
   useEffect(() => { const timer = setTimeout(() => setPaginaActual(1), 300); return () => clearTimeout(timer) }, [search, filtroPeriodo, filtroServicio, filtroFilial, filtroEps, idDeptoSel, idProvSel, idDistSel, idTipoEpsSel])
 
   const fetchMaestros = async () => {
@@ -173,6 +217,12 @@ const fetchData = async () => {
           docente!left(persona!left(dni, apellidos, nombres))
         `, { count: 'exact' })
         .eq('estado', 'ACTIVO')
+        //14-09 Inicio
+        // FILTRO SEGURIDAD: Si NO es Admin/Gestor solo ve sus campos
+        if(!esAdminGestor && miIdDocente){
+          query = query.eq('iddocente', miIdDocente)
+        }
+        //1409- Fin
 
       // 4. APLICAR FILTROS
       if(filtroPeriodo !== '') query = query.eq('idpa', filtroPeriodo)
@@ -329,6 +379,10 @@ const fetchData = async () => {
         onClose={() => setShowModalHorario(false)}
         idcampocli={dataParaHorario?.idcampocli}
         dataHeader={dataParaHorario}
+        //14-09 Inicio
+          miIdDocente={miIdDocente} // <- NUEVO
+          esAdminGestor={esAdminGestor} // <- NUEVO
+  //14-09 Fin
       />
       
     </div>

@@ -6,6 +6,7 @@ import * as XLSX from 'xlsx'
 import Select from '@/components/ui/SelectClient'
 import toast, { Toaster } from 'react-hot-toast' // NUEVO
 
+
 type Persona = {
   idpersona: number
   id: string
@@ -25,12 +26,52 @@ type Rol = {
   nombrerol: string
 }
 
-const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
+//14-09- const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
+//   const selectedOption = options.find((o:any) => o.value === value) || null
+//   return (
+//     <fieldset className="fieldset-sgpc">
+//       <legend>{label}</legend>
+//       <Select options={options} value={selectedOption} onChange={(opt:any) => onChange(opt?.value || null)} placeholder="Seleccione..." isSearchable maxMenuHeight={200} classNamePrefix="react-select" menuPortalTarget={typeof window !== 'undefined' ? document.body : null} menuPosition="fixed" styles={{ control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), input: (base) => ({...base, margin: 0, padding: 0 }), indicatorsContainer: (base) => ({...base, height: '4.4rem' }), option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }), menu: (base) => ({...base, zIndex: 9999, marginTop: '0.4rem' }) }} />
+//     </fieldset>
+//   )
+// }
+
+const SelectSGPCFieldset = ({label, value, onChange, options, isDisabled = false}:any) => { // <- AGREGAR isDisabled
   const selectedOption = options.find((o:any) => o.value === value) || null
   return (
     <fieldset className="fieldset-sgpc">
       <legend>{label}</legend>
-      <Select options={options} value={selectedOption} onChange={(opt:any) => onChange(opt?.value || null)} placeholder="Seleccione..." isSearchable maxMenuHeight={200} classNamePrefix="react-select" menuPortalTarget={typeof window !== 'undefined' ? document.body : null} menuPosition="fixed" styles={{ control: (base, state) => ({...base, height: '4.4rem', minHeight: '4.4rem', borderRadius: '0.6rem', border: '1px solid #cbd5e1', background: '#fff', boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', marginTop: '0.4rem', cursor: 'pointer' }), valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), input: (base) => ({...base, margin: 0, padding: 0 }), indicatorsContainer: (base) => ({...base, height: '4.4rem' }), option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }), menu: (base) => ({...base, zIndex: 9999, marginTop: '0.4rem' }) }} />
+      <Select 
+        options={options} 
+        value={selectedOption} 
+        //14-09-onChange={(opt:any) => onChange(opt?.value || null)} 
+        onChange={(opt:any) => !isDisabled && onChange(opt?.value || null)} // <- NO DEJA CAMBIAR SI ESTA DISABLED        
+        placeholder="Seleccione..." 
+        isSearchable 
+        isDisabled={isDisabled} // <- AGREGAR ESTO
+        maxMenuHeight={200} 
+        classNamePrefix="react-select" 
+        menuPortalTarget={typeof window !== 'undefined' ? document.body : null} 
+        menuPosition="fixed" 
+        styles={{ 
+          control: (base, state) => ({
+            ...base, 
+            height: '4.4rem', 
+            minHeight: '4.4rem', 
+            borderRadius: '0.6rem', 
+            border: '1px solid #cbd5e1', 
+            background: isDisabled ? '#f3f4f6' : '#fff', // <- PONER GRIS CUANDO ESTE DISABLED
+            boxShadow: state.isFocused? '0 0 0 1px var(--color-primario)' : 'none', 
+            marginTop: '0.4rem', 
+            cursor: isDisabled ? 'not-allowed' : 'pointer' // <- CURSOR
+          }), 
+          valueContainer: (base) => ({...base, padding: '0 1.2rem', height: '4.4rem' }), 
+          input: (base) => ({...base, margin: 0, padding: 0 }), 
+          indicatorsContainer: (base) => ({...base, height: '4.4rem' }), 
+          option: (base, state) => ({...base, backgroundColor: state.isSelected? 'var(--color-primario)' : state.isFocused? 'var(--color-acento)' : '#fff', color: state.isSelected? '#fff' : 'var(--color-texto)', padding: '1rem 1.2rem' }), 
+          menu: (base) => ({...base, zIndex: 9999, marginTop: '0.4rem' }) 
+        }} 
+      />
     </fieldset>
   )
 }
@@ -66,6 +107,8 @@ export default function PersonasPage() {
   // NUEVO: ESTADOS DE PERMISOS PASO 2 - 11-09
   const [userId, setUserId] = useState<string | null>(null)
   const [tieneVerTodos, setTieneVerTodos] = useState(false)  
+  // 14-09
+  const [puedeCambiarRol, setPuedeCambiarRol] = useState(false) // <- NUEVO
 
 const SelectSGPC = ({label, value, onChange, options, placeholder, isDisabled = false}:any) => {
   const selectedOption = options.find((o:any) => o.value === value) || null
@@ -160,6 +203,8 @@ const SelectSGPC = ({label, value, onChange, options, placeholder, isDisabled = 
 // NUEVO: INIT CON PERMISOS PASO 2
 useEffect(() => { initPage() }, [])
 
+
+
 const initPage = async () => {
   const { data: { user } }= await supabase.auth.getUser()
   setUserId(user?.id || null)
@@ -175,7 +220,10 @@ const initPage = async () => {
     ...(permsRol?.map((p:any) => p.permiso.nombrepermiso) || []),
     ...(permsUser?.map((p:any) => p.permiso.nombrepermiso) || [])
   ]
+
+  console.log('PERMISOS DEL USUARIO:', todosPermisos) // <- AGREGA ESTO
   const puedeVerTodos = todosPermisos.includes('PERSONAS.VER.TODOS')
+  //const puedeVerTodos = todosPermisos.includes('/panel/personas')
   setTieneVerTodos(puedeVerTodos)
   
   fetchRoles()
@@ -318,14 +366,17 @@ useEffect(() => {
             apellidos: form.apellidos,
             telefono: form.telefono || null,
             sexo: form.sexo || null,
-            idrol: form.idrol
+            //14-09-idrol: form.idrol
+            ...(tieneVerTodos && { idrol: form.idrol })
           })
       .eq('idpersona', editing.idpersona);
 
         if (error) throw error;
         mensaje = 'Datos actualizados correctamente';
       } else {
-        const { error } = await supabase
+        //14-09-const { error } = await supabase
+        const { data: { user }} = await supabase.auth.getUser()
+        const { error } = await supabase // 2. DESPUES HACES EL INSERT
       .from('persona')
       .insert({
             dni: form.dni,
@@ -334,7 +385,8 @@ useEffect(() => {
             telefono: form.telefono || null,
             sexo: form.sexo || null,
             idrol: form.idrol,
-            estado: 'ACTIVO'
+            estado: 'ACTIVO',
+            id: tieneVerTodos ? null : user?.id //14-09
           });
 
         if (error) throw error;
@@ -547,7 +599,7 @@ useEffect(() => {
     setCamposBloqueados(true);
   }
 
-  
+  console.log('DEBUG:', {editing: !!editing, tieneVerTodos, debeBloquear: !!editing && !tieneVerTodos})
   return (
      <>
       <Toaster 
@@ -866,6 +918,7 @@ useEffect(() => {
               value={form.idrol || ""}
               onChange={(val:any) => setForm({...form, idrol: val })}
               options={roles.map(r => ({value: r.idrol, label: r.nombrerol}))}
+              isDisabled={!!editing && !tieneVerTodos} // CLAVE: Si está editando y NO es admin/gestor, se bloquea
             />
             {/* <SelectSGPCFieldset 
               label="Estado"

@@ -76,13 +76,16 @@ const SelectSGPCFieldset = ({label, value, onChange, options}:any) => {
   )
 }
 
-const SelectSGPCSinLegend = ({value, onChange, options}:any) => {
+//14-09- const SelectSGPCSinLegend = ({value, onChange, options}:any) => {
+const SelectSGPCSinLegend = ({value, onChange, options, isDisabled = false}:any) => {
   const selectedOption = options.find((o:any) => o.value === value) || null
   return (
     <Select 
       options={options} 
       value={selectedOption} 
-      onChange={(opt:any) => onChange(opt?.value || null)} 
+      //14-09- onChange={(opt:any) => onChange(opt?.value || null)} 
+      onChange={(opt:any) =>!isDisabled && onChange(opt?.value || null)}
+      isDisabled={isDisabled}
       placeholder="Seleccione..." 
       isSearchable 
       classNamePrefix="react-select"
@@ -115,6 +118,9 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
   const registrosPorPagina = 10
   const [seleccionados, setSeleccionados] = useState<number[]>([])
   // const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  //Vertodos vs Verpropio
+  const [userId, setUserId] = useState<string | null>(null)
+  const [tieneVerTodos, setTieneVerTodos] = useState(false)
 
   const [showModal, setShowModal] = useState(false)
   const [docenteEdit, setDocenteEdit] = useState<Docente | null>(null)
@@ -129,9 +135,33 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
   const [previewDataDoc, setPreviewDataDoc] = useState<any[]>([])
   const [showPreviewModalDoc, setShowPreviewModalDoc] = useState(false)
 
-  useEffect(() => { fetchData() }, [])
+  //14-09- useEffect(() => { fetchData() }, [])
+useEffect(() => { initPage() }, [])
 
-  const fetchData = async () => {
+const initPage = async () => {
+  const { data: { user }} = await supabase.auth.getUser()
+  setUserId(user?.id || null)
+
+  const { data: persona } = await supabase.from('persona').select('idrol').eq('id', user?.id).single()
+  const idrol = persona?.idrol
+
+  const { data: permsRol } = await supabase.from('rolpermiso').select('permiso(nombrepermiso)').eq('idrol', idrol)
+  const { data: permsUser } = await supabase.from('usuariopermiso').select('permiso(nombrepermiso)').eq('idusuario', user?.id).eq('estado', true)
+
+  const todosPermisos = [
+   ...(permsRol?.map((p:any) => p.permiso.nombrepermiso) || []),
+   ...(permsUser?.map((p:any) => p.permiso.nombrepermiso) || [])
+  ]
+
+  const puedeVerTodos = todosPermisos.includes('DOCENTES.VER.TODOS')
+  setTieneVerTodos(puedeVerTodos)
+
+  fetchData(user?.id || '', puedeVerTodos)
+}
+
+
+  //14-09- const fetchData = async () => {
+  const fetchData = async (uid: string, puedeVerTodos: boolean) => {
     setLoading(true)
     const { data: rolData } = await supabase.from('rol').select('idrol').ilike('nombrerol', '%docente%').single()
     setIdRolDocente(rolData?.idrol || null)
@@ -146,7 +176,17 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
     const idsDocentes = docentesData?.map(d => d.idpersona) || []
     setPersonas((personasData || []).filter(p =>!idsDocentes.includes(p.idpersona)))
 
-    const {data: docentesFull} = await supabase.from('docente').select(`*, persona!inner(*), profesion(*), especialidad(*)`).order('idpersona')
+    //14-09- const {data: docentesFull} = await supabase.from('docente').select(`*, persona!inner(*), profesion(*), especialidad(*)`).order('idpersona')
+   let query = supabase.from('docente').select(`*, persona!inner(idpersona, dni, apellidos, nombres, id), profesion(*), especialidad(*)`)
+
+if(puedeVerTodos) {
+  // Admin ve todo
+} else if(uid) {
+  query = query.eq('persona.id', uid) // <- ESTA ES LA CLAVE. Filtramos por el uuid de auth
+}
+
+      const {data: docentesFull} = await query.order('idpersona')
+
     setDocentes(docentesFull as Docente[] || [])
     setLoading(false)
     setSeleccionados([])
@@ -190,7 +230,8 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
     if(error) toast.error(error.message)
     else {
       toast.success(`${seleccionados.length} docentes registrados`)
-      fetchData()
+      //14-09- fetchData()
+      fetchData(userId!, tieneVerTodos)
     }
   }
 
@@ -201,7 +242,8 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
     if(error) toast.error(error.message)
     else {
       toast.success(`Docente ${nuevoEstado.toLowerCase()}`)
-      fetchData()
+      //14-09- fetchData()
+      fetchData(userId!, tieneVerTodos)
     }
   }
 
@@ -211,13 +253,28 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
     setShowModal(true)
   }
 
-  const handleGuardarEdit = async () => {
+  //14-09- const handleGuardarEdit = async () => {
+  //   if(!docenteEdit) return
+  //   const {error} = await supabase.from('docente').update(form).eq('iddocente', docenteEdit.iddocente)
+const handleGuardarEdit = async () => {
     if(!docenteEdit) return
-    const {error} = await supabase.from('docente').update(form).eq('iddocente', docenteEdit.iddocente)
+
+    const datosAGuardar: any = {
+      idprofesion: form.idprofesion,
+      idespecialidad: form.idespecialidad
+    }
+    if(tieneVerTodos) {
+      datosAGuardar.condicion = form.condicion
+      datosAGuardar.tipodocente = form.tipodocente
+    }
+    const {error} = await supabase.from('docente').update(datosAGuardar).eq('iddocente', docenteEdit.iddocente)
+
     if(error) toast.error(error.message)
     else {
       toast.success('Docente actualizado')
-      setShowModal(false); fetchData()
+      setShowModal(false); 
+      //14-09- fetchData()
+      fetchData(userId!, tieneVerTodos)
     }
   }
 
@@ -291,7 +348,8 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
     else {
       toast.success(`${paraInsertar.length} docentes importados correctamente`)
       setShowPreviewModalDoc(false)
-      fetchData()
+      //14-09- fetchData()
+      fetchData(userId!, tieneVerTodos)
     }
   }
 
@@ -326,8 +384,10 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
       <div className="header-responsive">
         <div>
           <h1><GraduationCap size={24} style={{marginRight: '0.8rem'}}/>Gestión de Docentes</h1>
-          <p>Total: {datosFiltrados.length} registros</p>
+          {/*14-09- <p>Total: {datosFiltrados.length} registros</p> */}
+          <p>Total: {tieneVerTodos ? datosFiltrados.length : datosPaginados.length} registros</p>
         </div>
+        {tieneVerTodos && (
         <div style={{ display: 'flex', gap: '1.2rem' }}>
           <label htmlFor="import-docente" className="btn-secundario" style={{ cursor: 'pointer' }}>
             <Upload size={18} /> Importar Excel
@@ -344,12 +404,16 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
             <Check size={18} /> Convertir {seleccionados.length} Seleccionados
           </button>
         </div>
+        )}
+
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', margin: '2rem 0' }}>
+        {tieneVerTodos && (
         <button onClick={() => {setTab('personas'); setPaginaActual(1)}} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '4.4rem', gap: '0.8rem', padding: '0 2rem', borderRadius: '0.8rem', border: tab==='personas'? '1px solid var(--color-primario)' : '1px solid #cbd5e1', background: tab==='personas'? 'var(--color-primario)' : '#fff', color: tab==='personas'? '#fff' : 'var(--color-texto-secundario)', fontWeight: 600, fontSize: '1.4rem', cursor: 'pointer', transition: 'all 0.2s' }}>
           <Users size={16}/> Personas con Rol Docente
         </button>
+        )}
         <button onClick={() => {setTab('docentes'); setPaginaActual(1)}} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '4.4rem', gap: '0.8rem', padding: '0 2rem', borderRadius: '0.8rem', border: tab==='docentes'? '1px solid var(--color-primario)' : '1px solid #cbd5e1', background: tab==='docentes'? 'var(--color-primario)' : '#fff', color: tab==='docentes'? '#fff' : 'var(--color-texto-secundario)', fontWeight: 600, fontSize: '1.4rem', cursor: 'pointer', transition: 'all 0.2s' }}>
           <GraduationCap size={16}/> Docentes Registrados
         </button>
@@ -415,15 +479,9 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
     <button className="btn-secundario btn-limpiar" onClick={limpiarFiltros} style={{height: '4.4rem'}}><Eraser size={16} />Limpiar</button>
   </div>
 </div>
-
+      {(tab === 'personas' && tieneVerTodos) || tab === 'docentes' ? ( 
       <div className="card-sgpc" style={{ overflowX: 'auto', position: 'relative', minHeight: '20rem' }}>
-        {/* {toast && (
-          <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 10, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '0.9rem 2rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)', animation: 'fadeInOut 3s ease-in-out', whiteSpace: 'nowrap' }}>
-            {toast.msg}
-          </div>
-        )} */}
-
-        {loading? <p style={{padding: '2rem', textAlign: 'center'}}>Cargando...</p> : (
+         {loading? <p style={{padding: '2rem', textAlign: 'center'}}>Cargando...</p> : (
           <table className='tabla-sgpc'>
             <thead><tr>
               {tab==='personas' && <th style={{width: '5rem'}}>SEL</th>}
@@ -459,13 +517,15 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
                   <td style={{display: 'flex', gap: '0.8rem'}}>
                     {tab==='docentes' && <>
                       <button onClick={() => openEditModal(d)} className="btn-icon btn-icon-editar" title="Editar"><Edit size={15} /></button>
-                      <button
-  onClick={() => handleCambiarEstadoDocente(d.iddocente, d.estado || 'ACTIVO')}
-  className={d.estado === 'ACTIVO'? "btn-icon btn-icon-eliminar" : "btn-icon btn-icon-activar"}
-  title={d.estado === 'ACTIVO'? 'Inactivar' : 'Activar'}
->
-  {d.estado === 'ACTIVO'? <UserX size={15} color="#fff" /> : <UserCheck size={15} color="#fff" />}
-</button>
+                      {tieneVerTodos && (
+                      <button                      
+                      onClick={() => handleCambiarEstadoDocente(d.iddocente, d.estado || 'ACTIVO')}
+                      className={d.estado === 'ACTIVO'? "btn-icon btn-icon-eliminar" : "btn-icon btn-icon-activar"}
+                      title={d.estado === 'ACTIVO'? 'Inactivar' : 'Activar'}
+                    >
+                      {d.estado === 'ACTIVO'? <UserX size={15} color="#fff" /> : <UserCheck size={15} color="#fff" />}
+                    </button>
+                      )}
                     </>}
                   </td>
                 </tr>
@@ -474,8 +534,9 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
           </table>
         )}
       </div>
-
-      {totalPaginas > 1 && (
+      ) : null}
+      {/* {totalPaginas > 1 && ( */}
+      {totalPaginas > 1 && tieneVerTodos && ( 
         <div className="paginacion-footer">
           <p>Mostrando {indiceInicio + 1} al {Math.min(indiceInicio + registrosPorPagina, datosFiltrados.length)} de {datosFiltrados.length}</p>
           <div className="paginacion-controles">
@@ -485,6 +546,7 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
           </div>
         </div>
       )}
+
 
       {/* MODAL ACTUALIZAR DOCENTE */}
       {showModal && (
@@ -530,6 +592,7 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
                   <legend><UserCheck size={14}/> Condición *</legend>
                   <SelectSGPCSinLegend                    
                     value={form.condicion}
+                    isDisabled={!tieneVerTodos}
                     onChange={(val:any) => setForm({...form, condicion: val})}
                     options={[{value: "NOMBRADO", label: "NOMBRADO"}, {value: "CONTRATADO", label: "CONTRATADO"}]}
                   />
@@ -538,6 +601,7 @@ const [filtroEspecialidad, setFiltroEspecialidad] = useState<number | ''>('')
                   <legend><UserX size={14}/> Tipo Docente *</legend>
                   <SelectSGPCSinLegend                    
                     value={form.tipodocente}
+                    isDisabled={!tieneVerTodos}
                     onChange={(val:any) => setForm({...form, tipodocente: val})}
                     options={[{value: "P", label: "Principal"}, {value: "A", label: "Asociado"}, {value: "X", label: "Auxiliar"}]}
                   />

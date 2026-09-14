@@ -24,7 +24,9 @@ export default function ModalHorarioDocente({
   show,
   onClose,
   idcampocli,
-  dataHeader
+  dataHeader,
+  miIdDocente, // <- NUEVO - 14-09
+  esAdminGestor // <- NUEVO 14-09
 }: any) {
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
@@ -42,6 +44,23 @@ export default function ModalHorarioDocente({
   const fetchHorarios = async () => {
     if(!idcampocli) return
     setLoading(true)
+
+     // VALIDACION 1: Si NO es Admin/Gestor, validar que sea su campo
+    if(!esAdminGestor && miIdDocente){
+      const { data: campoVal } = await supabase
+        .from('campoclinico')
+        .select('iddocente')
+        .eq('idcampocli', idcampocli)
+        .single()
+
+      if(campoVal?.iddocente !== miIdDocente) {
+        showToast('No tienes permisos para ver este horario')
+        setLoading(false)
+        onClose()
+        return
+      }
+    }
+
     const { data, error } = await supabase
       .from('horariodocente')
       .select('*')
@@ -81,7 +100,8 @@ export default function ModalHorarioDocente({
       }
     }
     cargar()
-  }, [show, idcampocli]) // <-- ESTE ARRAY SIEMPRE TIENE 2 ELEMENTOS
+  //}, [show, idcampocli]) // <-- ESTE ARRAY SIEMPRE TIENE 2 ELEMENTOS
+  }, [show, idcampocli, esAdminGestor, miIdDocente]) // <-- AGREGADOS
   const totalSemanal = useMemo(() =>
     horarios.reduce((acc, h) => acc + (h.activo? calcularHoras(h.hora_inicio, h.hora_fin) : 0), 0)
 , [horarios])
@@ -103,6 +123,15 @@ export default function ModalHorarioDocente({
   }
 
   const handleGuardar = async () => {
+    // VALIDACION 2: Seguridad antes de guardar
+    if(!esAdminGestor && miIdDocente){
+      const { data: campoVal } = await supabase.from('campoclinico').select('iddocente').eq('idcampocli', idcampocli).single()
+      if(campoVal?.iddocente !== miIdDocente) {
+        showToast('No tienes permisos para guardar este horario')
+        setLoading(false)
+        return
+      }
+    }
     const horariosAGuardar = horarios.filter(h => h.activo)
 
     if(horariosAGuardar.length === 0) {
