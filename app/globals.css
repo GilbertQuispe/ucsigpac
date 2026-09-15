@@ -272,9 +272,7 @@ h3 { font-size: var(--text-2xl); font-family: var(--font-titulos); font-weight: 
   width: 100%;
 }
 
-.sidebar-wrapper {
-  /* Quitamos el fixed de aqui, ahora lo controla el componente */
-}
+
 
 .content-area {
   padding: 2.4rem;

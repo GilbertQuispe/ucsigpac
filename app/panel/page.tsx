@@ -8,7 +8,8 @@ ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, LineEl
 
 export default function PanelPage() {
   const [kpis, setKpis] = useState<any>({})
-  const [periodo, setPeriodo] = useState('2026-1')
+  const [periodo, setPeriodo] = useState('')
+  const [idpa, setIdpa] = useState<number | null>(null) // <- guardamos también el idpa
   const [loading, setLoading] = useState(true)
   const [pieData, setPieData] = useState<any>({ labels: [], datasets: [] })
   const supabase = createClient()
@@ -26,7 +27,14 @@ export default function PanelPage() {
          .limit(1)
          .maybeSingle()
         const idpaActual = p?.idpa // 1, 2, 3... para filtrar en tablas
-        const codigoActual = p?.codigo || '202620' // 202620 para mostrar arriba
+        const codigoActual = p?.codigo || '' // 202620 para mostrar arriba
+        setIdpa(idpaActual)
+        setPeriodo(codigoActual) // <- aquí seteamos el ultimo por defecto
+
+        if(!idpaActual) {
+          setLoading(false)
+          return
+        }
 
       //   const idpaActual = 1 // <- FORZADO PARA PRUEBA
       // const codigoActual = '202610' // <- PARA QUE SE VEA BONITO ARRIBA

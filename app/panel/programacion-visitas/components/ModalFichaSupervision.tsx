@@ -1,6 +1,6 @@
 'use client'
 import React, { useEffect, useState, useMemo } from 'react'
-import { X, Check, Camera, Trash2, Eraser, BookOpen } from 'lucide-react'
+import { X, Check, Camera, Trash2, Eraser, BookOpen, Save, Funnel, House, Award, Warehouse,Newspaper, HatGlasses} from 'lucide-react'
 import { createClient } from '@/lib/client'
 import moment from 'moment'
 import toast, { Toaster } from 'react-hot-toast'
@@ -72,9 +72,7 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     .single()
 
     if(err1){ toast.error("Error cargando visita: " + err1.message); setLoading(false); return }
-
-    //Cambio segun Vercel- const idcargaacad = v?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.idcargaacad
-    //cambio solucionando error 09-09- const idcargaacad = (v as any)?.asignacionsupervision?.[0]?.asignacion_nrc_supervisor?.[0]?.cargaacademica?.[0]?.idcargaacad
+    
     const idcargaacad = (v as any)?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.idcargaacad
     // 2. SACAMOS TODO EL HEADER
     const { data: carga, error: err2 } = await supabase
@@ -148,6 +146,19 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     setRespuestas({...respuestas, [key]: valor})
   }
 
+ //Para porcentajes
+  const getValoracion = (porcentaje: number) => {
+    if (porcentaje >= 80) return 'Satisfactorio';
+    if (porcentaje >= 60) return 'En Observación';
+    return 'Requiere Intervención';
+  }
+
+  const getGeneral = (valDoc: string, valAlu: string) => {
+    if (valDoc === 'Requiere Intervención' || valAlu === 'Requiere Intervención') return 'Requiere Intervención';
+    if (valDoc === 'En Observación' || valAlu === 'En Observación') return 'En Observación';
+    return 'Satisfactorio';
+  }
+
 
  const handleGuardar = async () => {
   if(esSoloLectura) return toast.error("Esta ficha ya está supervisada. Solo lectura")
@@ -197,6 +208,35 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
       return toast.error("Debe calificar al menos 1 item")
     }
 
+    // ===== NUEVO: CALCULAR BAREMO SIEMPRE =====
+    let porcentajeDocente = 0
+    let porcentajeAlumno = 0
+    let valoracionDocente = 'N/A'
+    let valoracionAlumno = 'N/A'
+    let resultadoGeneral = 'N/A'
+
+    // Calcular Docente
+    if(preguntasDocente.length > 0){
+      const respuestasDoc = toInsert.filter(r => r.iddocente!== null)
+      const totalPosibleDoc = preguntasDocente.length * 5
+      const totalObtenidoDoc = respuestasDoc.reduce((sum, r) => sum + r.respuestaitem, 0)
+      porcentajeDocente = totalPosibleDoc > 0 ? (totalObtenidoDoc / totalPosibleDoc) * 100 : 0
+      valoracionDocente = respuestasDoc.length > 0 ? getValoracion(porcentajeDocente) : 'N/A'
+    }
+
+    // Calcular Alumno
+    if(preguntasAlumno.length > 0 && alumnos.length > 0){
+      const respuestasAlu = toInsert.filter(r => r.idestudiante!== null)
+      const totalPosibleAlu = preguntasAlumno.length * alumnos.length * 5
+      const totalObtenidoAlu = respuestasAlu.reduce((sum, r) => sum + r.respuestaitem, 0)
+      porcentajeAlumno = totalPosibleAlu > 0 ? (totalObtenidoAlu / totalPosibleAlu) * 100 : 0
+      valoracionAlumno = respuestasAlu.length > 0 ? getValoracion(porcentajeAlumno) : 'N/A'
+    }
+
+    if(valoracionDocente !== 'N/A' || valoracionAlumno !== 'N/A'){
+      resultadoGeneral = getGeneral(valoracionDocente, valoracionAlumno)
+    }
+    // ===== FIN NUEVO =====
     // 5. SUBIR FOTOS PRIMERO
     let fotosSubidasOK = 0
     if(fotos.length > 0){
@@ -237,16 +277,39 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
       nuevoEstado = 'SUPERVISADO'
     }
 
-    const { error: errVisita } = await supabase.from('visitasupervision').update({
+    //15-09 const { error: errVisita } = await supabase.from('visitasupervision').update({
+    //   condicion: nuevoEstado,
+    //   observaciones: observacion
+    // }).eq('idvisitas', idvisitas)
+
+    //para baremar
+const { error: errVisita } = await supabase.from('visitasupervision').update({
       condicion: nuevoEstado,
-      observaciones: observacion
-    }).eq('idvisitas', idvisitas)
+      observaciones: observacion,
+      valoracion_docente: valoracionDocente,
+      porcentaje_docente: parseFloat(porcentajeDocente.toFixed(2)),
+      valoracion_alumno: valoracionAlumno,
+      porcentaje_alumno: parseFloat(porcentajeAlumno.toFixed(2)),
+      resultado_baremo_general: resultadoGeneral
+    }).eq('idvisitas', idvisitas)    
+
+    // const { error: errVisita } = await supabase.from('visitasupervision').update({
+    //     condicion: nuevoEstado,
+    //     observaciones: observacion,
+    //     // NUEVOS CAMPOS
+    //     valoracion_docente: valoracionDocente,
+    //     porcentaje_docente: parseFloat(porcentajeDocente.toFixed(2)),
+    //     valoracion_alumno: valoracionAlumno,
+    //     porcentaje_alumno: parseFloat(porcentajeAlumno.toFixed(2)),
+    //     resultado_baremo_general: resultadoGeneral
+    //   }).eq('idvisitas', idvisitas)
 
     if(errVisita) return toast.error("Error al actualizar visita: " + errVisita.message)
 
     // 7. TOAST SIEMPRE AL FINAL
     //toast.success(`Ficha guardada. Estado: ${nuevoEstado}`)
-    toast.success(`Ficha guardada. Estado: ${nuevoEstado}`, {
+    //15-09toast.success(`Ficha guardada. Estado: ${nuevoEstado}`, {
+    toast.success(`Ficha guardada. Estado: ${nuevoEstado} | Doc: ${porcentajeDocente.toFixed(1)}% | Alu: ${porcentajeAlumno.toFixed(1)}%`, {
       duration: 3000,
       position: 'top-center'
     })
@@ -315,28 +378,92 @@ const cc = carga?.campoclinico
 const iddocente = cc?.docente?.iddocente
   return (
     <div className="modal-overlay" style={{zIndex: 1000}}>
-      <Toaster position="top-center" />
-      <div className="modal-content card-sgpc" style={{maxWidth: '95vw', width: '120rem', maxHeight: '90vh', overflowY: 'auto', padding: '1rem 1rem'}} onClick={e => e.stopPropagation()}>
-
-        <div className="modal-header" style={{padding: '0rem 0rem'}}>
-          <h2 style={{marginRight: "0.8rem", color:'var(--color-primario)'}}><BookOpen size={20} style={{marginRight: "0.8rem", color:'var(--color-primario)'}}/>Ficha de Supervisión N° {idvisitas}</h2>
+      {/* <Toaster position="top-center" /> */}
+       <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
+      <div className="modal-content card-sgpc" style={{maxWidth: '95vw', width: '120rem', maxHeight: '90vh', overflowY: 'auto', padding: '0'}} onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2 style={{color:'#fff', display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.6rem', margin: 0, fontWeight: 600}}><BookOpen size={20} />Ficha de Supervisión N° {idvisitas}</h2>
           <button onClick={onClose} className="btn-cerrar-modal"><X size={20} /></button>
         </div>
 
-        <div style={{marginRight: "0.8rem", padding: '0rem 0rem'}} className="modal-body">
+        <div className="modal-body" style={{marginRight: "1.5rem", marginLeft: "1.5rem",padding: '0rem 0rem'}}>
           {loading? <p>Cargando...</p> : <>
             {/* DATOS GENERALES - 3 CARDS */}
-            <div className="grid-3" style={{marginBottom: '0rem'}}>
-              <div className="card-info"><b>Periodo:</b> {cc?.periodoacademico?.nombre}</div>
-              <div className="card-info"><b>Filial:</b> {cc?.filial?.nombrefilial}</div>
-              <div className="card-info"><b>Carrera:</b> {carga?.asignatura?.carrera?.nombrecarrera}</div>
-              <div className="card-info"><b>EPS:</b> {cc?.eps?.razonsocial}</div>
-              <div className="card-info"><b>Asignatura:</b> {carga?.asignatura?.nombre}</div>
-              <div className="card-info"><b>NRC:</b> {carga?.nrc}</div>
+            {/* <div  style={{display:'flex', gap:'1rem', marginBottom: '0rem'}}> */}
+              <div className='contenedor'>
+                {/* <div className="card-info"><b>Periodo:</b> {cc?.periodoacademico?.nombre}</div> */}
+                <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#EFF6FF', borderRadius: '0.8rem', borderLeft: '4px solid #3B82F6'}}>
+                  <Funnel size={20} color="#3B82F6"/>
+                  <div>
+                    <div style={{fontSize: '1.1rem', color: '#64748b'}}>Periodo</div>
+                    <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>{cc?.periodoacademico?.nombre}</div>
+                  </div>
+                </div>
+
+                {/* <div className="card-info"><b>Filial:</b> {cc?.filial?.nombrefilial}</div> */}
+                <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#F0FDF4', borderRadius: '0.8rem', borderLeft: '4px solid #22C55E'}}>
+                  <House size={20} color="#22C55E"/>
+                  <div>
+                    <div style={{fontSize: '1.1rem', color: '#64748b'}}>Filial</div>
+                    <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>{cc?.filial?.nombrefilial}</div>
+                  </div>
+                </div>
+
+                {/* <div className="card-info"><b>Carrera:</b> {carga?.asignatura?.carrera?.nombrecarrera}</div> */}
+                <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#FFFBEB', borderRadius: '0.8rem', borderLeft: '4px solid #F59E0B'}}>
+                  <Award size={20} color="#F59E0B"/>
+                  <div>
+                    <div style={{fontSize: '1.1rem', color: '#64748b'}}>Carrera</div>
+                    <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>{carga?.asignatura?.carrera?.nombrecarrera}</div>
+                  </div>
+                </div>
+
+
+                {/* <div className="card-info"><b>EPS:</b> {cc?.eps?.razonsocial}</div> */}
+                <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#F8FAFC', borderRadius: '0.8rem', borderLeft: '4px solid #94A3B8'}}>
+                  <Warehouse size={20} color="#64748b"/>
+                  <div>
+                    <div style={{fontSize: '1.1rem', color: '#64748b'}}>EPS</div>
+                    <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>{cc?.eps?.razonsocial}</div>
+                  </div>
+                </div>
+
+                {/* <div className="card-info"><b>Asignatura:</b> {carga?.asignatura?.nombre}</div> */}
+                <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: 'hsl(340, 60%, 93%)', borderRadius: '0.8rem', borderLeft: '4px solid rgb(240, 37, 98)'}}>
+                  <Newspaper size={20} color="rgb(240, 37, 98)"/>
+                  <div>
+                    <div style={{fontSize: '1.1rem', color: 'rgb(240, 37, 98)'}}>Asignatura</div>
+                    <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>{carga?.asignatura?.nombre}</div>
+                  </div>
+                </div>
+
+                {/* <div className="card-info"><b>NRC:</b> {carga?.nrc}</div> */}
+                <div style={{display: 'flex', alignItems: 'center', gap: '1rem', padding: '1.2rem', background: '#f9f1fc', borderRadius: '0.8rem', borderLeft: '4px solid rgb(194, 17, 238)'}}>
+                  <HatGlasses size={20} color="rgb(194, 17, 238)"/>
+                  <div>
+                    <div style={{fontSize: '1.1rem', color: '#64748b'}}>NRC</div>
+                    <div style={{fontSize: '1.4rem', fontWeight: 700, color: '#1E293B'}}>{carga?.nrc}</div>
+                  </div>
+                </div>
             </div>
 
             {/* TABLA DOCENTE */}
-            <h4 style={{color: 'var(--color-primario)', margin: '0rem', paddingLeft:'0.5rem'}}>Ficha Docente: {cc?.docente?.persona?.dni} - {cc?.docente?.persona?.apellidos}, {cc?.docente?.persona?.nombres}</h4>
+            <h4 style={{display:'flex', alignItems:'center', color: 'white', background:'var(--color-primario)', borderRadius:'0.5rem', height:'3rem', margin: '0rem', paddingLeft:'0.5rem'}}>Ficha Docente: {cc?.docente?.persona?.dni} - {cc?.docente?.persona?.apellidos}, {cc?.docente?.persona?.nombres}</h4>
             <div className="card-sgpc" style={{overflowX: 'auto', marginBottom: '0rem', padding:'0rem'}}>
               <table className="tabla-sgpc">
                 <thead><tr><th>ITEM</th><th style={{width: '20rem', textAlign:'center'}}>PUNTAJE 1-5</th></tr></thead>
@@ -379,7 +506,7 @@ const iddocente = cc?.docente?.iddocente
             </div>
 
             {/* TABLA ALUMNOS */}
-            <h4 style={{color: 'var(--color-primario)', margin: '0rem', paddingLeft:'0.5rem'}}>Ficha Estudiantes NRC: {carga?.nrc}</h4>
+            <h4 style={{display:'flex', alignItems:'center',color: 'white', background:'var(--color-primario)', borderRadius:'0.5rem',height:'3rem',  margin: '0rem', paddingLeft:'0.5rem'}}>Ficha Estudiantes NRC: {carga?.nrc}</h4>
             <div className="card-sgpc" style={{overflowX: 'auto', marginBottom: '0rem', padding:'0rem'}}>
               <table className="tabla-sgpc">
                 <thead style={{alignSelf:'center'}} ><tr><th className="col-dni">DNI</th><th className="col-alumno" >ESTUDIANTE</th>{preguntasAlumno.map(p => <th style={{fontSize: '1rem', textAlign:'center'}} key={p.idficha} className="col-item">{p.item}</th>)}</tr></thead>
@@ -440,36 +567,35 @@ const iddocente = cc?.docente?.iddocente
           </>}
         </div>
 
+        <div className="modal-footer" style={{borderTop: '2px solid var(--color-primario)'}}>
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment" // <-- ESTO ABRE LA CAMARA
+            onChange={handleTomarFoto} // <-- USAMOS NUESTRA FUNCION
+            id="uploadFoto"
+            style={{display: 'none'}}
+            disabled={esSoloLectura || fotosGuardadas.length + fotos.length >= 5}
+          />
 
-<div className="modal-footer" style={{margin: '0rem', justifyContent: 'center'}}>
-  <input
-    type="file"
-    accept="image/*"
-    capture="environment" // <-- ESTO ABRE LA CAMARA
-    onChange={handleTomarFoto} // <-- USAMOS NUESTRA FUNCION
-    id="uploadFoto"
-    style={{display: 'none'}}
-    disabled={esSoloLectura || fotosGuardadas.length + fotos.length >= 5}
-  />
+        <label htmlFor="uploadFoto" className="btn btn-outline" style={{opacity: esSoloLectura || fotosGuardadas.length + fotos.length >= 5? 0.5 : 1, pointerEvents: esSoloLectura ? 'none' : 'auto'}}>
+          <Camera size={16}/> Tomar fotografía
+        </label>
 
-<label htmlFor="uploadFoto" className="btn btn-outline" style={{opacity: esSoloLectura || fotosGuardadas.length + fotos.length >= 5? 0.5 : 1, pointerEvents: esSoloLectura ? 'none' : 'auto'}}>
-  <Camera size={16}/> Tomar fotografía
-</label>
-
-  <button className="btn btn-outline" onClick={limpiarFotos} style={{
-    opacity: esSoloLectura ? 0.5 : 1, // solo visual
-    cursor: esSoloLectura ? 'not-allowed' : 'pointer'
-  }}>
-    <Eraser size={16}/> Limpiar Fotos
-  </button>
+          <button className="btn btn-outline" onClick={limpiarFotos} style={{
+            opacity: esSoloLectura ? 0.5 : 1, // solo visual
+            cursor: esSoloLectura ? 'not-allowed' : 'pointer'
+          }}>
+            <Eraser size={16}/> Limpiar Fotos
+          </button>
 
 
-  {!esSoloLectura && ( // <-- SOLO MUESTRA EL BOTON SI NO ES SOLO LECTURA
-  <button className="btn btn-primario" onClick={handleSalir}>
-    <Check size={16}/> Guardar y Salir
-  </button>
-)}
-</div>
+          {!esSoloLectura && ( // <-- SOLO MUESTRA EL BOTON SI NO ES SOLO LECTURA
+          <button className="btn btn-primario" onClick={handleSalir}>
+            <Check size={16}/> Guardar y Salir
+          </button>
+        )}
+        </div>
 
       </div>
 <style jsx>{`
@@ -478,11 +604,21 @@ const iddocente = cc?.docente?.iddocente
     display: flex; align-items: center; justify-content: center;
     z-index: 2000; padding: 1rem;
   }
-  .modal-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 1.5rem; border-bottom: 1px solid #e2e8f0;
-     flex-shrink: 0;
-  }
+  // .modal-header {
+  //   display: flex; justify-content: space-between; align-items: center;
+  //   padding: 1.5rem; border-bottom: 1px solid #e2e8f0;
+  //    flex-shrink: 0;
+  // }
+  .modal-header { 
+  background: var(--color-primario); 
+  color: #fff; 
+  padding: 2rem 2.4rem; 
+  display: flex; 
+  justify-content: space-between; 
+  align-items: center;
+  border-radius: 1.2rem 1.2rem 0 0;
+}
+  .btn-cerrar-modal { color: #fff; background: transparent; border: none; margin-top: -1.5rem; margin-right: -1.5rem;}
   .modal-header h2 { font-size: 1.8rem; font-weight: 700; display: flex; align-items: center; color: #fff; }
   .btn-cerrar { border: none; border-radius: 0.8rem; padding: 0.8rem; cursor: pointer; color: #fff; display: flex; transition: all 0.5s ease;  background: transparent; }
   .btn-cerrar:hover { /* 3. HOVER DEL BOTON X */
@@ -490,7 +626,7 @@ const iddocente = cc?.docente?.iddocente
   color: #DC2626; /* X roja */
   transform: scale(1.1);
 }
-  .modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; min-height: 0; }
+  .modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; min-height: 0; padding:1rem;}
   .grid-3 { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; margin-bottom: 1.5rem; }
   .card-info { background: #f8fafc; padding: 0.8rem 1rem; border-radius: 0.6rem; font-size: 1.1rem; }
   .card-info b { color: var(--color-primario); }
@@ -555,6 +691,8 @@ const iddocente = cc?.docente?.iddocente
     flex-shrink: 0;
     flex-wrap: wrap;
   }
+ 
+
   .btn {
     display: flex;
     flex:1 1 18rem;
@@ -610,6 +748,29 @@ const iddocente = cc?.docente?.iddocente
   }
   .tabla-sgpc thead .col-alumno { left: 8.5rem !important; transform: translateX(-12px); }
 }
+  /* Mobile first: en móvil, 1 columna por defecto */
+.contenedor {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px; /* espacio entre divs */
+  width: 100%;  
+}
+
+/* Tablet: 2 columnas */
+@media (min-width: 600px) {
+  .contenedor {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Escritorio: 3 columnas por fila, los siguientes bajan a la otra fila */
+@media (min-width: 900px) {
+  .contenedor {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+
 `}</style>
 
     </div>
