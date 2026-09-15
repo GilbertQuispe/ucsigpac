@@ -2,6 +2,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { X, Save, Eraser, Clock } from 'lucide-react'
 import { createClient } from '@/lib/client'
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 type DiaHorario = {
   dia: string
@@ -30,16 +31,16 @@ export default function ModalHorarioDocente({
 }: any) {
   const supabase = createClient()
   const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  //const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
 
   const [horarios, setHorarios] = useState<DiaHorario[]>(
     DIAS_SEMANA.map(d => ({ dia: d, activo: false, hora_inicio: '08:00', hora_fin: '13:00' }))
   )
 
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 3000)
-  }
+  // const showToast = (msg: string, type: 'error' | 'success' = 'error') => {
+  //   setToast({ msg, type });
+  //   setTimeout(() => setToast(null), 3000)
+  // }
 // 1. AGREGA ESTA FUNCION NUEVA AQUI ABAJO
   const fetchHorarios = async () => {
     if(!idcampocli) return
@@ -54,7 +55,7 @@ export default function ModalHorarioDocente({
         .single()
 
       if(campoVal?.iddocente !== miIdDocente) {
-        showToast('No tienes permisos para ver este horario')
+        toast.error('No tienes permisos para ver este horario')
         setLoading(false)
         onClose()
         return
@@ -67,8 +68,8 @@ export default function ModalHorarioDocente({
       .eq('idcampocli', idcampocli)
 
     if(error) {
-      console.error("Error cargando horarios:", error)
-      showToast(error.message, 'error')
+      //console.error("Error cargando horarios:", error)
+      toast.error(error.message)
     } else {
       // Cargar los datos en el estado
       const horariosCargados = DIAS_SEMANA.map(dia => {
@@ -127,7 +128,7 @@ export default function ModalHorarioDocente({
     if(!esAdminGestor && miIdDocente){
       const { data: campoVal } = await supabase.from('campoclinico').select('iddocente').eq('idcampocli', idcampocli).single()
       if(campoVal?.iddocente !== miIdDocente) {
-        showToast('No tienes permisos para guardar este horario')
+        toast.error('No tienes permisos para guardar este horario')
         setLoading(false)
         return
       }
@@ -135,17 +136,17 @@ export default function ModalHorarioDocente({
     const horariosAGuardar = horarios.filter(h => h.activo)
 
     if(horariosAGuardar.length === 0) {
-      showToast('Seleccione al menos 1 día', 'error')
+      toast.error('Seleccione al menos 1 día')
       return
     }
 
     for(const h of horariosAGuardar) {
       if(!h.hora_inicio ||!h.hora_fin) {
-        showToast(`Complete las horas de ${h.dia}`, 'error')
+        toast.error(`Complete las horas de ${h.dia}`)
         return
       }
       if(calcularHoras(h.hora_inicio, h.hora_fin) <= 0) {
-        showToast(`La hora fin debe ser mayor en ${h.dia}`, 'error')
+        toast.error(`La hora fin debe ser mayor en ${h.dia}`)
         return
       }
     }
@@ -165,9 +166,9 @@ export default function ModalHorarioDocente({
 
     const {error} = await supabase.from('horariodocente').insert(dataToInsert)
 
-    if(error) showToast(error.message, 'error')
+    if(error) toast.error(error.message)
     else {
-      showToast('Horario guardado correctamente', 'success')
+      toast.success('Horario guardado correctamente')
       setTimeout(() => onClose(), 1000)
     }
     setLoading(false)
@@ -177,7 +178,23 @@ export default function ModalHorarioDocente({
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1.2rem 2.4rem', borderRadius: '0.8rem', fontWeight: 600, fontSize: '1.4rem' }}>{toast.msg}</div>}
+      
+      <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
 
       <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '60rem', padding: '0', borderRadius: '1.2rem', overflow: 'hidden'}}>
         <div className="modal-header" style={{background: 'var(--color-primario)', color: '#fff', padding: '1.5rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>

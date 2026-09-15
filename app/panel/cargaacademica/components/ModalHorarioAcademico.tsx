@@ -4,6 +4,7 @@ import { X, Save, Eraser, Clock, BookOpen, Plus, Users, AlertCircle, Lock } from
 import { createClient } from '@/lib/client'
 import AsyncSelect from 'react-select/async'
 import Select from '@/components/ui/SelectClient'
+import { Toaster, toast } from 'react-hot-toast' // NUEVO
 
 const supabase = createClient()
 const DIAS_SEMANA = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO', 'DOMINGO']
@@ -28,7 +29,7 @@ const SelectSGPCFieldset = ({label, value, onChange, options, isDisabled = false
 // const ModalHorarioAcademico = ({ show, onClose, dataWizard1 }: any) => {
 const ModalHorarioAcademico = ({ show, onClose, dataWizard1, idcampocli = null }: any) => {
   const [loadingW2, setLoadingW2] = useState(false)
-  const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
+  // const [toast, setToast] = useState<{ msg: string; type: 'error' | 'success' } | null>(null)
   const [estudiantes, setEstudiantes] = useState<any[]>([])
   const [idMatriculaSel, setIdMatriculaSel] = useState<number | null>(null)
   const [horarioLaboralDoc, setHorarioLaboralDoc] = useState<any[]>([])
@@ -41,7 +42,7 @@ const ModalHorarioAcademico = ({ show, onClose, dataWizard1, idcampocli = null }
   const [horariosDocente, setHorariosDocente] = useState<any[]>([]) // Para tabla
 
   const [horarioAcad, setHorarioAcad] = useState(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
-  const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
+  // const showToast = (msg: string, type: 'error' | 'success' = 'error') => { setToast({ msg, type }); setTimeout(() => setToast(null), 3000) }
   const diaEstaEnLaboral = (dia: string) => horarioLaboralDoc.some(h => h.dia_semana === dia)
   const getHorasLaboralesDia = (dia: string) => { const reg = horarioLaboralDoc.find(h => h.dia_semana === dia); return reg? { inicio: reg.hora_inicio, fin: reg.hora_fin } : null }
 
@@ -149,34 +150,9 @@ useEffect(() => {
         horDocValido = []
         setHorariosDocente([])
         setTotalDocente(0)
-        showToast('Esta carga pertenece a otro campo. Debe registrar horario nuevo.', 'error')
+        toast.error('Esta carga pertenece a otro campo. Debe registrar horario nuevo.')
       }
     }
-//     // NUEVO: SI YA EXISTE HORARIO EN ESTA CARGA, LO CARGAMOS Y BLOQUEAMOS
-//     if(horDoc && horDoc.length > 0) {
-//       const { data: detalle } = await supabase
-//        .from('horario')
-//        .select(`detallehorario(*)`)
-//        .eq('idhorario', horDoc[0].idhorario) // agarra el primero
-//        .single()
-
-//   if(detalle?.detallehorario && detalle.detallehorario.length > 0) {
-//   const nuevoHorario = DIAS_SEMANA.map(d => {
-//     const det = detalle.detallehorario.find((x:any) => x.dia_semana === d)
-//     return det? { 
-//       dia: d, 
-//       sel: true, // <-- ESTO LO MARCA
-//       horaInicio: det.hora_inicio.substring(0,5), 
-//       horaFin: det.hora_fin.substring(0,5) 
-//     } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
-//   })
-//   setHorarioAcad(nuevoHorario)
-//   showToast('Horario ya registrado. Solo puede agregar estudiantes.', 'success')
-// }
-//     } else {
-//       // SI NO HAY NADA, LO DEJA EN BLANCO COMO SIEMPRE
-//       setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
-//     } 
 
 // NUEVO: CARGAR HORARIO EXISTENTE - PRIORIDAD 1: REFERENCIA, PRIORIDAD 2: CARGA ACTUAL
     let horarioCargado = false
@@ -203,7 +179,7 @@ if(esReferencia) {
           } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
         })
         setHorarioAcad(nuevoHorario)
-        showToast('Horario heredado del NRC. Solo puede agregar estudiantes.', 'success')
+        toast.success('Horario heredado del NRC. Solo puede agregar estudiantes.')
         horarioCargado = true
       }
     } 
@@ -229,7 +205,7 @@ if(esReferencia) {
           } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
         })
         setHorarioAcad(nuevoHorario)
-        showToast('Horario ya registrado. Solo puede agregar estudiantes.', 'success')
+        toast.success('Horario ya registrado. Solo puede agregar estudiantes.')
         horarioCargado = true
       }
     }
@@ -239,64 +215,35 @@ if(esReferencia) {
       setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
     }
 
-    // 4. HEREDAR HORARIO SI VIENE REFERENCIA
-    // if(esReferencia) {
-    //   const { data: detalle } = await supabase
-    //     .from('horario')
-    //     .select(`idhorario, detallehorario(*)`)
-    //     .eq('idcargaacad', dataWizard1.idcargaacad_referencia)
-    //     .eq('estado', 'ACTIVO')
-    //     .limit(1)
-    //     .single()
-
-    //   if(detalle?.detallehorario && detalle.detallehorario.length > 0) {
-    //     const nuevoHorario = DIAS_SEMANA.map(d => {
-    //       const det = detalle.detallehorario.find((x:any) => x.dia_semana === d)
-    //       return det? { 
-    //         dia: d, 
-    //         sel: true, // LO MARCA
-    //         horaInicio: det.hora_inicio.substring(0,5), 
-    //         horaFin: det.hora_fin.substring(0,5) 
-    //       } : { dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' }
-    //     })
-    //     setHorarioAcad(nuevoHorario)
-    //     showToast('Horario heredado del NRC. Solo puede agregar estudiantes.', 'success')
-    //   } else {
-    //     setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
-    //   }
-    // } else {
-    //   setHorarioAcad(DIAS_SEMANA.map(d => ({ dia: d, sel: false, horaInicio: '08:00', horaFin: '10:00' })))
-    // }
-
-  }
+    }
   cargar()
 }, [show, dataWizard1, idcampocli])
 
   const totalSemanal = useMemo(() => horarioAcad.reduce((acc, h) => acc + (h.sel? calcularHoras(h.horaInicio, h.horaFin) : 0), 0), [horarioAcad])
 
 const handleGrabar = async () => {
-    if(!idMatriculaSel) { showToast('Seleccione un estudiante', 'error'); return }
+    if(!idMatriculaSel) { toast.error('Seleccione un estudiante'); return }
     
     const diasSel = horarioAcad.filter(h => h.sel)
     if(diasSel.length === 0) {
-      showToast('Seleccione al menos 1 día', 'error');
+      toast.error('Seleccione al menos 1 día');
       return
     }
     setLoadingW2(true)
 
     const { data: existeEnNrc } = await supabase.from('horario').select('idhorario').eq('idmatricula', idMatriculaSel).eq('idcargaacad', dataWizard1.idcargaacad).eq('estado', 'ACTIVO').maybeSingle()
-    if(existeEnNrc) { showToast('Este estudiante ya está registrado en este NRC', 'error'); setIdMatriculaSel(null); setLoadingW2(false); return }
+    if(existeEnNrc) { toast.error('Este estudiante ya está registrado en este NRC'); setIdMatriculaSel(null); setLoadingW2(false); return }
 
     const { data: existeEnAsignatura } = await supabase.from('horario').select(`idhorario, cargaacademica!inner(idasignatura, horariodocente!inner(campoclinico!inner(idpa)))`).eq('idmatricula', idMatriculaSel).eq('cargaacademica.idasignatura', dataWizard1.idasignatura).eq('cargaacademica.horariodocente.campoclinico.idpa', dataWizard1.idpa).eq('estado', 'ACTIVO').maybeSingle()
-    if(existeEnAsignatura) { showToast('Este estudiante ya está matriculado en esta Asignatura', 'error'); setIdMatriculaSel(null); setLoadingW2(false); return }
+    if(existeEnAsignatura) { toast.error('Este estudiante ya está matriculado en esta Asignatura'); setIdMatriculaSel(null); setLoadingW2(false); return }
 
     const { data: horInsert, error: errHor } = await supabase.from('horario').insert({ idcargaacad: dataWizard1.idcargaacad, idmatricula: idMatriculaSel, estado: 'ACTIVO' }).select().single()
-    if(errHor) { showToast(errHor.message, 'error'); setLoadingW2(false); return }
+    if(errHor) { toast.error(errHor.message,); setLoadingW2(false); return }
 
     // VALIDACION NUEVA: QUE EL DIA ACADEMICO ESTE EN LABORAL
 const diasInvalidos = diasSel.filter(d => !diaEstaEnLaboral(d.dia))
 if(diasInvalidos.length > 0) {
-  showToast(`Error: El docente no labora ${diasInvalidos.map(d=>d.dia).join(', ')}`, 'error')
+  toast.error(`Error: El docente no labora ${diasInvalidos.map(d=>d.dia).join(', ')}`)
   setLoadingW2(false)
   return
 }
@@ -309,7 +256,7 @@ if(diasInvalidos.length > 0) {
       estado: 'ACTIVO' 
     }))
     const { error: errDet } = await supabase.from('detallehorario').insert(detalleToInsert)
-    if(errDet) { showToast(errDet.message, 'error'); setLoadingW2(false); return }
+    if(errDet) { toast.error(errDet.message); setLoadingW2(false); return }
 
     // RECARGAR AMBOS TOTALES
 const { data: cargasNrc } = await supabase.from('cargaacademica')
@@ -329,7 +276,7 @@ setHorariosDocente(horDoc || [])
 setTotalGeneral(horGen?.length || 0)
 setTotalDocente(horDoc?.length || 0)
 
-    showToast('Estudiante agregado al NRC', 'success')    
+    toast.success('Estudiante agregado al NRC')    
     setIdMatriculaSel(null)
     setShowConfirm(true)
     setLoadingW2(false)
@@ -340,7 +287,24 @@ setTotalDocente(horDoc?.length || 0)
   return (
     <>
       <div className="modal-overlay" >
-        {toast && <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', zIndex: 99999, background: toast.type === 'error'? '#EF4444' : '#22C55E', color: '#fff', padding: '1rem 2rem', borderRadius: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '1.4rem' }}><AlertCircle size={16}/>{toast.msg}</div>}
+        <Toaster 
+        position="top-right" 
+        toastOptions={{
+          duration: 3000,
+          style: {
+            background: '#fff',
+            color: '#1e293b',
+            border: '1px solid #e2e8f0',
+            borderRadius: '0.8rem',
+            fontSize: '1.4rem',
+            fontWeight: 600,
+          },
+          success: { iconTheme: { primary: '#22c55e', secondary: '#fff' } },
+          error: { iconTheme: { primary: '#ef4444', secondary: '#fff' } }
+        }}
+      />
+
+
         <div className="modal-content card-sgpc" onClick={(e) => e.stopPropagation()} style={{maxWidth: '75rem', maxHeight: '90vh', display: 'flex', flexDirection: 'column'}}>
           
           <div className="modal-header" style={{padding: '0.5rem 0rem'}}> 

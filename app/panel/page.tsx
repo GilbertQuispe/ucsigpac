@@ -10,37 +10,201 @@ export default function PanelPage() {
   const [kpis, setKpis] = useState<any>({})
   const [periodo, setPeriodo] = useState('2026-1')
   const [loading, setLoading] = useState(true)
+  const [pieData, setPieData] = useState<any>({ labels: [], datasets: [] })
   const supabase = createClient()
 
   useEffect(() => {
     const load = async () => {
       setLoading(true)
       try {
+        //1. OBTENER EL PERIODO ACTIVO: idpa para filtrar, codigo para mostrar
         const { data: p } = await supabase
-       .from('periodoacademico')
-       .select('codigo')
-       .order('codigo', { ascending: false })
-       .limit(1)
-       .maybeSingle()
+         .from('periodoacademico')
+         .select('idpa, codigo, fecha_inicio, fecha_fin')
+         .eq('estado', 'ACTIVO')
+         .order('idpa', { ascending: false })
+         .limit(1)
+         .maybeSingle()
+        const idpaActual = p?.idpa // 1, 2, 3... para filtrar en tablas
+        const codigoActual = p?.codigo || '202620' // 202620 para mostrar arriba
 
-        const periodoActual = p?.codigo || '2026-1'
-        setPeriodo(periodoActual)
+      //   const idpaActual = 1 // <- FORZADO PARA PRUEBA
+      // const codigoActual = '202610' // <- PARA QUE SE VEA BONITO ARRIBA
+      //   setPeriodo(codigoActual)
 
-        const [est, doc, sup, campos, prog, ejec, incid, informes] = await Promise.all([
-          supabase.from('estudiante').select('*', { count: 'exact', head: true }).eq('periodo', periodoActual),
+        // 2. KPIs PRINCIPALES FILTRADOS POR idpa
+        const [est, doc, sup, campos] = await Promise.all([
+          // Estudiantes del periodo
+          supabase.from('matricula').select('*', { count: 'exact', head: true }).eq('idpa', idpaActual),
+          
+          // Docentes activos
           supabase.from('docente').select('*', { count: 'exact', head: true }).eq('estado', 'ACTIVO'),
+          
+          // Supervisores
           supabase.from('supervisor').select('*', { count: 'exact', head: true }),
-          supabase.from('campoclinico').select('*', { count: 'exact', head: true }).eq('estado', 'Activo'),
-          supabase.from('seleccionvisitasupervision').select('*', { count: 'exact', head: true }).eq('estado', 'Programada'),
-          supabase.from('seleccionvisitasupervision').select('*', { count: 'exact', head: true }).eq('estado', 'Ejecutada'),
-          supabase.from('incidencia').select('*', { count: 'exact', head: true }),
-          supabase.from('informesupervision').select('*', { count: 'exact', head: true })
+          
+          // Campos clinicos del periodo
+          supabase.from('campoclinico').select('*', { count: 'exact', head: true }).eq('estado', 'ACTIVO').eq('idpa', idpaActual)
         ])
 
+        // // 3. SUPERVISIONES: Jalar todo y filtrar por idpa porque el join directo falla
+        // const { data: svsData } = await supabase
+        //  .from('seleccionvisitasupervision')
+        //  .select('estado, idvisitas(idasignacions(asignacion_nrc_supervisor(idcargaacad(campoclinico(idpa)))))')
+        
+        // const svsDelPeriodo = svsData?.filter(s => 
+        //   s.idvisitas?.idasignacions?.asignacion_nrc_supervisor?.some(
+        //     a => a.idcargaacad?.campoclinico?.idpa === idpaActual
+        //   )
+        // ) || []
+
+        // const prog = svsDelPeriodo.filter(s => s.estado === 'Programada').length
+        // const ejec = svsDelPeriodo.filter(s => s.estado === 'Ejecutada').length
+
+        // // 4. INCIDENCIAS E INFORMES: Igual, filtrar después
+        // const { data: incidData } = await supabase
+        //  .from('incidencia')
+        //  .select('idvisitas(idasignacions(asignacion_nrc_supervisor(idcargaacad(campoclinico(idpa)))))')
+        // const incidDelPeriodo = incidData?.filter(i => 
+        //   i.idvisitas?.idasignacions?.asignacion_nrc_supervisor?.some(
+        //     a => a.idcargaacad?.campoclinico?.idpa === idpaActual
+        //   )
+        // ) || []
+
+        // const { data: informesData } = await supabase
+        //  .from('informesupervision')
+        //  .select('idsvs(idvisitas(idasignacions(asignacion_nrc_supervisor(idcargaacad(campoclinico(idpa))))))')
+        // 3. SUPERVISIONES DEL PERIODO
+const { data: asignData } = await supabase
+.from('asignacion_nrc_supervisor')
+.select('idasignacion_nrc, idcargaacad(campoclinico(idpa))')
+.eq('idcargaacad.campoclinico.idpa', idpaActual)
+
+const idsAsignacion = asignData?.map(a => a.idasignacion_nrc) || []
+
+// Paso 2: Buscar supervisiones de esas asignaciones
+const { data: svsData } = await supabase
+.from('seleccionvisitasupervision')
+.select('estado, idvisitas')
+.in('idvisitas', idsAsignacion.length > 0? idsAsignacion : [0])
+
+const prog = svsData?.filter(s => s.estado === 'PROGRAMADA').length || 0 // MAYUSCULAS
+const ejec = svsData?.filter(s => s.estado === 'EJECUTADA').length || 0 // MAYUSCULAS
+
+// 4. INCIDENCIAS E INFORMES DEL PERIODO
+// Ya vienen filtrados por idpa con el.in(idsAsignacion)
+const { data: incidData } = await supabase
+.from('incidencia')
+.select('id')
+.in('idvisitas', idsAsignacion.length > 0? idsAsignacion : [0])
+
+const { data: informesData } = await supabase
+.from('informesupervision')
+.select('id')
+.in('idsvs', idsAsignacion.length > 0? idsAsignacion : [0])
+
+// BORRA EL.filter DE ABAJO. YA NO SIRVE
+// const informesDelPeriodo = informesData?.filter... <- BORRA ESTO
+
+// // 5. DATOS PARA GRAFICO DE TORTA: USANDO idpes
+// const { data: camposData } = await supabase
+//   .from('campoclinico')
+//   .select('idpes') // <- ERA idtipoeps
+//   .eq('estado', 'ACTIVO').eq('idpa', idpaActual)
+
+// const { data: tiposData } = await supabase
+//   .from('tipoeps') // <- Tu tabla de tipos debe llamarse así
+//   .select('idpes, nombretipoeps') // <- Y aquí también idpes
+
+// console.log('CAMPOS:', camposData)
+// console.log('TIPOS:', tiposData)
+
+// const conteoEPS: any = { MINSA: 0, ESSALUD: 0, OTROS: 0 }
+
+// camposData?.forEach(c => {
+//   const id = c.idpes // <- ERA idtipoeps
+//   const tipoObj = tiposData?.find(t => t.idpes === id) 
+//   const nombreEPS = tipoObj?.nombretipoeps || 'OTROS'
+//   const tipo = nombreEPS.toUpperCase()
+  
+//   if (tipo.includes('MINSA')) conteoEPS.MINSA++
+//   else if (tipo.includes('ESSALUD')) conteoEPS.ESSALUD++
+//   else conteoEPS.OTROS++
+// })
+
+// setPieData({
+//   labels: ['MINSA','ESSALUD','OTROS'],
+//   datasets: [{
+//     label: 'Campos por EPS',
+//     data: [conteoEPS.MINSA, conteoEPS.ESSALUD, conteoEPS.OTROS],
+//     backgroundColor: ['#3b82f6','#10b981','#f59e0b'],
+//     borderWidth: 2
+//   }]
+// })
+
+// 5. DATOS PARA GRAFICO DE TORTA: USANDO ideps -> eps -> tipoeps
+
+// 1. Jalar campoclinico con el ideps
+const { data: camposData, error: errorCampos } = await supabase
+  .from('campoclinico')
+  .select('ideps') // <- Ahora es ideps, no idpes ni idtipoeps
+  .eq('estado', 'ACTIVO')
+  .eq('idpa', idpaActual)
+
+if(errorCampos) console.error(errorCampos)
+
+// 2. Jalar la tabla eps para mapear ideps -> idtipoeps
+const { data: epsData, error: errorEps } = await supabase
+  .from('eps')
+  .select('ideps, idtipoeps')
+
+if(errorEps) console.error(errorEps)
+
+// 3. Jalar los nombres de tipoeps
+const { data: tiposData, error: errorTipos } = await supabase
+  .from('tipoeps')
+  .select('idtipoeps, nombretipoeps')
+
+if(errorTipos) console.error(errorTipos)
+
+console.log('CAMPOS:', camposData)
+console.log('EPS:', epsData)
+console.log('TIPOS:', tiposData)
+
+const conteoEPS = { MINSA: 0, ESSALUD: 0, OTROS: 0 }
+
+camposData?.forEach(c => {
+  const ideps = c.ideps // <- el id del establecimiento
+  
+  // Buscamos a que tipoeps pertenece ese ideps
+  const epsObj = epsData?.find(e => e.ideps === ideps)
+  const idtipoeps = epsObj?.idtipoeps
+  
+  // Buscamos el nombre del tipo
+  const tipoObj = tiposData?.find(t => t.idtipoeps === idtipoeps)
+  const nombreEPS = tipoObj?.nombretipoeps || 'OTROS'
+  const tipo = nombreEPS.toUpperCase()
+  
+  if (tipo.includes('MINSA')) conteoEPS.MINSA++
+  else if (tipo.includes('ESSALUD')) conteoEPS.ESSALUD++
+  else conteoEPS.OTROS++
+})
+
+setPieData({
+  labels: ['MINSA','ESSALUD','OTROS'],
+  datasets: [{
+    label: 'Campos por EPS',
+    data: [conteoEPS.MINSA, conteoEPS.ESSALUD, conteoEPS.OTROS],
+    backgroundColor: ['#3b82f6','#10b981','#f59e0b'], // Azul, Verde, Naranja
+    borderWidth: 2
+  }]
+})
+        // 6. SETEAR TODO
         setKpis({
           est: est.count || 0, doc: doc.count || 0, sup: sup.count || 0, campos: campos.count || 0,
-          prog: prog.count || 0, ejec: ejec.count || 0, incid: incid.count || 0, informes: informes.count || 0
+          prog, ejec, incid: incidData?.length || 0, informes: informesData?.length || 0,
         })
+
       } catch (err) {
         console.error('Error cargando dashboard:', err)
       } finally {
@@ -61,20 +225,11 @@ export default function PanelPage() {
     { title: "Informes", value: kpis.informes, icon: FileText, color: "#6366f1" },
   ]
 
-  const pieData = {
-    labels: ['MINSA','ESSALUD','OTROS'],
-    datasets: [{
-      data: [30,20,10],
-      backgroundColor: ['var(--color-primario)','var(--color-secundario)','var(--color-acento)'],
-      borderWidth: 0
-    }]
-  }
-
   const lineData = {
     labels: ['Ene','Feb','Mar','Abr'],
     datasets: [{
       label: 'Incidencias',
-      data: [5,8,3,6],
+      data: [kpis.incid || 0, 0, 0, 0], // Si no tienes por mes, ponemos solo el total
       borderColor: 'var(--color-primario)',
       backgroundColor: 'rgba(48,102,190,0.1)',
       fill: true,
@@ -92,8 +247,7 @@ export default function PanelPage() {
         </div>
       </div>
 
-      {/* GRID DE KPIs - AQUI ESTA EL GAP */}
-      
+      {/* GRID DE KPIs */}
       <div className="kpi-grid">
         {kpiData.map((kpi, i) => <KpiCard key={i} {...kpi} loading={loading} />)}
       </div>
@@ -106,17 +260,17 @@ export default function PanelPage() {
         </div>
       )}
 
-      {/* GRID DE GRAFICOS CON ALTURA FIJA */}
+      {/* GRID DE GRAFICOS */}
       <div className="graficos-grid">
         <div className="card-sgpc" style={{ padding: '2.4rem' }}>
-          <h3 style={{ marginBottom:'1.6rem', fontFamily: 'var(--font-titulos)' }}>Supervisiones por Tipo</h3>
-          <div style={{ height: '30rem' }}> {/* ALTURA FIJA PARA QUE NO SE ROMPA */}
+          <h3 style={{ marginBottom:'1.6rem', fontFamily: 'var(--font-titulos)' }}>Campos por Tipo EPS</h3>
+          <div style={{ height: '30rem' }}>
             <Pie data={pieData} options={{ maintainAspectRatio: false, plugins:{ legend:{ position:'bottom', labels:{ font:{ size:14, family: 'var(--font-principal)' }}}}}}/>
           </div>
         </div>
         <div className="card-sgpc" style={{ padding: '2.4rem' }}>
-          <h3 style={{ marginBottom:'1.6rem', fontFamily: 'var(--font-titulos)' }}>Incidencias por Mes</h3>
-          <div style={{ height: '30rem' }}> {/* ALTURA FIJA */}
+          <h3 style={{ marginBottom:'1.6rem', fontFamily: 'var(--font-titulos)' }}>Incidencias del Periodo</h3>
+          <div style={{ height: '30rem' }}>
             <Line data={lineData} options={{ maintainAspectRatio: false }} />
           </div>
         </div>
