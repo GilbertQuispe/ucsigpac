@@ -12,13 +12,24 @@ type Supervision = {
   idsvs: number
   fecha: string
   nrc: string
-  idpersona_supervisor: number
-  docente: { nombres: string }
-  curso: { curso: string }
+  supervisor: { nombres: string, apellidos: string }
+  idpersona_supervisor: number // <- AGREGADO
+  docente: { nombres: string, apellidos: string }
+  curso: { nombre: string }
   porcentaje_docente: number
   porcentaje_alumno: number
   resultado_baremo_general: string
   estado: string
+}
+
+type VUsuarioCompleto = {
+  id: string
+  idpersona: number
+  idrol: number
+  nombres: string
+  apellidos: string
+  nombrerol: string
+  email: string
 }
 
 type Persona = { idpersona: number; nombres: string; apellidos: string }
@@ -47,55 +58,148 @@ export default function InformeSupervisionPage() {
   const [filtroSupervisor, setFiltroSupervisor] = useState<number | ''>('')
   const [esAdmin, setEsAdmin] = useState(false)
 
+  const [idPersonaUsuario, setIdPersonaUsuario] = useState<number | null>(null)
+  const [idRolUsuario, setIdRolUsuario] = useState<number | null>(null)
+
   const [paginaActual, setPaginaActual] = useState(1)
   const registrosPorPagina = 10
 
   useEffect(() => { 
-    // Validar si es admin/gestor
-    setEsAdmin(user?.user_metadata?.rol === 'ADMIN' || user?.user_metadata?.rol === 'GESTOR')
+    if(user) {
+      obtenerRolUsuario()
+    }
     fetchSupervisores()
   }, [user])
 
+  const obtenerRolUsuario = async () => {
+    const { data: usuario, error } = await supabase
+  .from('v_usuario_completo')
+  .select('id, idpersona, idrol, nombres, apellidos, nombrerol')
+  .eq('id', user.id)
+  .maybeSingle()
+
+    if(usuario) {
+      const u = usuario as VUsuarioCompleto
+      setIdRolUsuario(u.idrol)
+      setIdPersonaUsuario(u.idpersona)
+      setEsAdmin(u.idrol === 1 || u.idrol === 2)
+    }
+  }
+
   const fetchSupervisores = async () => {
-    const { data } = await supabase.from('persona').select('idpersona, nombres, apellidos').eq('estado', 'ACTIVO')
-    setSupervisores(data || [])
+    const { data } = await supabase
+  .from('supervisor')
+  .select(`
+     idsupervisor,
+     persona!inner(idpersona, nombres, apellidos)
+   `)
+  .eq('persona.estado', 'ACTIVO')
+
+    // const supervisoresMapeados = (data || []).map((s: any) => ({
+    //   idpersona: s.persona.idpersona,
+    //   nombres: s.persona.nombres,
+    //   apellidos: s.persona.apellidos
+    // }))
+    
+   const supervisoresMapeados = (data || []).map((s: any) => ({
+      idpersona: s.idsupervisor, // <- BIEN: para que el filtro funcione
+      nombres: s.persona.nombres,
+      apellidos: s.persona.apellidos
+    }))
+    setSupervisores(supervisoresMapeados)
   }
 
   const handleBuscar = async () => {
     if(!fechaDel ||!fechaAl) { toast.error('Seleccione rango de fechas'); return }
     setLoading(true)
-    let query = supabase
-   .from('seleccionvisitasupervision')
-   .select(`idsvs, fecha, nrc, idpersona_supervisor, docente:personas!idpersona_supervisor(nombres), curso:cargaacademica(curso), porcentaje_docente, porcentaje_alumno, resultado_baremo_general, estado`)
-   .eq('estado', 'SUPERVISADO')
-   .gte('fecha', fechaDel)
-   .lte('fecha', fechaAl)
 
-    if(!esAdmin) {
-      query = query.eq('idpersona_supervisor', user.id) // solo las suyas
-    } else if(filtroSupervisor) {
-      query = query.eq('idpersona_supervisor', filtroSupervisor) // filtro admin
-    }
+    const { data: dataVisitas, error } = await supabase
+  .from('visitasupervision')
+  .select('idvisitas, condicion, idasignacions, iddh, fechavisita, porcentaje_docente, porcentaje_alumno, resultado_baremo_general')
+  .eq('condicion', 'SUPERVISADO')
+  .gte('fechavisita', fechaDel)
+  .lte('fechavisita', fechaAl)
 
-    const { data, error } = await query.order('fecha', { ascending: false })
-    if(error) toast.error(error.message)
-    //setSupervisiones(data as Supervision[] || [])
-const dataLimpia = (data || []).map((d: any) => ({
-  ...d,
-  docente: d.docente, // ya viene objeto por el !inner
-  curso: d.curso
-}))
-setSupervisiones(dataLimpia)
+    if(error) { toast.error(error.message); setLoading(false); return }
+
+    const dataCompleta = await Promise.all((dataVisitas || []).map(async (visita: any) => {
+
+      if(!visita.idasignacions || !visita.iddh) return null
+
+      // 2. Traer supervisor
+      const { data: asignacion } = await supabase
+    .from('asignacionsupervision')
+    .select('idsupervisor')
+    .eq('idasignacions', visita.idasignacions)
+    .maybeSingle()
+
+      const { data: sup } = await supabase
+    .from('supervisor')
+    .select('persona!inner(nombres, apellidos)')
+    .eq('idsupervisor', asignacion?.idsupervisor)
+    .maybeSingle()
+
+      // 3. Traer NRC, Curso y idcampocli
+      const { data: detalle } = await supabase.from('detallehorario').select('idhorario').eq('iddh', visita.iddh).maybeSingle()
+      const { data: horario } = await supabase.from('horario').select('idcargaacad').eq('idhorario', detalle?.idhorario).maybeSingle()
+      const { data: carga } = await supabase.from('cargaacademica').select('nrc, idcampocli, asignatura!inner(nombre)').eq('idcargaacad', horario?.idcargaacad).maybeSingle()
+
+      // 4. Traer Docente desde campoclinico -> docente
+      const { data: campo } = await supabase.from('campoclinico').select('iddocente').eq('idcampocli', carga?.idcampocli).maybeSingle()
+      const { data: doc } = await supabase.from('docente').select('persona!inner(nombres, apellidos)').eq('iddocente', campo?.iddocente).maybeSingle()
+
+      // 5. Traer idsvs
+      const { data: svs } = await supabase.from('seleccionvisitasupervision').select('idsvs').eq('idvisitas', visita.idvisitas).maybeSingle()
+
+      return {
+        idsvs: svs?.idsvs || 0,
+        fecha: visita.fechavisita,
+        nrc: carga?.nrc || 'N/A',
+        supervisor: sup?.persona || {nombres: 'N/A', apellidos: ''},
+        idpersona_supervisor: asignacion?.idsupervisor || 0,
+        docente: doc?.persona || {nombres: 'N/A', apellidos: ''}, // <- YA JALA EL DOCENTE
+        curso: carga?.asignatura || {nombre: 'N/A'},
+        porcentaje_docente: visita.porcentaje_docente || 0,
+        porcentaje_alumno: visita.porcentaje_alumno || 0,
+        resultado_baremo_general: visita.resultado_baremo_general || 'N/A',
+        estado: visita.condicion
+      }
+    }))
+
+    setSupervisiones(dataCompleta.filter(Boolean) as Supervision[])
     setLoading(false)
     setSeleccionados([])
+    setPaginaActual(1)
   }
 
+  
+  // TODOS LOS FILTROS VAN AQUÍ EN EL useMemo
   const datosFiltrados = useMemo(() => {
-    return supervisiones.filter((s) => {
-      const matchSearch = s.nrc.toLowerCase().includes(search.toLowerCase()) || s.docente.nombres.toLowerCase().includes(search.toLowerCase()) || s.curso.curso.toLowerCase().includes(search.toLowerCase())
+    let final = [...supervisiones]
+
+    // 1. Filtro por fecha
+    if(fechaDel && fechaAl) {
+      final = final.filter(s => s.fecha >= fechaDel && s.fecha <= fechaAl)
+    }
+
+    // 2. Filtro por rol: Supervisor solo ve las suyas
+    if(idRolUsuario === 5 && idPersonaUsuario) {
+      final = final.filter(s => s.idpersona_supervisor === idPersonaUsuario)
+    } else if(filtroSupervisor) { // 3. Filtro por supervisor seleccionado por Admin
+      final = final.filter(s => s.idpersona_supervisor === Number(filtroSupervisor))
+    }
+
+    // 4. Filtro por search
+    final = final.filter((s) => {
+      const matchSearch =
+        s.nrc.toLowerCase().includes(search.toLowerCase()) ||
+        `${s.docente.nombres} ${s.docente.apellidos}`.toLowerCase().includes(search.toLowerCase()) ||
+        s.curso.nombre.toLowerCase().includes(search.toLowerCase())
       return matchSearch
     })
-  }, [supervisiones, search])
+
+    return final
+  }, [supervisiones, search, fechaDel, fechaAl, idRolUsuario, idPersonaUsuario, filtroSupervisor])
 
   const totalPaginas = Math.ceil(datosFiltrados.length / registrosPorPagina)
   const indiceInicio = (paginaActual - 1) * registrosPorPagina
@@ -109,22 +213,25 @@ setSupervisiones(dataLimpia)
     setLoading(true)
     for(const id of seleccionados) {
       const visita = supervisiones.find(s => s.idsvs === id)
-      //if(visita) await generarInforme(visita, [], '', '') // aquí le metes fotos, conclusiones
-      if(visita) await generarInforme(visita, []) // aquí le metes fotos, conclusiones
+      if(visita) await generarInforme(visita, [])
     }
     toast.success(`${seleccionados.length} informes generados`)
     setLoading(false)
   }
 
-  const limpiarFiltros = () => { 
-    setFechaDel(''); setFechaAl(''); setFiltroSupervisor(''); setSearch(''); 
-    setSupervisiones([]); setPaginaActual(1) 
+  const limpiarFiltros = () => {
+    setFechaDel(''); setFechaAl(''); setFiltroSupervisor(''); setSearch('');
+    setSupervisiones([]); setPaginaActual(1)
   }
 
   return (
     <>
+    {/* QUITA ESTE DEBUG CUANDO YA FUNCIONE */}
+    <div style={{background:'red', color:'white', padding:'1rem', fontSize:'1.2rem'}}>
+    DEBUG: id={user?.id} | idRol={idRolUsuario} | idPersona={idPersonaUsuario} | esAdmin={String(esAdmin)}
+  </div>
     <Toaster position="top-right" />
-    <div className="main-content"> 
+    <div className="main-content">
       <div className="header-responsive">
         <div><h1><FileText size={24} style={{marginRight: '0.8rem'}}/>Gestión de Informes de Supervisión</h1><p>Total: {datosFiltrados.length} supervisiones</p></div>
         <div style={{ display: 'flex', gap: '1.2rem' }}>
@@ -132,19 +239,18 @@ setSupervisiones(dataLimpia)
         </div>
       </div>
 
-      {/* FILTROS */}
       <div className="card-sgpc" style={{ marginBottom: '2.4rem', padding: '2rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(20rem, 1fr))', gap: '1.2rem', marginBottom: '1.6rem' }}>
           <fieldset className="fieldset-sgpc">
             <legend><Calendar size={14}/> Del</legend>
-            <input type="date" value={fechaDel} onChange={e => setFechaDel(e.target.value)} className="input-sgpc" />
+            <input type="date" value={fechaDel} onChange={e => {setFechaDel(e.target.value); setPaginaActual(1)}} className="input-sgpc" />
           </fieldset>
           <fieldset className="fieldset-sgpc">
             <legend><Calendar size={14}/> Al</legend>
-            <input type="date" value={fechaAl} onChange={e => setFechaAl(e.target.value)} className="input-sgpc" />
+            <input type="date" value={fechaAl} onChange={e => {setFechaAl(e.target.value); setPaginaActual(1)}} className="input-sgpc" />
           </fieldset>
           {esAdmin && (
-            <SelectSGPCFieldset label="Supervisor" value={filtroSupervisor} onChange={(val:any) => setFiltroSupervisor(val)} options={[{value: "", label: "Todos"},...supervisores.map(s=>({value:s.idpersona, label:`${s.apellidos}, ${s.nombres}`}))]} />
+            <SelectSGPCFieldset label="Supervisor" value={filtroSupervisor} onChange={(val:any) => {setFiltroSupervisor(val); setPaginaActual(1)}} options={[{value: "", label: "Todos"},...supervisores.map(s=>({value:s.idpersona, label:`${s.apellidos}, ${s.nombres}`}))]} />
           )}
         </div>
         <div style={{display: 'flex', gap: '1rem', alignItems: 'flex-end'}}>
@@ -157,24 +263,33 @@ setSupervisiones(dataLimpia)
         </div>
       </div>
 
-      {/* TABLA */}
       <div className="card-sgpc" style={{ overflowX: 'auto' }}>
         <table className='tabla-sgpc'>
           <thead>
             <tr>
               <th style={{width: '5rem'}}><input type="checkbox" checked={seleccionados.length === datosPaginados.length && datosPaginados.length > 0} onChange={toggleAll} /></th>
-              <th>#</th><th>FECHA</th><th>NRC</th><th>DOCENTE</th><th>CURSO</th><th>% DOC</th><th>% ALUM</th><th>RESULTADO</th>
+              <th>#</th>
+              <th>FECHA</th>
+              <th>NRC</th>
+              <th>SUPERVISOR</th>
+              <th>DOCENTE</th>
+              <th>CURSO</th>
+              <th>% DOC</th>
+              <th>% ALUM</th>
+              <th>RESULTADO</th>
             </tr>
           </thead>
           <tbody>
+            
             {datosPaginados.map((s, i) => (
-              <tr key={s.idsvs}>
+              <tr key={`${s.idsvs}-${s.fecha}-${i}`}>
                 <td><input type="checkbox" checked={seleccionados.includes(s.idsvs)} onChange={() => toggleCheck(s.idsvs)} /></td>
                 <td>{indiceInicio + i + 1}</td>
-                <td>{new Date(s.fecha).toLocaleDateString()}</td>
+                <td>{s.fecha? new Date(s.fecha).toLocaleDateString() : 'N/A'}</td>
                 <td>{s.nrc}</td>
-                <td>{s.docente.nombres}</td>
-                <td>{s.curso.curso}</td>
+                <td>{s.supervisor.apellidos}, {s.supervisor.nombres}</td>
+                <td>{s.docente.apellidos}, {s.docente.nombres}</td>
+                <td>{s.curso.nombre}</td>
                 <td>{s.porcentaje_docente}%</td>
                 <td>{s.porcentaje_alumno}%</td>
                 <td><span className="badge-ok">{s.resultado_baremo_general}</span></td>
@@ -184,7 +299,6 @@ setSupervisiones(dataLimpia)
         </table>
       </div>
 
-      {/* PAGINACION */}
       {totalPaginas > 1 && (
         <div className="paginacion-footer">
           <p className="paginacion-info">Mostrando {indiceInicio + 1} al {Math.min(indiceInicio + registrosPorPagina, datosFiltrados.length)} de {datosFiltrados.length} registros</p>
