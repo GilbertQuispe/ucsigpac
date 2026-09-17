@@ -3,7 +3,10 @@ import { supabase } from './supabase'
 
 const solid = { style: BorderStyle.SINGLE, size: 6, color: "000000" }
 const dashed = { style: BorderStyle.DASHED, size: 4, color: "888888" }
-const bordersDesign = { top: solid, bottom: solid, left: solid, right: solid, insideH: dashed, insideV: dashed }
+//agregando esto 17-09
+const dotted = { style: BorderStyle.DOTTED, size: 6, color: "BFBFBF" }
+const bordersDesign = { top: dotted, bottom: dotted, left: dotted, right: dotted, insideH: dotted, insideV: dotted }
+//const bordersDesign = { top: solid, bottom: solid, left: solid, right: solid, insideH: dashed, insideV: dashed }
 
 const getIniciales = (apellidos: string, nombres: string) => {
   const full = `${apellidos||''} ${nombres||''}`.trim().split(/\s+/).filter(Boolean)
@@ -11,8 +14,28 @@ const getIniciales = (apellidos: string, nombres: string) => {
 }
 const txt = (t: string, opts: { bold?: boolean, size?: number, color?: string } = {}) => new TextRun({ text: t || ' ', bold: opts.bold || false, size: opts.size || 20, font: "Arial", color: opts.color || "000000" })
 const cellP = (t: string, opts: { bold?: boolean, center?: boolean, size?: number, color?: string } = {}) => new Paragraph({ alignment: opts.center? AlignmentType.CENTER : AlignmentType.LEFT, spacing: { before: 40, after: 40 }, children: [txt(t, { bold: opts.bold, size: opts.size || 16, color: opts.color || "000000" })] })
-const headerCell = (text: string) => new TableCell({ shading: { type: ShadingType.SOLID, color: "2F5496", fill: "2F5496" }, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(text, { bold: true, size: 16, color: "FFFFFF" })] })] })
+//17-09const headerCell = (text: string) => new TableCell({ shading: { type: ShadingType.SOLID, color: "2F5496", fill: "2F5496" }, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(text, { bold: true, size: 16, color: "FFFFFF" })] })] })
+const headerCell = (text: string) => new TableCell({ shading: { type: ShadingType.SOLID, color: "F2F2F2", fill: "F2F2F2" }, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [txt(text, { bold: true, size: 16, color: "000000" })] })] })
 const normalCell = (text: string, center=false) => new TableCell({ verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(text, { center, size: 16, color: "000000" })] })
+
+// NUEVA FUNCIÓN - PARA EPS EN 2 LÍNEAS -17-09
+const epsCellDoble = (nombre: string, direccion: string) => new TableCell({
+  verticalAlign: VerticalAlign.CENTER,
+  borders: bordersDesign,
+  children: [
+    new Paragraph({ spacing: { before: 40, after: 10 }, children: [txt(nombre || 'EPS NO REGISTRADA', { bold: true, size: 16 })] }),
+    new Paragraph({ spacing: { before: 10, after: 40 }, children: [txt(direccion || '', { bold: false, size: 14, color: "555555" })] }),
+  ]
+})
+const epsCellDobleItalic = (nombre: string, direccion: string) => new TableCell({
+  verticalAlign: VerticalAlign.CENTER,
+  borders: bordersDesign,
+  children: [
+    new Paragraph({ spacing: { before: 40, after: 10 }, children: [new TextRun({ text: nombre || ' ', bold: true, size: 19, font: "Arial" })] }),
+    new Paragraph({ spacing: { before: 10, after: 40 }, children: [new TextRun({ text: direccion || '', italics: true, size: 15, font: "Arial", color: "555555" })] }),
+  ]
+})
+// aqui termina la nueva funcion 17-09
 
 export const generarInformeConsolidado = async (supervisor: any, fechaDel: string, fechaAl: string, visitasPeriodo: any[]) => {
   const { count } = await supabase.from('informesupervision').select('*', { count: 'exact', head: true }).eq('idsupervisor', supervisor.idsupervisor)
@@ -20,15 +43,50 @@ export const generarInformeConsolidado = async (supervisor: any, fechaDel: strin
   const iniciales = getIniciales(supervisor.apellidos || supervisor.persona?.apellidos, supervisor.nombres || supervisor.persona?.nombres)
   const numeroInforme = `${correlativo}-2026-${iniciales}-SC-UC`
 
+  // const nrcsUnicos = [...new Set(visitasPeriodo.map((v:any)=> String(v.nrc||'').trim()).filter(Boolean))] as string[]
+
+  // // 1. CARGA - FIX idcampocli
+  // let cargaData:any[] = []
+  // try{
+  //   const { data, error } = await supabase.from('cargaacademica').select('*').in('nrc', nrcsUnicos)
+  //   if(error) throw error
+  //   cargaData = data||[]
+  // }catch(e){ console.warn("cargaData fallo", e) }
+
   const nrcsUnicos = [...new Set(visitasPeriodo.map((v:any)=> String(v.nrc||'').trim()).filter(Boolean))] as string[]
 
-  // 1. CARGA - FIX idcampocli
-  let cargaData:any[] = []
-  try{
-    const { data, error } = await supabase.from('cargaacademica').select('*').in('nrc', nrcsUnicos)
-    if(error) throw error
-    cargaData = data||[]
-  }catch(e){ console.warn("cargaData fallo", e) }
+// 1. CARGA DESDE ASIGNACION_NRC_SUPERVISOR - FIX OFICIAL
+let cargaData:any[] = []
+let asignacionNrcRaw:any[] = []
+try{
+  const { data, error } = await supabase
+    .from('asignacion_nrc_supervisor')
+    .select(`
+      idasignacion_nrc,
+      idcargaacad,
+      idsupervisor,
+      estado,
+      fechaasignacion,
+      cargaacademica:cargaacademica(*)
+    `)
+    .eq('idsupervisor', supervisor.idsupervisor)
+    .neq('estado', 'ANULADO')
+
+  if(error) throw error
+  asignacionNrcRaw = data||[]
+
+  // Si tu informe es por periodo, filtramos solo los NRCs que tienen visitas en ese periodo
+  // Si quieres TODO lo asignado al supervisor, borra el .filter de abajo
+  const cargaCompleta = asignacionNrcRaw.map((a:any)=> a.cargaacademica).filter(Boolean)
+  cargaData = nrcsUnicos.length 
+    ? cargaCompleta.filter((c:any)=> nrcsUnicos.includes(String(c.nrc).trim()))
+    : cargaCompleta
+
+  console.log(`Asignados: ${asignacionNrcRaw.length} | Filtrados por periodo: ${cargaData.length}`)
+
+}catch(e){ 
+  console.warn("asignacion_nrc_supervisor fallo", e) 
+}
 
   // 2. CAMPOS CLINICOS - PUNTO DE PARTIDA REAL con idcampocli
   const idsCamp = [...new Set(cargaData.map((c:any)=>c.idcampocli).filter(Boolean))]
@@ -70,11 +128,18 @@ export const generarInformeConsolidado = async (supervisor: any, fechaDel: strin
         const dist = mapDistrito[e.iddistrito]
         const prov = dist? mapProv[dist.idprovincia] : null
         const dep = prov? mapDep[prov.iddepartamento] : null
-        mapEpsFull[ideps] = {
-        ...e,
-          fullDireccion: `${e.razonsocial||''} - ${e.direccion||''} ${dist?.nombredt||''} ${prov?.nombrep||''} ${dep?.nombred||''}`.trim(),
-          simple: `${e.razonsocial||''}`
-        }
+        //17-09 mapEpsFull[ideps] = {
+        // ...e,
+        //   fullDireccion: `${e.razonsocial||''} - ${e.direccion||''} ${dist?.nombredt||''} ${prov?.nombrep||''} ${dep?.nombred||''}`.trim(),
+        //   simple: `${e.razonsocial||''}`
+        // }
+          mapEpsFull[ideps] = {
+          ...e,
+            fullDireccion: `${e.razonsocial||''} - ${e.direccion||''} ${dist?.nombredt||''} ${prov?.nombrep||''} ${dep?.nombred||''}`.trim(),
+            simple: `${e.razonsocial||''}`,
+            dirSolo: `${e.direccion||''} ${dist?.nombredt||''} ${prov?.nombrep||''} ${dep?.nombred||''}`.trim()
+          }
+
       }
     }
 
@@ -131,7 +196,7 @@ export const generarInformeConsolidado = async (supervisor: any, fechaDel: strin
       asignatura: asig? { nombre: asig.nombre, carrera: mapAsig[`carrera_${asig.idcarrera}`]||{ nombrecarrera: 'MEDICINA HUMANA' } } : { nombre: vEj?.curso||'CLÍNICA QUIRÚRGICA 1', carrera:{ nombrecarrera:'MEDICINA HUMANA'} },
       docente: doc,
       campoclinico: {
-        eps: epsFull? { razonsocial: epsFull.simple, direccion: epsFull.fullDireccion, full: epsFull.fullDireccion } : { razonsocial: 'EPS NO REGISTRADA', direccion: '', full: 'EPS NO REGISTRADA' },
+        eps: epsFull? { razonsocial: epsFull.simple, direccion: epsFull.dirSolo, full: epsFull.fullDireccion } : { razonsocial: 'EPS NO REGISTRADA', direccion: '', full: 'EPS NO REGISTRADA' },
         filial: filial||{ nombrefilial:'SEDE HUANCAYO'},
         raw: camp
       }
@@ -190,7 +255,9 @@ export const generarInformeConsolidado = async (supervisor: any, fechaDel: strin
       const epsFull = c.campoclinico?.eps?.full || c.campoclinico?.eps?.razonsocial
       const tot = mapTotalEst[c.idcargaacad]||5
       return new TableRow({ children: [
-        normalCell(epsFull||'EPS NO REGISTRADA'),
+        //17-09normalCell(epsFull||'EPS NO REGISTRADA'),
+        //epsCellDobleItalic(c?.campoclinico?.eps?.razonsocial || c?.campoclinico?.eps?.simple || 'EPS NO REGISTRADA', c?.campoclinico?.eps?.direccion || (mapEpsFull[c?.campoclinico?.raw?.ideps]?.dirSolo) || ''),
+        epsCellDobleItalic(c?.campoclinico?.eps?.razonsocial || 'EPS NO REGISTRADA', c?.campoclinico?.eps?.direccion || ''),
         normalCell(String(c.nrc), true),
         normalCell(c.asignatura?.nombre||c._cursoStr||''),
         normalCell(per? `${per?.dni||''} - ${per?.apellidos||''}, ${per?.nombres||''}` : c._docenteStr||''),
@@ -211,12 +278,19 @@ export const generarInformeConsolidado = async (supervisor: any, fechaDel: strin
 
   const firstCarga = Object.values(mapCarga)[0] as any
   const children:any[] = [
-    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 100 }, children: [txt(`INFORME N° ${numeroInforme}`, { bold: true, size: 24, color: "2F5496" })] }),
-    new Paragraph({ children: [txt("A\t:\t", { bold: true, size: 20 }), txt("Coordinación Académica\n\t\tCarrera de Medicina Humana\n\t\tUniversidad Continental", { size: 20 })] }),
+    new Paragraph({ alignment: AlignmentType.LEFT, spacing: { after: 100 }, children: [txt(`INFORME N° ${numeroInforme}`, { bold: true, size: 24, color: "2F5496" })] }),    
+    new Paragraph({ children: [txt("A\t:\t", { bold: true, size: 20 }), txt("Coordinación Académica", { size: 20 })] }),
     new Paragraph({ children: [txt(`\t\t${firstCarga?.asignatura?.carrera?.nombrecarrera || 'Medicina Humana'}`, { size: 20 })] }),
+    new Paragraph({ children: [txt(`\t\t${'UNIVERSIDAD CONTINENTAL'}`, { size: 20 })] }),
+    new Paragraph({ children: [] }),
     new Paragraph({ children: [txt("Asunto\t:\t", { bold: true, size: 20 }), txt(`Supervisión de Prácticas Clínicas con corte al periodo ${fechaDel}, ${fechaAl}`, { size: 20 })] }),
+    new Paragraph({ children: [] }),
     new Paragraph({ children: [txt("Fecha\t:\t", { bold: true, size: 20 }), txt(`${firstCarga?.campoclinico?.filial?.nombrefilial || 'SEDE HUANCAYO'}, ${new Date().toLocaleDateString('es-PE')}`, { size: 20 })] }),
-    new Paragraph({ spacing: { before: 200, after: 200 }, children: [txt(`Es grato dirigirme a usted, para informar la supervisión realizada a las prácticas clínicas correspondientes al periodo de corte ${fechaDel} - ${fechaAl}, el cual es el siguiente detalle:`, { size: 20 })] }),
+    new Paragraph({
+  border: { bottom: { color: "000000", space: 1, style: BorderStyle.SINGLE, size: 6 } },
+  children: []
+}),
+    new Paragraph({ alignment: AlignmentType.JUSTIFIED, spacing: { before: 200, after: 200 }, children: [txt(`Es grato dirigirme a usted, para informar la supervisión realizada a las prácticas clínicas correspondientes al periodo de corte ${fechaDel} - ${fechaAl}, el cual es el siguiente detalle:`, { size: 20 })] }),
     new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 100 }, children: [txt("I. ANTECEDENTES", { bold: true, size: 24, color: "2F5496" })] }),
     new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: bordersDesign, rows: tablaAntRows }),
     new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 100 }, children: [txt("II. RESUMEN EJECUTIVO - MÉTRICAS POR ESTADO", { bold: true, size: 24, color: "2F5496" })] }),
@@ -241,7 +315,7 @@ export const generarInformeConsolidado = async (supervisor: any, fechaDel: strin
     const t = new Table({
       width: { size: 100, type: WidthType.PERCENTAGE }, borders: bordersDesign,
       rows: [
-        new TableRow({ children: [headerCell("N°"), headerCell("NRC:"), new TableCell({ columnSpan: 3, shading: { type: ShadingType.SOLID, color: "D9E2F3", fill: "D9E2F3" }, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(String(v.nrc||''), { bold: true, size: 16, color: "000000" })] })] }),
+        new TableRow({ children: [headerCell("N°"), headerCell("NRC:"), new TableCell({ columnSpan: 3, shading: { type: ShadingType.SOLID, color: "F2F2F2", fill: "F2F2F2" }, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(String(v.nrc||''), { bold: true, size: 16, color: "000000" })] })] }),
         new TableRow({ children: [normalCell(String(n).padStart(2,'0')), normalCell("EPS"), new TableCell({ columnSpan: 3, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(c?.campoclinico?.eps?.full||c?.campoclinico?.eps?.razonsocial||'', { size: 16 })] })] }),
         new TableRow({ children: [normalCell(""), normalCell("FILIAL"), new TableCell({ columnSpan: 3, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(c?.campoclinico?.filial?.nombrefilial||'SEDE HUANCAYO', { size: 16 })] })] }),
         new TableRow({ children: [normalCell(""), normalCell("CARRERA"), new TableCell({ columnSpan: 3, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(c?.asignatura?.carrera?.nombrecarrera||'MEDICINA HUMANA', { size: 16 })] })] }),
@@ -257,12 +331,7 @@ export const generarInformeConsolidado = async (supervisor: any, fechaDel: strin
       ]
     })
     children.push(t)
-    // const { data: evs } = await supabase.from('archivoevidencia').select('nombrearchivo, rutaarchivo').eq('idvisitas', v.idvisitas)
-    // evs?.forEach((f:any, i:number)=>{
-    //   const fotoT = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: bordersDesign, rows: [new TableRow({ children: [normalCell(`Foto ${i+1}.`), new TableCell({ columnSpan: 4, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(f.nombrearchivo || f.rutaarchivo, { size: 14 })] })] })] })
-    //   children.push(fotoT)
-    // })
-        // FIX DEFINITIVO FOTO - incrusta imagen real
+    // FIX DEFINITIVO FOTO - incrusta imagen real
     const { data: evs } = await supabase.from('archivoevidencia').select('nombrearchivo, rutaarchivo').eq('idvisitas', v.idvisitas)
     if(evs && evs.length){
       children.push(new Paragraph({ spacing: { before: 200 }, children: [txt(`Evidencias (${evs.length} fotos):`, { bold: true, size: 18 })] }))
@@ -288,7 +357,9 @@ export const generarInformeConsolidado = async (supervisor: any, fechaDel: strin
           children.push(fotoT)
         }
       }
-    }
+         // ESPACIO ENTRE NRC Y NRC - ESTA ES LA LÍNEA BUENA
+      children.push(new Paragraph({ spacing: { before: 100, after: 100 }, children: [] }))   
+    }    
     n++
   }
 
@@ -305,7 +376,7 @@ export const generarInformeConsolidado = async (supervisor: any, fechaDel: strin
     const t = new Table({
       width: { size: 100, type: WidthType.PERCENTAGE }, borders: bordersDesign,
       rows: [
-        new TableRow({ children: [headerCell("N°"), headerCell("NRC:"), new TableCell({ columnSpan: 3, shading: { type: ShadingType.SOLID, color: "D9E2F3", fill: "D9E2F3" }, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(String(v.nrc||''), { bold: true })] })] }),
+        new TableRow({ children: [headerCell("N°"), headerCell("NRC:"), new TableCell({ columnSpan: 3, shading: { type: ShadingType.SOLID, color: "F2F2F2", fill: "F2F2F2" }, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(String(v.nrc||''), { bold: true })] })] }),
         new TableRow({ children: [normalCell(String(n2).padStart(2,'0')), normalCell("EPS"), new TableCell({ columnSpan: 3, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(c?.campoclinico?.eps?.full||'', { size: 16 })] })] }),
         new TableRow({ children: [normalCell(""), normalCell("FILIAL"), new TableCell({ columnSpan: 3, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(c?.campoclinico?.filial?.nombrefilial||'SEDE HUANCAYO')] })] }),
         new TableRow({ children: [normalCell(""), normalCell("CARRERA"), new TableCell({ columnSpan: 3, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(c?.asignatura?.carrera?.nombrecarrera||'MEDICINA HUMANA')] })] }),
@@ -315,11 +386,14 @@ export const generarInformeConsolidado = async (supervisor: any, fechaDel: strin
         new TableRow({ children: [normalCell(""), headerCell("Día"), headerCell("Fecha"), headerCell("Horario"), headerCell("Total Estudiantes")] }),
         new TableRow({ children: [normalCell(""), normalCell(det?.dia_semana||'LUNES', true), normalCell(vs?.fechavisita||v.fecha||'', true), normalCell(det?.hora_inicio? `${det.hora_inicio} - ${det.hora_fin}` : '', true), normalCell(String(totEst), true)] }),
         new TableRow({ children: [normalCell(""), new TableCell({ columnSpan: 4, shading: { type: ShadingType.SOLID, color: "E7E6E6", fill: "E7E6E6" }, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP("Supervisión", { bold: true })] })] }),
-        new TableRow({ children: [normalCell(""), headerCell("Fecha y hora"), headerCell("Estado"), new TableCell({ columnSpan: 2, shading: { type: ShadingType.SOLID, color: "2F5496", fill: "2F5496" }, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("Descripción de la incidencia", { bold: true, size: 16, color: "FFFFFF" })] })] })] }),
+        new TableRow({ children: [normalCell(""), headerCell("Fecha y hora"), headerCell("Estado"), new TableCell({ columnSpan: 2, shading: { type: ShadingType.SOLID, color: "F2F2F2", fill: "F2F2F2" }, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [txt("Descripción de la incidencia", { bold: true, size: 16, color: "FFFFFF" })] })] })] }),
         new TableRow({ children: [normalCell(""), normalCell(fechaHora, true), normalCell(v.estado||'', true), new TableCell({ columnSpan: 2, verticalAlign: VerticalAlign.CENTER, borders: bordersDesign, children: [cellP(v.descripcion_incidencia||v.observaciones||"(Describe el supervisor)", { size: 16 })] })] }),
       ]
     })
-    children.push(t); n2++
+    children.push(t); 
+    // ESPACIO ENTRE NRC Y NRC - ESTA ES LA LÍNEA BUENA
+      children.push(new Paragraph({ spacing: { before: 100, after: 100 }, children: [] }))
+    n2++
   }
 
   children.push(new Paragraph({ heading: HeadingLevel.HEADING_2, spacing: { before: 300, after: 100 }, children: [txt("V. CONCLUSIONES Y RECOMENDACIONES", { bold: true, size: 24, color: "2F5496" })] }))

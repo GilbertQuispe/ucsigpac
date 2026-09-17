@@ -224,151 +224,7 @@ export default function InformeSupervisionPage() {
     setPaginaActual(1)
   }
 
-  // const handleGenerarConsolidado = async () => {
-  //   if(!fechaDel ||!fechaAl) { toast.error('Seleccione rango de fechas'); return }
-
-  //   let supervisorObjetivo: Persona | undefined
-  //   if(idRolUsuario === 5) {
-  //     supervisorObjetivo = supervisores.find(s => s.idpersona === idPersonaUsuario)
-  //   } else {
-  //     if(!filtroSupervisor) { toast.error('Seleccione un supervisor (como admin)'); return }
-  //     supervisorObjetivo = supervisores.find(s => s.idpersona === Number(filtroSupervisor))
-  //   }
-
-  //   if(!supervisorObjetivo) { toast.error('Supervisor no encontrado'); return }
-
-  //   setGenerando(true)
-  //   try {
-  //     // Import dinámico para no romper SSR
-  //     const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType } = await import('docx')
-  //     const { saveAs } = await import('file-saver')
-
-  //     const visitasPeriodo = supervisiones // Ya tenemos las del periodo filtradas por supervisor
-
-  //     const conteoEstados = visitasPeriodo.reduce((acc:any, v:any) => {
-  //       acc[v.estado] = (acc[v.estado] || 0) + 1
-  //       return acc
-  //     }, {})
-
-  //     const total = visitasPeriodo.length || 1
-  //     const apellidos = supervisorObjetivo.apellidos.trim()
-  //     const nombres = supervisorObjetivo.nombres.trim()
-  //     const partesApe = apellidos.split(' ').filter(Boolean)
-  //     const partesNom = nombres.split(' ').filter(Boolean)
-  //     const siglas = `${partesApe[0]?.charAt(0) || ''}${partesApe[1]?.charAt(0) || partesApe[0]?.charAt(1) || ''}${partesNom[0]?.charAt(0) || ''}${partesNom[1]?.charAt(0) || ''}`.toUpperCase()
-  //     const numeroInforme = `${String(Math.floor(Math.random()*900)+100)}-2026-${siglas}-SC-UC`
-
-  //     // Datos para antecedentes desde asignacion_nrc_supervisor
-  //     const { data: asignacionesNRC } = await supabase.from('asignacion_nrc_supervisor')
-  //     .select('idcargaacad, cargaacademica!inner(nrc, asignatura!inner(nombre), campoclinico!inner(ideps, idfilial, filial!inner(nombrefilial), eps!inner(razonsocial, direccion, distrito!inner(nombredt, provincia!inner(nombrep, departamento!inner(nombred))))))')
-  //     .eq('idsupervisor', supervisorObjetivo.idsupervisor)
-
-  //     const doc = new Document({
-  //       sections: [{
-  //         children: [
-  //           new Paragraph({ text: `Informe N° ${numeroInforme}`, heading: HeadingLevel.HEADING_1, alignment: AlignmentType.CENTER }),
-  //           new Paragraph({ children: [new TextRun({ text: `A: Coordinación Académica de la Carrera de Medicina Humana`, bold: true })] }),
-  //           new Paragraph({ children: [new TextRun(`Asunto: Supervisión de Prácticas Clínicas con corte al periodo ${fechaDel} - ${fechaAl}`)] }),
-  //           new Paragraph({ children: [new TextRun(`Fecha elaboración: ${new Date().toLocaleDateString()} - ${asignacionesNRC?.[0]?.cargaacademica?.campoclinico?.filial?.nombrefilial || ''}`)] }),
-  //           new Paragraph({ text: "", spacing: { after: 200 } }),
-  //           new Paragraph({ text: "I. ANTECEDENTES", heading: HeadingLevel.HEADING_2 }),
-  //           new Paragraph({ text: `Asignación de EPS del supervisor ${apellidos}, ${nombres}` }),
-  //           new Table({
-  //             rows: [
-  //               new TableRow({ children: [
-  //                 new TableCell({ children: [new Paragraph("EPS")] }),
-  //                 new TableCell({ children: [new Paragraph("Dirección")] }),
-  //                 new TableCell({ children: [new Paragraph("Distrito")] }),
-  //                 new TableCell({ children: [new Paragraph("NRC")] }),
-  //                 new TableCell({ children: [new Paragraph("Asignatura")] }),
-  //               ]}),
-  //              ...(asignacionesNRC || []).slice(0,20).map((a:any) => new TableRow({
-  //                 children: [
-  //                   new TableCell({ children: [new Paragraph(a.cargaacademica?.campoclinico?.eps?.razonsocial || 'N/A')] }),
-  //                   new TableCell({ children: [new Paragraph(a.cargaacademica?.campoclinico?.eps?.direccion || 'N/A')] }),
-  //                   new TableCell({ children: [new Paragraph(a.cargaacademica?.campoclinico?.eps?.distrito?.nombredt || 'N/A')] }),
-  //                   new TableCell({ children: [new Paragraph(a.cargaacademica?.nrc || 'N/A')] }),
-  //                   new TableCell({ children: [new Paragraph(a.cargaacademica?.asignatura?.nombre || 'N/A')] }),
-  //                 ]
-  //               }))
-  //             ]
-  //           }),
-  //           new Paragraph({ text: "II. RESUMEN EJECUTIVO - MÉTRICAS POR ESTADO", heading: HeadingLevel.HEADING_2 }),
-  //           new Table({
-  //             rows: [
-  //               new TableRow({ children: [
-  //                 new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Estado", bold: true })] })] }),
-  //                 new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "Cantidad", bold: true })] })] }),
-  //                 new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "% del Total Programado", bold: true })] })] }),
-  //               ]}),
-  //              ...Object.entries(conteoEstados).map(([estado, cant]: any) => new TableRow({
-  //                 children: [
-  //                   new TableCell({ children: [new Paragraph(estado)] }),
-  //                   new TableCell({ children: [new Paragraph(String(cant))] }),
-  //                   new TableCell({ children: [new Paragraph(`${((cant/total)*100).toFixed(1)}%`)] }),
-  //                 ]
-  //               })),
-  //               new TableRow({ children: [
-  //                 new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "TOTAL PROGRAMADO", bold: true })] })] }),
-  //                 new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: String(total), bold: true })] })] }),
-  //                 new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: "100%", bold: true })] })] }),
-  //               ]})
-  //             ]
-  //           }),
-  //           new Paragraph({ text: "III. DETALLE DE LA SUPERVISIÓN POR NRC", heading: HeadingLevel.HEADING_2 }),
-  //          ...visitasPeriodo.filter((v:any)=>v.estado==='SUPERVISADO').slice(0,15).map((v:any) =>
-  //             new Paragraph({ text: `NRC: ${v.nrc} - ${v.curso.nombre} - Docente: ${v.docente.apellidos}, ${v.docente.nombres} - Fecha: ${v.fecha} - %Doc: ${v.porcentaje_docente}% - %Alu: ${v.porcentaje_alumno}% - ${v.resultado_baremo_general}` })
-  //           ),
-  //           new Paragraph({ text: "IV. ANÁLISIS CRÍTICO DE INCIDENCIAS", heading: HeadingLevel.HEADING_2 }),
-  //          ...visitasPeriodo.filter((v:any)=>['INCIDENCIA','PENDIENTE','PERMISO'].includes(v.estado)).map((v:any)=>
-  //             new Paragraph({ text: `NRC: ${v.nrc} - Fecha: ${v.fecha} - Estado: ${v.estado}` })
-  //           ),
-  //           new Paragraph({ text: "V. CONCLUSIONES Y RECOMENDACIONES", heading: HeadingLevel.HEADING_2 }),
-  //           new Paragraph({ text: "El supervisor completará esta sección al editar el informe." }),
-  //         ]
-  //       }]
-  //     })
-
-  //     const blob = await Packer.toBlob(doc)
-  //     const fileName = `Informe_${numeroInforme}_${fechaDel}_${fechaAl}.docx`
-
-  //     // Guardar en Storage
-  //     const arrayBuffer = await blob.arrayBuffer()
-  //     const { data: uploadData, error: uploadError } = await supabase.storage.from('informes').upload(`supervision/${fileName}`, arrayBuffer, { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', upsert: true })
-
-  //     if(uploadError) console.warn('Error upload storage (continuamos):', uploadError.message)
-
-  //     // Guardar en tabla informesupervision
-  //     const { data: informeCreado, error: dbError } = await supabase.from('informesupervision').insert({
-  //       idsupervisor: supervisorObjetivo.idsupervisor,
-  //       idpersona_supervisor: supervisorObjetivo.idpersona,
-  //       fecha_periodo_inicio: fechaDel,
-  //       fecha_periodo_fin: fechaAl,
-  //       numero_informe: numeroInforme,
-  //       estadisticas: conteoEstados,
-  //       nombrearchivo: fileName,
-  //       rutaarchivo: uploadData?.path || `supervision/${fileName}`,
-  //       fecha_emision: new Date().toISOString().split('T')[0],
-  //       estado: 'BORRADOR',
-  //       conclusiones: '',
-  //       recomendaciones: ''
-  //     }).select().single()
-
-  //     if(dbError) throw dbError
-
-  //     saveAs(blob, fileName)
-  //     toast.success(`Informe ${numeroInforme} generado`)
-  //     fetchHistorial()
-  //     setTab('historial')
-
-  //   } catch(e:any) {
-  //     console.error(e)
-  //     toast.error('Error generando: ' + e.message)
-  //   } finally {
-  //     setGenerando(false)
-  //   }
-  // }
-const handleGenerarConsolidado = async () => {
+ const handleGenerarConsolidado = async () => {
   if(!fechaDel ||!fechaAl) { toast.error('Seleccione rango'); return }
   const sup = idRolUsuario===5? supervisores.find(s=>s.idpersona===idPersonaUsuario) : supervisores.find(s=>s.idpersona===Number(filtroSupervisor))
   if(!sup) { toast.error('Seleccione supervisor'); return }
@@ -471,10 +327,10 @@ const handleGenerarConsolidado = async () => {
       </div>
 
       <div className="card-sgpc" style={{ overflowX: 'auto' }}>
-        <div style={{display:'flex', justifyContent:'space-between', padding:'1rem'}}>
+        {/* <div style={{display:'flex', justifyContent:'space-between', padding:'1rem'}}>
           <p>{seleccionados.length} seleccionados</p>
           <button className="btn-secundario" onClick={handleGenerarLote}><Download size={18} /> Generar {seleccionados.length} Individuales (antiguo)</button>
-        </div>
+        </div> */}
         <table className='tabla-sgpc'>
           <thead>
             <tr>

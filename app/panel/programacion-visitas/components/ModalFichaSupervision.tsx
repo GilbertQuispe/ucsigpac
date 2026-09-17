@@ -4,6 +4,7 @@ import { X, Check, Camera, Trash2, Eraser, BookOpen, Save, Funnel, House, Award,
 import { createClient } from '@/lib/client'
 import moment from 'moment'
 import toast, { Toaster } from 'react-hot-toast'
+import { useAuth } from '@/hooks/useAuth' // <-- AGREGA ESTO 17-09
 
 export default function ModalFichaSupervision({ show, onClose, visita }: any) {
 
@@ -37,6 +38,7 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   }
 
   const supabase = createClient()
+   const { user } = useAuth() // <-- AGREGA ESTO, aquí ya tienes user.id 17-09
   const [loading, setLoading] = useState(true)
   const [headerData, setHeaderData] = useState<any>(null)
   const [preguntasDocente, setPreguntasDocente] = useState<any[]>([])
@@ -45,7 +47,9 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   const [respuestas, setRespuestas] = useState<any>({})
   const [fotos, setFotos] = useState<File[]>([])
   const [fotosGuardadas, setFotosGuardadas] = useState<any[]>([])
-  const [observacion, setObservacion] = useState(visita?.observaciones || '')
+  //17-09const [observacion, setObservacion] = useState(visita?.observaciones || '')
+    const [observacion, setObservacion] = useState(visita?.observaciones || '')
+  const [asistencia, setAsistencia] = useState<any>({}) // { idestudiante: { presente, motivo_ausencia, tiene_permiso } }
 
   const idvisitas = visita?.idvisitas
   const esSoloLectura = visita?.condicion === 'SUPERVISADO' // <-- AGREGA ESTA LINEA
@@ -113,24 +117,41 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
      .eq('estado', 'ACTIVO') // <-- SOLO ACTIVOS
      .order('idficha')
 
-    setPreguntasDocente(preguntas?.filter(p => p.tipoactor === 'Docente') || []) // <-- CAMBIO: Docente
-    setPreguntasAlumno(preguntas?.filter(p => p.tipoactor === 'Estudiante') || []) // <-- CAMBIO: Estudiante
+    setPreguntasDocente(preguntas?.filter((p: any) => p.tipoactor === 'Docente') || []) // <-- CAMBIO: Docente
+    setPreguntasAlumno(preguntas?.filter((p: any) => p.tipoactor === 'Estudiante') || []) // <-- CAMBIO: Estudiante
 
-    // 4. ALUMNOS DEL NRC
+        // 4. ALUMNOS DEL NRC
     const { data: alumnosData } = await supabase
-     .from('horario')
-     .select(`
-        matricula!inner(estudiante!inner(idestudiante, persona(dni, apellidos, nombres)))
-      `)
-     .eq('idcargaacad', idcargaacad)
-    //Cambio segun Vercel- setAlumnos(alumnosData?.map(h => h.matricula.estudiante) || [])
-    //Cambio error 09-09- setAlumnos(alumnosData?.map((h: any) => h.matricula?.[0]?.estudiante?.[0]) || [])
-    setAlumnos(alumnosData?.map((h: any) => h.matricula?.estudiante) || [])
+    .from('horario')
+    .select(`matricula!inner(estudiante!inner(idestudiante, persona(dni, apellidos, nombres)))`)
+    .eq('idcargaacad', idcargaacad)
+
+    const alumnosList = alumnosData?.map((h: any) => h.matricula?.estudiante) || []
+    setAlumnos(alumnosList)
+
+    // Cargar asistencia existente - QUERY CORREGIDA
+    const { data: asisData } = await supabase
+     .from('asistencia_visita')
+     .select('*')
+     .eq('idvisitas', idvisitas)
+     .eq('tipo_actor','ALUMNO')
+
+    const asisObj: any = {}
+    alumnosList.forEach((alu: any) => {
+      const reg = asisData?.find((x: any) => x.idestudiante === alu.idestudiante)
+      asisObj[alu.idestudiante] = reg? {
+        presente: reg.presente,
+        motivo_ausencia: reg.motivo_ausencia || reg.observacion || '',
+        tiene_permiso: reg.tiene_permiso || false,
+        observacion_personal: reg.observacion || '' // <-- ESTO TE FALTA, por eso sale null
+      } : { presente: true, motivo_ausencia: '', tiene_permiso: false }
+    })
+    setAsistencia(asisObj)
 
     // 5. RESPUESTAS Y FOTOS
     const { data: respData } = await supabase.from('fichasupervision').select('*').eq('idvisitas', idvisitas)
     const respObj: any = {}
-    respData?.forEach(r => {
+    respData?.forEach((r: any) => {
       const key = r.iddocente? `doc-${r.iddocente}-${r.idficha}` : `alu-${r.idestudiante}-${r.idficha}`
       respObj[key] = r.respuestaitem
     })
@@ -141,6 +162,8 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
 
     setLoading(false)
   }
+
+    /// este cambuio muere aqui
 
   const handleRespuesta = (key: string, valor: number) => {
     setRespuestas({...respuestas, [key]: valor})
@@ -160,13 +183,14 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   }
 
 
+
  const handleGuardar = async () => {
   if(esSoloLectura) return toast.error("Esta ficha ya está supervisada. Solo lectura")
 
     const iddocente = headerData?.campoclinico?.docente?.iddocente
     const toInsert: any[] = []
 
-    // 1. BORRAR RESPUESTAS ANTERIORES DE ESTA VISITA
+    // 1. BORRAR RESPUESTAS ANTERIORES
     const { error: errDelete } = await supabase.from('fichasupervision').delete().eq('idvisitas', idvisitas)
     if(errDelete) return toast.error("Error al limpiar respuestas: " + errDelete.message)
 
@@ -174,150 +198,194 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     preguntasDocente.forEach(p => {
       const key = `doc-${iddocente}-${p.idficha}`
       if(respuestas[key] > 0){
-        toInsert.push({
-          idvisitas,
-          idficha: p.idficha,
-          iddocente,
-          idestudiante: null,
-          respuestaitem: respuestas[key]
-        })
+        toInsert.push({ idvisitas, idficha: p.idficha, iddocente, idestudiante: null, respuestaitem: respuestas[key] })
       }
     })
 
-    // 3. Armar respuestas alumnos
-    alumnos.forEach(a => {
+    // 3. Armar respuestas alumnos SOLO PRESENTES
+    const alumnosPresentes = alumnos.filter(a => asistencia[a.idestudiante]?.presente!== false)
+    alumnosPresentes.forEach(a => {
       preguntasAlumno.forEach(p => {
         const key = `alu-${a.idestudiante}-${p.idficha}`
         if(respuestas[key] > 0){
-          toInsert.push({
-            idvisitas,
-            idficha: p.idficha,
-            iddocente: null,
-            idestudiante: a.idestudiante,
-            respuestaitem: respuestas[key]
-          })
+          toInsert.push({ idvisitas, idficha: p.idficha, iddocente: null, idestudiante: a.idestudiante, respuestaitem: respuestas[key] })
         }
       })
     })
 
-    // 4. INSERTAR TODO LO NUEVO
-    if(toInsert.length > 0){
-      const { error: errInsert } = await supabase.from('fichasupervision').insert(toInsert)
-      if(errInsert) return toast.error("Error al guardar ficha: " + errInsert.message)
-    } else {
-      return toast.error("Debe calificar al menos 1 item")
-    }
+    if(toInsert.length === 0) return toast.error("Debe calificar al menos 1 item")
 
-    // ===== NUEVO: CALCULAR BAREMO SIEMPRE =====
-    let porcentajeDocente = 0
-    let porcentajeAlumno = 0
-    let valoracionDocente = 'N/A'
-    let valoracionAlumno = 'N/A'
-    let resultadoGeneral = 'N/A'
+    // 4. INSERTAR RESPUESTAS
+    const { error: errInsert } = await supabase.from('fichasupervision').insert(toInsert)
+    if(errInsert) return toast.error("Error al guardar ficha: " + errInsert.message)
 
-    // Calcular Docente
+    // 5. GUARDAR ASISTENCIA EN TABLA NUEVA
+      // 5. GUARDAR ASISTENCIA EN TABLA REAL
+    // const idcargaacad_actual = headerData?.idcargaacad || null
+    // const { error: errDelAsis } = await supabase.from('asistencia_visita').delete().eq('idvisitas', idvisitas).eq('tipo_actor','ALUMNO')
+    // if(errDelAsis) console.log("Warn delete asis:", errDelAsis.message)
+
+    // const asisToInsert = alumnos.map(a => ({
+    //     idvisitas,
+    //     idestudiante: a.idestudiante,
+    //     iddocente: null,
+    //     tipo_actor: 'ALUMNO',
+    //     presente: asistencia[a.idestudiante]?.presente?? true,
+    //     motivo_ausencia: asistencia[a.idestudiante]?.motivo_ausencia || null,
+    //     tiene_permiso: asistencia[a.idestudiante]?.tiene_permiso || false,
+    //     idcargaacad: idcargaacad_actual,
+    //     observacion: asistencia[a.idestudiante]?.motivo_ausencia || null,
+    //     puntaje: null
+    // }))
+    // const { error: errAsis } = await supabase.from('asistencia_visita').insert(asisToInsert)
+    // if(errAsis) return toast.error("Error guardando asistencia: " + errAsis.message)
+
+        // 5. GUARDAR ASISTENCIA - BAREMO INDIVIDUAL 0-100% (OPCION A)
+    // const idcargaacad_actual = headerData?.idcargaacad || null
+    // const { error: errDelAsis } = await supabase.from('asistencia_visita').delete().eq('idvisitas', idvisitas).eq('tipo_actor','ALUMNO')
+    // if(errDelAsis) console.log("warn delete asis:", errDelAsis.message)
+
+    // const asisToInsert = alumnos.map(a => {
+    //   const asis = asistencia[a.idestudiante] || {}
+    //   const estaPresente = asis.presente?? true
+    //   let porcentaje = null as number | null
+
+    //   if(estaPresente){
+    //     const totalPosible = preguntasAlumno.length * 5
+    //     let totalObtenido = 0
+    //     preguntasAlumno.forEach(p => {
+    //       const key = `alu-${a.idestudiante}-${p.idficha}`
+    //       totalObtenido += Number(respuestas[key] || 0)
+    //     })
+    //     if(totalPosible > 0){
+    //       porcentaje = Math.round((totalObtenido / totalPosible) * 100) // 0-100 igual que visitasupervision
+    //     }
+    //   }
+
+    //   return {
+    //     idvisitas,
+    //     idestudiante: a.idestudiante,
+    //     iddocente: null,
+    //     tipo_actor: 'ALUMNO',
+    //     presente: estaPresente,
+    //     motivo_ausencia: asis.motivo_ausencia || null,
+    //     tiene_permiso: asis.tiene_permiso || false,
+    //     idcargaacad: idcargaacad_actual,
+    //     puntaje: porcentaje, // <-- aquí tu baremo individual 0-100
+    //     observacion: asis.observacion_personal || asis.motivo_ausencia || null
+    //   }
+    // })
+
+    // const { error: errAsis } = await supabase.from('asistencia_visita').insert(asisToInsert)
+    // if(errAsis) return toast.error("Error guardando asistencia: " + errAsis.message)
+
+        // 5. GUARDAR ASISTENCIA - BAREMO INDIVIDUAL 0-100% (OPCION A) - FIX
+        // 5. GUARDAR ASISTENCIA - BAREMO INDIVIDUAL 0-100% (OPCION A) - FINAL SIN ERRORES
+    const idcargaacad_actual = (headerData as any)?.idcargaacad || null
+    await supabase.from('asistencia_visita').delete().eq('idvisitas', idvisitas).eq('tipo_actor','ALUMNO')
+
+    const asisToInsert = alumnos.map((a: any) => {
+      const asis = (asistencia as any)[a.idestudiante] || {}
+      const estaPresente = asis.presente?? true
+      let porcentaje: number | null = null
+
+      if(estaPresente){
+        const totalPosible = (preguntasAlumno as any[]).length * 5
+        let totalObtenido = 0
+        ;(preguntasAlumno as any[]).forEach((p: any) => {
+          const key = `alu-${a.idestudiante}-${p.idficha}`
+          totalObtenido += Number((respuestas as any)[key] || 0)
+        })
+        porcentaje = totalPosible > 0? Math.round((totalObtenido / totalPosible) * 100) : 0
+      }
+
+       // Calcula valoración individual
+      let valoracionIndividual: string | null = null
+      if(estaPresente && porcentaje !== null){
+        valoracionIndividual = getValoracion(porcentaje)
+      } else if(!estaPresente){
+        valoracionIndividual = asis.tiene_permiso? 'Ausente con permiso' : 'Ausente sin permiso'
+      }
+
+      return {
+        idvisitas,
+        idestudiante: a.idestudiante,
+        iddocente: null,
+        tipo_actor: 'ALUMNO',
+        presente: estaPresente,
+        motivo_ausencia: asis.motivo_ausencia || null,
+        tiene_permiso: asis.tiene_permiso || false,
+        idcargaacad: idcargaacad_actual,
+        puntaje: porcentaje,
+        observacion: valoracionIndividual
+      }
+    })
+
+    const { error: errAsis } = await supabase.from('asistencia_visita').insert(asisToInsert)
+    if(errAsis) return toast.error("Error guardando asistencia: " + errAsis.message)
+
+
+    // 6. CALCULO BAREMO - SOLO PRESENTES
+    let porcentajeDocente = 0, porcentajeAlumno = 0
+    let valoracionDocente = 'N/A', valoracionAlumno = 'N/A', resultadoGeneral = 'N/A'
+
     if(preguntasDocente.length > 0){
       const respuestasDoc = toInsert.filter(r => r.iddocente!== null)
       const totalPosibleDoc = preguntasDocente.length * 5
       const totalObtenidoDoc = respuestasDoc.reduce((sum, r) => sum + r.respuestaitem, 0)
-      porcentajeDocente = totalPosibleDoc > 0 ? (totalObtenidoDoc / totalPosibleDoc) * 100 : 0
-      valoracionDocente = respuestasDoc.length > 0 ? getValoracion(porcentajeDocente) : 'N/A'
+      porcentajeDocente = totalPosibleDoc > 0? (totalObtenidoDoc / totalPosibleDoc) * 100 : 0
+      valoracionDocente = respuestasDoc.length > 0? getValoracion(porcentajeDocente) : 'N/A'
     }
-
-    // Calcular Alumno
-    if(preguntasAlumno.length > 0 && alumnos.length > 0){
+    if(preguntasAlumno.length > 0 && alumnosPresentes.length > 0){
       const respuestasAlu = toInsert.filter(r => r.idestudiante!== null)
-      const totalPosibleAlu = preguntasAlumno.length * alumnos.length * 5
+      const totalPosibleAlu = preguntasAlumno.length * alumnosPresentes.length * 5
       const totalObtenidoAlu = respuestasAlu.reduce((sum, r) => sum + r.respuestaitem, 0)
-      porcentajeAlumno = totalPosibleAlu > 0 ? (totalObtenidoAlu / totalPosibleAlu) * 100 : 0
-      valoracionAlumno = respuestasAlu.length > 0 ? getValoracion(porcentajeAlumno) : 'N/A'
+      porcentajeAlumno = totalPosibleAlu > 0? (totalObtenidoAlu / totalPosibleAlu) * 100 : 0
+      valoracionAlumno = respuestasAlu.length > 0? getValoracion(porcentajeAlumno) : 'N/A'
     }
-
-    if(valoracionDocente !== 'N/A' || valoracionAlumno !== 'N/A'){
+    if(valoracionDocente!== 'N/A' || valoracionAlumno!== 'N/A'){
       resultadoGeneral = getGeneral(valoracionDocente, valoracionAlumno)
     }
-    // ===== FIN NUEVO =====
-    // 5. SUBIR FOTOS PRIMERO
+
+    // 7. FOTOS
     let fotosSubidasOK = 0
     if(fotos.length > 0){
       for(let i = 0; i < fotos.length; i++){
         const file = fotos[i]
         const filePath = `${idvisitas}/${file.name}`
-        console.log("5. SUBIENDO:", filePath)
-        const { error: errUpload } = await supabase.storage.from('evidenciasSigpacuc').upload(filePath, file, {
-          upsert: true
-        })
-
-        if(errUpload) {
-          console.log("ERROR UPLOAD:", errUpload)
-          toast.error(`Error al subir ${file.name}: ${errUpload.message}`)
-        } else {
+        const { error: errUpload } = await supabase.storage.from('evidenciasSigpacuc').upload(filePath, file, { upsert: true })
+        if(!errUpload){
           fotosSubidasOK++
-          const { error: errDB } = await supabase.from('archivoevidencia').insert({
-            idvisitas,
-            nombrearchivo: file.name,
-            rutaarchivo: filePath,
-            tipoarchivo: 'IMAGEN'
-          })
-          if(errDB) {
-            console.log("ERROR DB FOTO:", errDB)
-            toast.error(`Error al guardar BD ${file.name}: ${errDB.message}`)
-          }
+          await supabase.from('archivoevidencia').insert({ idvisitas, nombrearchivo: file.name, rutaarchivo: filePath, tipoarchivo: 'IMAGEN' })
         }
       }
     }
 
-    // 6. AHORA SI ACTUALIZAMOS EL ESTADO 1 SOLA VEZ AL FINAL
-    const totalPreguntas = preguntasDocente.length + (preguntasAlumno.length * alumnos.length)
+    // 8. ESTADO - SOLO EXIGE PRESENTES
+    const totalPreguntas = preguntasDocente.length + (preguntasAlumno.length * alumnosPresentes.length)
     const totalRespondidas = toInsert.length
-
     let nuevoEstado = 'EN_PROCESO'
-    // Solo es SUPERVISADO si respondió todo Y tiene al menos 1 foto
     if(totalRespondidas >= totalPreguntas && totalPreguntas > 0 && (fotosSubidasOK > 0 || fotosGuardadas.length > 0)) {
       nuevoEstado = 'SUPERVISADO'
     }
 
-    //15-09 const { error: errVisita } = await supabase.from('visitasupervision').update({
-    //   condicion: nuevoEstado,
-    //   observaciones: observacion
-    // }).eq('idvisitas', idvisitas)
-
-    //para baremar
-const { error: errVisita } = await supabase.from('visitasupervision').update({
+    const { error: errVisita } = await supabase.from('visitasupervision').update({
       condicion: nuevoEstado,
       observaciones: observacion,
       valoracion_docente: valoracionDocente,
       porcentaje_docente: parseFloat(porcentajeDocente.toFixed(2)),
       valoracion_alumno: valoracionAlumno,
       porcentaje_alumno: parseFloat(porcentajeAlumno.toFixed(2)),
-      resultado_baremo_general: resultadoGeneral
-    }).eq('idvisitas', idvisitas)    
-
-    // const { error: errVisita } = await supabase.from('visitasupervision').update({
-    //     condicion: nuevoEstado,
-    //     observaciones: observacion,
-    //     // NUEVOS CAMPOS
-    //     valoracion_docente: valoracionDocente,
-    //     porcentaje_docente: parseFloat(porcentajeDocente.toFixed(2)),
-    //     valoracion_alumno: valoracionAlumno,
-    //     porcentaje_alumno: parseFloat(porcentajeAlumno.toFixed(2)),
-    //     resultado_baremo_general: resultadoGeneral
-    //   }).eq('idvisitas', idvisitas)
-
+      resultado_baremo_general: resultadoGeneral,
+      id_logeado: user?.id || null,
+      created_at: new Date().toLocaleString("sv-SE", { timeZone: "America/Lima", hour12: false }).replace(" ", "T") + "-05:00"
+    }).eq('idvisitas', idvisitas)
     if(errVisita) return toast.error("Error al actualizar visita: " + errVisita.message)
 
-    // 7. TOAST SIEMPRE AL FINAL
-    //toast.success(`Ficha guardada. Estado: ${nuevoEstado}`)
-    //15-09toast.success(`Ficha guardada. Estado: ${nuevoEstado}`, {
-    toast.success(`Ficha guardada. Estado: ${nuevoEstado} | Doc: ${porcentajeDocente.toFixed(1)}% | Alu: ${porcentajeAlumno.toFixed(1)}%`, {
-      duration: 3000,
-      position: 'top-center'
-    })
-    fetchData()
+    toast.success(`Ficha guardada. Estado: ${nuevoEstado} | Presentes: ${alumnosPresentes.length}/${alumnos.length}`, { duration: 3000, position: 'top-center' })
     setFotos([])
     await fetchData()
   }
-
   const handleSalir = async () => {
     if(fotosGuardadas.length + fotos.length === 0) return toast.error("Debe tomar mínimo 1 fotografía para salir")
     await handleGuardar()
@@ -509,14 +577,45 @@ const iddocente = cc?.docente?.iddocente
             <h4 style={{display:'flex', alignItems:'center',color: 'white', background:'var(--color-primario)', borderRadius:'0.5rem',height:'3rem',  margin: '0rem', paddingLeft:'0.5rem'}}>Ficha Estudiantes NRC: {carga?.nrc}</h4>
             <div className="card-sgpc" style={{overflowX: 'auto', marginBottom: '0rem', padding:'0rem'}}>
               <table className="tabla-sgpc">
-                <thead style={{alignSelf:'center'}} ><tr><th className="col-dni">DNI</th><th className="col-alumno" >ESTUDIANTE</th>{preguntasAlumno.map(p => <th style={{fontSize: '1rem', textAlign:'center'}} key={p.idficha} className="col-item">{p.item}</th>)}</tr></thead>
+                {/* <thead style={{alignSelf:'center'}} ><tr><th className="col-dni">DNI</th><th className="col-alumno" >ESTUDIANTE</th>{preguntasAlumno.map(p => <th style={{fontSize: '1rem', textAlign:'center'}} key={p.idficha} className="col-item">{p.item}</th>)}</tr></thead> */}
+                                <thead style={{alignSelf:'center'}} ><tr><th className="col-dni">DNI / ASIST</th><th className="col-alumno" >ESTUDIANTE</th>{preguntasAlumno.map(p => <th style={{fontSize: '1rem', textAlign:'center'}} key={p.idficha} className="col-item">{p.item}</th>)}</tr></thead>
                 <tbody style={{fontSize: '1.1rem'}}>
-                  {alumnos.map(a => (
+                  {/* {alumnos.map(a => (
                     <tr key={a.idestudiante}>
                       <td className="col-dni">{a.persona.dni}</td>
                       <td className="col-alumno">
                         <div style={{fontWeight: 600, fontSize: '1.1rem', paddingLeft: '0.5rem'}}>{a.persona.apellidos}</div>
                         <div style={{fontSize: '1rem', color: '#64748b',paddingLeft: '0.5rem'}}>{a.persona.nombres}</div>
+                      </td> */}
+
+                  {alumnos.map(a => {
+                    const asis = asistencia[a.idestudiante] || { presente: true, motivo_ausencia: '', tiene_permiso: false }
+                    const estaPresente = asis.presente!== false
+                    return (
+                    <tr key={a.idestudiante} style={{opacity: estaPresente? 1 : 0.6, background: estaPresente? 'transparent' : '#FEF2F2'}}>
+                      <td className="col-dni">
+                        <div>{a.persona.dni}</div>
+                        <label style={{display:'flex', alignItems:'center', gap:'0.3rem', marginTop:'0.4rem', cursor:'pointer', fontSize:'1rem'}}>
+                          <input type="checkbox" checked={estaPresente} disabled={esSoloLectura}
+                            onChange={e => setAsistencia({...asistencia, [a.idestudiante]: {...asis, presente: e.target.checked}})} />
+                          {estaPresente? 'Presente' : 'Ausente'}
+                        </label>
+                      </td>
+                      <td className="col-alumno">
+                        <div style={{fontWeight: 600, fontSize: '1.1rem', paddingLeft: '0.5rem'}}>{a.persona.apellidos}</div>
+                        <div style={{fontSize: '1rem', color: '#64748b',paddingLeft: '0.5rem'}}>{a.persona.nombres}</div>
+                        {!estaPresente && (
+                          <div style={{padding:'0.5rem'}}>
+                            <input placeholder="Motivo ausencia" disabled={esSoloLectura} value={asis.motivo_ausencia}
+                              onChange={e => setAsistencia({...asistencia, [a.idestudiante]: {...asis, motivo_ausencia: e.target.value}})}
+                              style={{width:'100%', fontSize:'1rem', padding:'0.3rem', border:'1px solid #fca5a5', borderRadius:'0.3rem'}} />
+                            <label style={{display:'flex', alignItems:'center', gap:'0.3rem', marginTop:'0.3rem', fontSize:'0.9rem'}}>
+                              <input type="checkbox" checked={asis.tiene_permiso} disabled={esSoloLectura}
+                                onChange={e => setAsistencia({...asistencia, [a.idestudiante]: {...asis, tiene_permiso: e.target.checked}})} />
+                              Con permiso
+                            </label>
+                          </div>
+                        )}
                       </td>
                       {/*Cambio segun Vercel- {preguntasAlumno.map(p => (
                         <td className="col-item" key={p.idficha}  >
@@ -549,8 +648,8 @@ const iddocente = cc?.docente?.iddocente
                               </td>
                             )
                           })}
-                    </tr>
-                  ))}
+                    </tr>)
+                  })}
                 </tbody>
               </table>
             </div>
@@ -775,4 +874,5 @@ const iddocente = cc?.docente?.iddocente
 
     </div>
   )
+
 }
