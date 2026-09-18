@@ -79,27 +79,48 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     
     const idcargaacad = (v as any)?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.idcargaacad
     // 2. SACAMOS TODO EL HEADER
+    // const { data: carga, error: err2 } = await supabase
+    // .from('cargaacademica')
+    // .select(`
+    //     idcargaacad, nrc,
+    //     asignatura!inner(
+    //       nombre,
+    //       planasignatura(nombre),
+    //       carrera!inner(nombrecarrera)
+    //     ),
+    //     campoclinico!inner(
+    //       idpa,
+    //       // periodoacademico!inner(nombre),
+    //       periodoacademico!inner(codigo, nombre),
+    //       filial!inner(nombrefilial),
+    //       eps!inner(razonsocial, direccion),
+    //       docente!inner(iddocente, persona(dni, apellidos, nombres))
+    //     )
+    //   `)
+    // .eq('idcargaacad', idcargaacad)
+    // .single()
+
+    // if(err2){ toast.error("Error cargando datos: " + err2.message); setLoading(false); return }
+    // setHeaderData(carga)
     const { data: carga, error: err2 } = await supabase
     .from('cargaacademica')
     .select(`
         idcargaacad, nrc,
-        asignatura!inner(
-          nombre,
-          planasignatura(nombre),
-          carrera!inner(nombrecarrera)
-        ),
-        campoclinico!inner(
-          idpa,
-          periodoacademico!inner(nombre),
-          filial!inner(nombrefilial),
-          eps!inner(razonsocial, direccion),
-          docente!inner(iddocente, persona(dni, apellidos, nombres))
-        )
+        asignatura!inner(nombre, planasignatura(nombre), carrera!inner(nombrecarrera)),
+        campoclinico!inner(idpa, periodoacademico!inner(nombre), filial!inner(nombrefilial), eps!inner(razonsocial, direccion), docente!inner(iddocente, persona(dni, apellidos, nombres)))
       `)
     .eq('idcargaacad', idcargaacad)
     .single()
 
-    if(err2){ toast.error("Error cargando datos: " + err2.message); setLoading(false); return }
+    if(err2){ alert("ERROR REAL: " + JSON.stringify(err2, null, 2)); setLoading(false); return }
+
+    // AGREGADO NUEVO: TRAEMOS EL CODIGO 202610 APARTE PARA LA CARPETA
+    const idpaTmp = (carga as any)?.campoclinico?.idpa
+    //const { data: per } = await supabase.from('periodoacademico').select('codigo').eq('idperiodoacademico', idpaTmp).single()
+        const { data: per } = await supabase.from('periodoacademico').select('codigo').eq('idpa', idpaTmp).single()
+    if(per){
+      ;(carga as any).campoclinico.periodoacademico.codigo = per.codigo
+    }
     setHeaderData(carga)
 
     //Cambio segun Vercel- const idpa = carga?.campoclinico?.idpa
@@ -170,18 +191,35 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   }
 
  //Para porcentajes
-  const getValoracion = (porcentaje: number) => {
-    if (porcentaje >= 80) return 'Satisfactorio';
-    if (porcentaje >= 60) return 'En Observación';
-    return 'Requiere Intervención';
-  }
+// 1. TU FUNCION QUEDA ASI - DEJALA TAL CUAL
+const getValoracion = (porcentaje: number) => {
+  if (porcentaje >= 80) return 'Satisfactorio';
+  if (porcentaje >= 60) return 'En Observación';
+  return 'Requiere Intervención';
+}
 
-  const getGeneral = (valDoc: string, valAlu: string) => {
-    if (valDoc === 'Requiere Intervención' || valAlu === 'Requiere Intervención') return 'Requiere Intervención';
-    if (valDoc === 'En Observación' || valAlu === 'En Observación') return 'En Observación';
-    return 'Satisfactorio';
-  }
+const getGeneral = (valDoc: string, valAlu: string) => {
+  if (valDoc === 'Requiere Intervención' || valAlu === 'Requiere Intervención') return 'Requiere Intervención';
+  if (valDoc === 'En Observación' || valAlu === 'En Observación') return 'En Observación';
+  return 'Satisfactorio';
+}
 
+// 2. CALCULO SEPARADO - ESTO ES LO QUE TE FALTA
+const totalDoc = preguntasDocente.length * 5 // 5 es el puntaje max por pregunta
+const sumaDoc = Object.keys(respuestas).filter(k => k.startsWith('doc-')).reduce((acc, k) => acc + (Number(respuestas[k]) || 0), 0)
+const porcentajeDocente = totalDoc > 0? (sumaDoc / totalDoc) * 100 : 0
+
+const totalAlu = preguntasAlumno.length * 5
+const sumaAlu = Object.keys(respuestas).filter(k => k.startsWith('alu-')).reduce((acc, k) => acc + (Number(respuestas[k]) || 0), 0)
+const porcentajeAlumno = totalAlu > 0? (sumaAlu / totalAlu) * 100 : 0
+
+// 3. VALORACION SEPARADA - AQUI ESTABA EL ERROR
+const valoracionDocente = getValoracion(porcentajeDocente)
+const valoracionAlumno = getValoracion(porcentajeAlumno)
+const baremoGeneral = getGeneral(valoracionDocente, valoracionAlumno)
+
+console.log("DOC:", porcentajeDocente, valoracionDocente)
+console.log("ALU:", porcentajeAlumno, valoracionAlumno)
 
 
  const handleGuardar = async () => {
@@ -348,12 +386,28 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     }
 
     // 7. FOTOS
+    // let fotosSubidasOK = 0
+    // if(fotos.length > 0){
+    //   for(let i = 0; i < fotos.length; i++){
+    //     const file = fotos[i]
+    //     const filePath = `${idvisitas}/${file.name}`
+    //     const { error: errUpload } = await supabase.storage.from('evidenciasSigpacuc').upload(filePath, file, { upsert: true })
+    //     if(!errUpload){
+    //       fotosSubidasOK++
+    //       await supabase.from('archivoevidencia').insert({ idvisitas, nombrearchivo: file.name, rutaarchivo: filePath, tipoarchivo: 'IMAGEN' })
+    //     }
+    //   }
+    // }
+        // 7. FOTOS - RUTA NUEVA: evidenciasSigpacuc / 202610 / idvisitas / foto.jpg
     let fotosSubidasOK = 0
     if(fotos.length > 0){
       for(let i = 0; i < fotos.length; i++){
-        const file = fotos[i]
-        const filePath = `${idvisitas}/${file.name}`
-        const { error: errUpload } = await supabase.storage.from('evidenciasSigpacuc').upload(filePath, file, { upsert: true })
+        const file = fotos[i] as any
+        const periodoCarpeta = file.periodoCarpeta || (headerData as any)?.campoclinico?.periodoacademico?.codigo || 'SIN_PERIODO'
+
+        const filePath = `${periodoCarpeta}/${idvisitas}/${file.name}` // <-- 202610/123/foto.jpg
+
+        const { error: errUpload } = await supabase.storage.from('evidenciasSigpacuc').upload(filePath, file, { upsert: false })
         if(!errUpload){
           fotosSubidasOK++
           await supabase.from('archivoevidencia').insert({ idvisitas, nombrearchivo: file.name, rutaarchivo: filePath, tipoarchivo: 'IMAGEN' })
@@ -369,6 +423,7 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
       nuevoEstado = 'SUPERVISADO'
     }
 
+    
     const { error: errVisita } = await supabase.from('visitasupervision').update({
       condicion: nuevoEstado,
       observaciones: observacion,
@@ -402,33 +457,67 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
   if(!show) return null
 
    // 1. GENERAR NOMBRE AUTOMÁTICO - USANDO headerData
+//   const generarNombreFoto = () => {
+//   if (!headerData) return `SIN_DATOS_${Date.now()}.jpg`
+
+//   const idpa = headerData?.campoclinico?.idpa || '0'
+//   const idcargaacad = headerData?.idcargaacad || '0'
+//   const nrc = headerData?.nrc || '0'
+//   const idsupervisor = visita?.asignacionsupervision?.idsupervisor || '0' // este sí viene de visita
+
+//   const ahora = new Date()
+//   const fecha = ahora.toISOString().slice(0,10).replace(/-/g,'') // 20250901
+//   const hora = ahora.toTimeString().slice(0,8).replace(/:/g,'') // 093045
+
+//   return `${idpa}_${idcargaacad}_${nrc}_${idsupervisor}_${fecha}_${hora}.jpg`
+// }
+   // 1. GENERAR NOMBRE AUTOMÁTICO - USANDO periodoacademico.codigo = 202610
   const generarNombreFoto = () => {
-  if (!headerData) return `SIN_DATOS_${Date.now()}.jpg`
+    if (!headerData) return { periodo: 'SIN_PERIODO', nombreFoto: `SIN_DATOS_${Date.now()}.jpg` } as any
 
-  const idpa = headerData?.campoclinico?.idpa || '0'
-  const idcargaacad = headerData?.idcargaacad || '0'
-  const nrc = headerData?.nrc || '0'
-  const idsupervisor = visita?.asignacionsupervision?.idsupervisor || '0' // este sí viene de visita
+    const periodo = (headerData as any)?.campoclinico?.periodoacademico?.codigo || 'SIN_PERIODO' // <-- 202610
 
-  const ahora = new Date()
-  const fecha = ahora.toISOString().slice(0,10).replace(/-/g,'') // 20250901
-  const hora = ahora.toTimeString().slice(0,8).replace(/:/g,'') // 093045
+    const idpa = (headerData as any)?.campoclinico?.idpa || '0'
+    const idcargaacad = (headerData as any)?.idcargaacad || '0'
+    const nrc = (headerData as any)?.nrc || '0'
+    const idsupervisor = (visita as any)?.asignacionsupervision?.idsupervisor || '0'
 
-  return `${idpa}_${idcargaacad}_${nrc}_${idsupervisor}_${fecha}_${hora}.jpg`
-}
+    const ahora = new Date()
+    const fecha = ahora.toISOString().slice(0,10).replace(/-/g,'')
+    const hora = ahora.toTimeString().slice(0,8).replace(/:/g,'')
+    const random = Math.floor(Math.random() * 1000) // anti-choque para N celulares
+
+    const nombreFoto = `${idpa}_${idcargaacad}_${nrc}_${idsupervisor}_${fecha}_${hora}_${random}.jpg`
+
+    return { periodo, nombreFoto }
+  }
 
  // 2. CAPTURAR FOTO CON CÁMARA
+//   const handleTomarFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+//   const file = e.target.files?.[0]
+//   if (!file) return
+
+//   const nombreUnico = generarNombreFoto()
+//   const nuevoFile = new File([file], nombreUnico, { type: file.type }) // Renombramos el file
+
+//   setFotos(prev => [...prev, nuevoFile].slice(0, 5))
+//   toast.success(`Foto agregada`)
+//   e.target.value = '' // limpiar input
+// }
+
+ // 2. CAPTURAR FOTO CON CÁMARA - CON PERIODO
   const handleTomarFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-  const file = e.target.files?.[0]
-  if (!file) return
+    const file = e.target.files?.[0]
+    if (!file) return
 
-  const nombreUnico = generarNombreFoto()
-  const nuevoFile = new File([file], nombreUnico, { type: file.type }) // Renombramos el file
+    const { periodo, nombreFoto } = generarNombreFoto() as any
+    const nuevoFile = new File([file], nombreFoto, { type: file.type })
+    ;(nuevoFile as any).periodoCarpeta = periodo // guardamos 202610 dentro del file
 
-  setFotos(prev => [...prev, nuevoFile].slice(0, 5))
-  toast.success(`Foto agregada`)
-  e.target.value = '' // limpiar input
-}
+    setFotos(prev => [...prev, nuevoFile].slice(0, 5))
+    toast.success(`Foto agregada - Periodo ${periodo}`)
+    e.target.value = ''
+  }
 
   // const limpiarFotos = () => setFotos([])
 
