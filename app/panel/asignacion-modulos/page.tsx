@@ -71,7 +71,7 @@ const fetchUsuarios = async () => {
   }
 
  
-  const mapped = data?.map(p => ({
+  const mapped = data?.map((p:any) => ({
     id: p.usuario[0].id,
     idusuario: p.usuario[0].idusuario,
     nombres: p.nombres,
@@ -90,7 +90,7 @@ const fetchModulosUsuario = async (userIds: string[]) => {
   const idrol = persona?.[0]?.idrol // Tomamos el rol del primer usuario seleccionado
   
   const { data: modulosRol } = await supabase.from('rol_modulo').select('idmodulo').eq('idrol', idrol)
-  setModulosSeleccionados(modulosRol?.map(m => m.idmodulo) || [])
+  setModulosSeleccionados(modulosRol?.map((m:any) => m.idmodulo) || [])
 }
 
   const fetchRoles = async () => {
@@ -177,7 +177,7 @@ const openModal = async () => {
 
     if(permisosPropios && permisosPropios.length > 0) {
       // CASO A: El usuario ya tiene permisos propios. Usamos esos.
-      setPermisosSeleccionados(permisosPropios.map(p => p.idpermiso))
+      setPermisosSeleccionados(permisosPropios.map((p:any) => p.idpermiso))
     } else {
       // CASO B: No tiene permisos propios. JALAMOS LOS DEL ROL
       const { data: persona } = await supabase.from('persona').select('idrol').eq('id', selectedIds[0]).single()
@@ -189,7 +189,7 @@ const openModal = async () => {
       }
 
       const { data: permisosRol } = await supabase.from('rolpermiso').select('idpermiso').eq('idrol', persona.idrol)
-      setPermisosSeleccionados(permisosRol?.map(p => p.idpermiso) || [])
+      setPermisosSeleccionados(permisosRol?.map((p:any) => p.idpermiso) || [])
     }
   }
 
