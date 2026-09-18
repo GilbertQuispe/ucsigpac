@@ -186,7 +186,7 @@ const [dataParaHorario, setDataParaHorario] = useState<any>(null)
     if(idTipoEpsSel) query = query.eq('idtipoeps', idTipoEpsSel)
 
     const {data} = await query
-    const options = data?.map(e => ({value: e.ideps, label: `${e.razonsocial} - ${e.ruc || 'S/RUC'}`})) || []
+    const options = data?.map((e:any) => ({value: e.ideps, label: `${e.razonsocial} - ${e.ruc || 'S/RUC'}`})) || []
     setEpsOptions(options)
     setLoadingEps(false)
     return options
@@ -251,7 +251,7 @@ useEffect(() => {
         .eq('idusuario', user.id)
         .eq('estado', true)
 
-      const esAdmin = permisos?.some(p => p.idpermiso === 4) // 4 = /panel/asignacion-modulos
+      const esAdmin = permisos?.some((p:any) => p.idpermiso === 4) // 4 = /panel/asignacion-modulos
       setEsAdminGestor(esAdmin || false)
 
       }
@@ -315,53 +315,53 @@ useEffect(() => {
         if(esDni) {
   // BUSCAR POR DNI PARCIAL: persona -> docente -> campoclinico
   const {data: personas} = await supabase.from('persona').select('idpersona').ilike('dni', `${search.trim()}%`)
-  const idsPersona = personas?.map(p => p.idpersona) || []
+  const idsPersona = personas?.map((p:any) => p.idpersona) || []
   if(idsPersona.length > 0) {
     const {data: docentes} = await supabase.from('docente').select('iddocente').in('idpersona', idsPersona)
-    const idsDoc = docentes?.map(d => d.iddocente) || []
+    const idsDoc = docentes?.map((d:any) => d.iddocente) || []
     if(idsDoc.length > 0) {
       let q = supabase.from('campoclinico').select('idcampocli').in('iddocente', idsDoc)
       if(filtroPeriodo!== '') q = q.eq('idpa', filtroPeriodo)
       if(filtroFilialTabla!== '') q = q.eq('idfilial', filtroFilialTabla)
       const {data: campos} = await q
-      campos?.forEach(c => idsSet.add(c.idcampocli))
+      campos?.forEach((c:any) => idsSet.add(c.idcampocli))
     }
   }
 }else {
           // BUSCAR POR EPS
           const {data: epsData} = await supabase.from('eps').select('ideps').ilike('razonsocial', `%${search}%`)
-          const idsEps = epsData?.map(e => e.ideps) || []
+          const idsEps = epsData?.map((e:any) => e.ideps) || []
           if(idsEps.length > 0) {
             let q = supabase.from('campoclinico').select('idcampocli').in('ideps', idsEps)
             if(filtroPeriodo!== '') q = q.eq('idpa', filtroPeriodo)
             if(filtroFilialTabla!== '') q = q.eq('idfilial', filtroFilialTabla)
             const {data: campos} = await q
-            campos?.forEach(c => idsSet.add(c.idcampocli))
+            campos?.forEach((c:any) => idsSet.add(c.idcampocli))
           }
 
           // BUSCAR POR SERVICIO
           const {data: servData} = await supabase.from('serviciosalud').select('idservicios').ilike('nombre', `%${search}%`)
-          const idsServ = servData?.map(s => s.idservicios) || []
+          const idsServ = servData?.map((s:any) => s.idservicios) || []
           if(idsServ.length > 0) {
             let q = supabase.from('campoclinico').select('idcampocli').in('idservicios', idsServ)
             if(filtroPeriodo!== '') q = q.eq('idpa', filtroPeriodo)
             if(filtroFilialTabla!== '') q = q.eq('idfilial', filtroFilialTabla)
             const {data: campos} = await q
-            campos?.forEach(c => idsSet.add(c.idcampocli))
+            campos?.forEach((c:any) => idsSet.add(c.idcampocli))
           }
 
           // BUSCAR POR DOCENTE: persona -> docente -> campoclinico
           const {data: personas} = await supabase.from('persona').select('idpersona').or(`apellidos.ilike.%${search}%,nombres.ilike.%${search}%`)
-          const idsPersona = personas?.map(p => p.idpersona) || []
+          const idsPersona = personas?.map((p:any) => p.idpersona) || []
           if(idsPersona.length > 0) {
             const {data: docentes} = await supabase.from('docente').select('iddocente').in('idpersona', idsPersona)
-            const idsDoc = docentes?.map(d => d.iddocente) || []
+            const idsDoc = docentes?.map((d:any) => d.iddocente) || []
             if(idsDoc.length > 0) {
               let q = supabase.from('campoclinico').select('idcampocli').in('iddocente', idsDoc)
               if(filtroPeriodo!== '') q = q.eq('idpa', filtroPeriodo)
               if(filtroFilialTabla!== '') q = q.eq('idfilial', filtroFilialTabla)
               const {data: campos} = await q
-              campos?.forEach(c => idsSet.add(c.idcampocli))
+              campos?.forEach((c:any) => idsSet.add(c.idcampocli))
             }
           }
         }

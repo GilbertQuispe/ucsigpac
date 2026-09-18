@@ -307,7 +307,7 @@ const handleGuardarEdit = async () => {
      //Se cambia segun Vercel- .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
      .map((p: string) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
      .join(' ') || ''
-      const personaEncontrada = mapaPersonas.get(dni)
+      const personaEncontrada = (mapaPersonas.get(dni) as any)
 
       let estado = 'ok', motivo = 'Correcto'
       if (!dni || dni.length!== 8) { estado = 'error'; motivo = 'DNI inválido' }

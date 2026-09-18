@@ -170,12 +170,12 @@ if(err4) console.log("ERR CABECERA:", err4)
     const dataAplanada: any[] = []
     const llavesVistas = new Set<string>() // <-- CAMBIO CLAVE
 
-    horarioData.forEach(h => {
+    horarioData.forEach((h:any) => {
       h.detallehorario?.forEach((dh:any) => {
         if(dh.estado !== 'INACTIVO'){
           
-          const carga = ccData.flatMap(cc => cc.cargaacademica).find(c => c.idcargaacad === h.idcargaacad)
-          const cc = ccData.find(c => c.cargaacademica?.some(ca => ca.idcargaacad === h.idcargaacad))
+          const carga = ccData.flatMap((cc:any) => cc.cargaacademica).find((c:any) => c.idcargaacad === h.idcargaacad)
+          const cc = ccData.find((c:any) => c.cargaacademica?.some((ca:any) => ca.idcargaacad === h.idcargaacad))
           
           if(cc && carga){
             // LLAVE UNICA: Si ya existe esta hora para este NRC y Docente, la ignoro
@@ -195,8 +195,8 @@ if(err4) console.log("ERR CABECERA:", err4)
             // })
             //const asign = asigData?.filter(a => a.iddh === dh.iddh) || []
 //const cabecera = cabeceraData?.find(c => c.idcargaacad === carga.idcargaacad) // <-- NUEVO
-const asign = asigData?.filter(a => Number(a.iddh) === Number(dh.iddh)) || []
-const cabecera = cabeceraData?.find(c => Number(c.idcargaacad) === Number(carga.idcargaacad))
+const asign = asigData?.filter((a:any) => Number(a.iddh) === Number(dh.iddh)) || []
+const cabecera = cabeceraData?.find((c:any) => Number(c.idcargaacad) === Number(carga.idcargaacad))
 
 dataAplanada.push({
   iddh: dh.iddh, // me quedo con el primer iddh que encuentre
@@ -255,8 +255,8 @@ const horas = Array.from(setHoras).sort((a,b) => a-b)
 const rangoHoras = useMemo(() => {
   if(dataFiltrada.length === 0) return { min: 7, max: 22 }
   
-  const horasInicio = dataFiltrada.map(d => Number(d.hora_inicio.split(':')[0]))
-  const horasFin = dataFiltrada.map(d => Number(d.hora_fin.split(':')[0]))
+  const horasInicio = dataFiltrada.map((d:any) => Number(d.hora_inicio.split(':')[0]))
+  const horasFin = dataFiltrada.map((d:any) => Number(d.hora_fin.split(':')[0]))
   
   const min = Math.min(...horasInicio)
   const max = Math.max(...horasFin) + 2 // +1 para que se vea la última hora completa
@@ -266,7 +266,7 @@ const rangoHoras = useMemo(() => {
 
 // 2. GENERAR LOS SLOTS DE HORA DINAMICOS
 const slotsHora = useMemo(() => {
-  const slots = []
+  const slots = [] as any[]
   for(let i = rangoHoras.min; i <= rangoHoras.max; i++){
     slots.push(`${String(i).padStart(2,'0')}:00`)
   }
@@ -620,7 +620,7 @@ const handleAsignarMasivo = async () => {
 
   if(errCheck) return toast.error("Error al verificar: " + errCheck.message);
 
-  const idsYaAsignados = new Set(yaAsignados?.map(a => a.idcargaacad) || []);
+  const idsYaAsignados = new Set(yaAsignados?.map((a:any) => a.idcargaacad) || []);
   
   // Solo trabajamos con los que NO tienen supervisor
   const cargasParaAsignar = cargasUnicas.filter(c => !idsYaAsignados.has(c.idcargaacad));

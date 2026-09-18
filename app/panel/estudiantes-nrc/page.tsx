@@ -150,7 +150,7 @@ const loadEstudiantes = async (inputValue: string) => {
     .eq('matricula.estado', 'MATRICULADO')
     .eq('matricula.idpa', idpa)
     .limit(2000)
-    .returns<any[]>() //Se agrego segun Vercel
+    .returns() //Se agrego segun Vercel
 
   if(errH || !horarios) { console.log("ERROR HORARIO:", errH); return [] }
   // console.log("HORARIOS ENCONTRADOS:", horarios.length)
@@ -216,7 +216,7 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
     .eq('matricula.estado', 'MATRICULADO')
     .eq('matricula.idpa', idpa)
     .limit(2000)
-    .returns<any[]>() //Se agrego Vercel
+    .returns() //Se agrego Vercel
 
   if(error || !horarios) { console.log("ERROR ASIG:", error); return [] }
   // console.log("HORARIOS PARA ASIG:", horarios.length)
@@ -277,7 +277,7 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
   if(asignaturaSel?.value) query = query.eq('cargaacademica.idasignatura', asignaturaSel.value)
   if(searchNRC) query = query.ilike('cargaacademica.nrc', `%${searchNRC}%`)
 
-  const {data, count, error} = await query.order('idhorario', {ascending: false}).limit(1000).returns<any[]>() // Trae max 1000 Se agrego Segun Vercel
+  const {data, count, error} = await query.order('idhorario', {ascending: false}).limit(1000).returns() // Trae max 1000 Se agrego Segun Vercel
   
   if(error) { toast.error(error.message) }
 

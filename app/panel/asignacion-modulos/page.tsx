@@ -234,7 +234,8 @@ const handleGuardar = async () => {
     try {
       await supabase.from('usuariopermiso').delete().in('idusuario', selectedIds)
 
-      const inserts = []
+      //const inserts = []
+      const inserts = [] as any[]
       for(const idUser of selectedIds){
         for(const idPerm of permisosSeleccionados){
           inserts.push({ idusuario: idUser, idpermiso: idPerm, estado: true })

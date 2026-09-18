@@ -73,7 +73,7 @@ useEffect(() => {
     const iddocente = carga?.horariodocente?.campoclinico?.docente?.iddocente
     if(!iddocente) return
     
-    const { data } = await supabase
+    const { data } = await (supabase as any)
     .from('docente')
     .select(`
         especialidad(especialidad),
@@ -81,7 +81,7 @@ useEffect(() => {
       `)
     .eq('iddocente', iddocente)
     //Se agregó segun Vercel-
-    .single<DocenteType>()
+    .single()
     //Se quitó segun Vercel- .single()
     
     setEspecialidadDoc(data?.especialidad?.especialidad || data?.profesion?.profesion || 'S/ESPECIALIDAD')

@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect} from 'react'
 import { X, Save, ArrowRight, UserCheck } from 'lucide-react'
 import { createClient } from '@/lib/client'
 import Select from '@/components/ui/SelectClient'
@@ -53,7 +53,7 @@ type CaType = {
   }
 }
 
-const { data: ca } = await supabase.from('cargaacademica')
+const { data: ca } = await (supabase as any).from('cargaacademica')
   // .select(`...`).eq('nrc', carga.nrc).single<CaType>() // <-- AGREGA <CaType>
   .select(`
       idcargaacad, nrc, idasignatura, idcampocli,
@@ -63,7 +63,7 @@ const { data: ca } = await supabase.from('cargaacademica')
         periodoacademico(codigo,nombre), docente!inner(persona(apellidos,nombres)),
         eps(razonsocial)
       )
-    `).eq('idcargaacad', carga.idcargaacad).single<CaType>()
+    `).eq('idcargaacad', carga.idcargaacad).single()
 
 //).eq('nrc', carga.nrc).single<CaType>()
     //Segun Vercel- if(!ca) { // <-- AGREGA ESTO
@@ -125,7 +125,7 @@ const { data: ca } = await supabase.from('cargaacademica')
         //Cambio segun Vercel- if(cargasDest?.length > 0){
         //cargasDest.map(c=>c.idcargaacad))
         if((cargasDest || []).length > 0){
-          const { count } = await supabase.from('horario').select('idhorario', {count: 'exact', head: true}).in('idcargaacad', (cargasDest || []).map(c=>c.idcargaacad)).eq('estado','ACTIVO')
+          const { count } = await supabase.from('horario').select('idhorario', {count: 'exact', head: true}).in('idcargaacad', (cargasDest || []).map((c:any)=>c.idcargaacad)).eq('estado','ACTIVO')
           totalDest = count || 0
         }
         if((totalDest + (totalOrigen || 0)) > 5) return null // NO PROCEDE

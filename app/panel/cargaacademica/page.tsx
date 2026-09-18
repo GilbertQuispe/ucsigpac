@@ -121,7 +121,7 @@ const loadAsignaturas = async (inputValue: string) => {
     }
 
     //Cambiando segun Vercel- const {data, error} = await query
-    const {data, error} = await query.returns<AsignaturaType[]>()
+    const {data, error} = await query.returns()
     
     if(error) {
       console.error("Error loadAsignaturas:", error)
@@ -140,7 +140,7 @@ const loadAsignaturas = async (inputValue: string) => {
   const loadDocentesPorFiltro = async (inputValue: string) => {
   if(!filtroPeriodo?.value) return []
 
-  const {data, error} = await supabase
+  const {data, error} = await (supabase as any)
  .from('cargaacademica')
  .select(`
       idcargaacad,
@@ -159,7 +159,7 @@ const loadAsignaturas = async (inputValue: string) => {
  .eq('estado', 'ACTIVO')
  .eq('horariodocente.campoclinico.idpa', filtroPeriodo.value) // <-- Filtra por periodo de la carga
  .limit(200)
- .returns<any[]>() // <-- Se agregó segun Vercel-
+ .returns() // <-- Se agregó segun Vercel-
 
   if(error ||!data) return []
 
@@ -236,7 +236,7 @@ const loadAsignaturasFiltro = async (inputValue: string) => {
   `)
   .eq('estado', 'ACTIVO')
   .limit(500)
-  .returns<any[]>() // <--Agregar segun Vercel-
+  .returns() // <--Agregar segun Vercel-
 
   if(error || !data) return []
 
@@ -319,7 +319,7 @@ const loadDocentesPorPeriodo = async (inputValue: string) => {
  .eq('campoclinico.idpa', form.idpa.value)
  .eq('campoclinico.estado', 'ACTIVO')
  .limit(200)
- .returns<any[]>() // <-- Se agregón segun Vercel-
+ .returns() // <-- Se agregón segun Vercel-
 
   if(error) return []
 
@@ -401,7 +401,7 @@ const loadCamposPorDocente = async (iddocente: number) => {
     `)    
     .eq('iddocente', iddocente)
     .eq('idpa', form.idpa.value)
-    .returns<any[]>() // <--Se agregó sun Vercel-
+    .returns() // <--Se agregó sun Vercel-
 
   //console.log("Respuesta cruda de BD:", data) // <-- ESTO
   //console.log("Error:", error)

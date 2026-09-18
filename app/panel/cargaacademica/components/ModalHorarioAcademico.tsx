@@ -89,7 +89,7 @@ useEffect(() => {
       if(errHorLab) console.error("Error horLab:", errHorLab)
 
       const horLabLimpio = Array.from(
-        new Map((horLab || []).map(h => [`${h.dia_semana}-${h.hora_inicio}-${h.hora_fin}`, h])).values()
+        new Map((horLab || []).map((h:any) => [`${h.dia_semana}-${h.hora_inicio}-${h.hora_fin}`, h])).values()
       )
       setHorarioLaboralDoc(horLabLimpio)
     }
@@ -98,11 +98,11 @@ useEffect(() => {
 
     const { data: mat } = await supabase.from('matricula').select('idmatricula, idestudiante').eq('idpa', Number(dataWizard1.idpa)).eq('estado', 'MATRICULADO')
     if(mat && mat.length > 0) {
-      const ids = mat.map(m => m.idestudiante)
+      const ids = mat.map((m:any) => m.idestudiante)
       const { data: est } = await supabase.from('estudiante').select('idestudiante, idpersona').in('idestudiante', ids)
-      const idsPer = est?.map(e => e.idpersona) || []
+      const idsPer = est?.map((e:any) => e.idpersona) || []
       const { data: pers } = await supabase.from('persona').select('idpersona, dni, apellidos, nombres').in('idpersona', idsPer)
-      const lista = mat.map(m => { const e = est?.find(x => x.idestudiante === m.idestudiante); const p = pers?.find(x => x.idpersona === e?.idpersona); return p? { value: m.idmatricula, label: `${p.dni} - ${p.apellidos}, ${p.nombres}` } : null }).filter(Boolean)
+      const lista = mat.map((m:any) => { const e = est?.find((x:any) => x.idestudiante === m.idestudiante); const p = pers?.find((x:any) => x.idpersona === e?.idpersona); return p? { value: m.idmatricula, label: `${p.dni} - ${p.apellidos}, ${p.nombres}` } : null }).filter(Boolean)
       setEstudiantes(lista)
     } else { setEstudiantes([]) }
 
@@ -114,7 +114,7 @@ useEffect(() => {
      .eq('estado', 'ACTIVO')
      .eq('horariodocente.campoclinico.idpa', dataWizard1.idpa)
 
-    const idsCarga = cargasNrc?.map(c => c.idcargaacad) || []
+    const idsCarga = cargasNrc?.map((c:any) => c.idcargaacad) || []
 
     // 2. CARGAR TOTAL GENERAL
     const { data: horGen } = idsCarga.length > 0? await supabase.from('horario')
@@ -266,7 +266,7 @@ const { data: cargasNrc } = await supabase.from('cargaacademica')
  .eq('estado', 'ACTIVO')
  .eq('horariodocente.campoclinico.idpa', dataWizard1.idpa)
 
-const idsCarga = cargasNrc?.map(c => c.idcargaacad) || []
+const idsCarga = cargasNrc?.map((c:any) => c.idcargaacad) || []
 
 const { data: horGen } = idsCarga.length > 0? await supabase.from('horario').select(`*, matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`).in('idcargaacad', idsCarga).eq('estado', 'ACTIVO').eq('matricula.idpa', dataWizard1.idpa) : { data: [] }
 const { data: horDoc } = await supabase.from('horario').select(`*, matricula!inner(idmatricula, idpa, estudiante!inner(idpersona, persona!inner(dni, apellidos, nombres)))`).eq('idcargaacad', dataWizard1.idcargaacad).eq('estado', 'ACTIVO').eq('matricula.idpa', dataWizard1.idpa)
