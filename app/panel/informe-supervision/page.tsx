@@ -413,7 +413,8 @@ export default function InformeSupervisionPage() {
                     <td>
                       <div style={{display:'flex', gap:'0.5rem'}}>
                         <button className="btn-secundario" onClick={async()=>{
-                          const { data } = await supabase.storage.from('informes').createSignedUrl(inf.rutaarchivo, 60)
+                          //const { data } = await supabase.storage.from('informes').createSignedUrl(inf.rutaarchivo, 60)
+                          const { data } = await supabase.storage.from('evidenciasSigpacuc').createSignedUrl(inf.rutaarchivo, 60)
                           if(data?.signedUrl) window.open(data.signedUrl, '_blank')
                         }}><Eye size={14}/> Word</button>
                         <button className="btn-secundario" onClick={()=>{

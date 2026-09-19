@@ -79,29 +79,6 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     
     const idcargaacad = (v as any)?.asignacionsupervision?.asignacion_nrc_supervisor?.cargaacademica?.idcargaacad
     // 2. SACAMOS TODO EL HEADER
-    // const { data: carga, error: err2 } = await supabase
-    // .from('cargaacademica')
-    // .select(`
-    //     idcargaacad, nrc,
-    //     asignatura!inner(
-    //       nombre,
-    //       planasignatura(nombre),
-    //       carrera!inner(nombrecarrera)
-    //     ),
-    //     campoclinico!inner(
-    //       idpa,
-    //       // periodoacademico!inner(nombre),
-    //       periodoacademico!inner(codigo, nombre),
-    //       filial!inner(nombrefilial),
-    //       eps!inner(razonsocial, direccion),
-    //       docente!inner(iddocente, persona(dni, apellidos, nombres))
-    //     )
-    //   `)
-    // .eq('idcargaacad', idcargaacad)
-    // .single()
-
-    // if(err2){ toast.error("Error cargando datos: " + err2.message); setLoading(false); return }
-    // setHeaderData(carga)
     const { data: carga, error: err2 } = await supabase
     .from('cargaacademica')
     .select(`
@@ -123,7 +100,6 @@ export default function ModalFichaSupervision({ show, onClose, visita }: any) {
     }
     setHeaderData(carga)
 
-    //Cambio segun Vercel- const idpa = carga?.campoclinico?.idpa
     //cambio solucionando erro 09-09- const idpa = (carga as any)?.campoclinico?.[0]?.idpa
     const idpa = (carga as any)?.campoclinico?.idpa
     //Camnbio segun Vercel- const iddocente = carga?.campoclinico?.docente?.iddocente
@@ -257,67 +233,7 @@ console.log("ALU:", porcentajeAlumno, valoracionAlumno)
     const { error: errInsert } = await supabase.from('fichasupervision').insert(toInsert)
     if(errInsert) return toast.error("Error al guardar ficha: " + errInsert.message)
 
-    // 5. GUARDAR ASISTENCIA EN TABLA NUEVA
-      // 5. GUARDAR ASISTENCIA EN TABLA REAL
-    // const idcargaacad_actual = headerData?.idcargaacad || null
-    // const { error: errDelAsis } = await supabase.from('asistencia_visita').delete().eq('idvisitas', idvisitas).eq('tipo_actor','ALUMNO')
-    // if(errDelAsis) console.log("Warn delete asis:", errDelAsis.message)
-
-    // const asisToInsert = alumnos.map(a => ({
-    //     idvisitas,
-    //     idestudiante: a.idestudiante,
-    //     iddocente: null,
-    //     tipo_actor: 'ALUMNO',
-    //     presente: asistencia[a.idestudiante]?.presente?? true,
-    //     motivo_ausencia: asistencia[a.idestudiante]?.motivo_ausencia || null,
-    //     tiene_permiso: asistencia[a.idestudiante]?.tiene_permiso || false,
-    //     idcargaacad: idcargaacad_actual,
-    //     observacion: asistencia[a.idestudiante]?.motivo_ausencia || null,
-    //     puntaje: null
-    // }))
-    // const { error: errAsis } = await supabase.from('asistencia_visita').insert(asisToInsert)
-    // if(errAsis) return toast.error("Error guardando asistencia: " + errAsis.message)
-
-        // 5. GUARDAR ASISTENCIA - BAREMO INDIVIDUAL 0-100% (OPCION A)
-    // const idcargaacad_actual = headerData?.idcargaacad || null
-    // const { error: errDelAsis } = await supabase.from('asistencia_visita').delete().eq('idvisitas', idvisitas).eq('tipo_actor','ALUMNO')
-    // if(errDelAsis) console.log("warn delete asis:", errDelAsis.message)
-
-    // const asisToInsert = alumnos.map(a => {
-    //   const asis = asistencia[a.idestudiante] || {}
-    //   const estaPresente = asis.presente?? true
-    //   let porcentaje = null as number | null
-
-    //   if(estaPresente){
-    //     const totalPosible = preguntasAlumno.length * 5
-    //     let totalObtenido = 0
-    //     preguntasAlumno.forEach(p => {
-    //       const key = `alu-${a.idestudiante}-${p.idficha}`
-    //       totalObtenido += Number(respuestas[key] || 0)
-    //     })
-    //     if(totalPosible > 0){
-    //       porcentaje = Math.round((totalObtenido / totalPosible) * 100) // 0-100 igual que visitasupervision
-    //     }
-    //   }
-
-    //   return {
-    //     idvisitas,
-    //     idestudiante: a.idestudiante,
-    //     iddocente: null,
-    //     tipo_actor: 'ALUMNO',
-    //     presente: estaPresente,
-    //     motivo_ausencia: asis.motivo_ausencia || null,
-    //     tiene_permiso: asis.tiene_permiso || false,
-    //     idcargaacad: idcargaacad_actual,
-    //     puntaje: porcentaje, // <-- aquí tu baremo individual 0-100
-    //     observacion: asis.observacion_personal || asis.motivo_ausencia || null
-    //   }
-    // })
-
-    // const { error: errAsis } = await supabase.from('asistencia_visita').insert(asisToInsert)
-    // if(errAsis) return toast.error("Error guardando asistencia: " + errAsis.message)
-
-        // 5. GUARDAR ASISTENCIA - BAREMO INDIVIDUAL 0-100% (OPCION A) - FIX
+    
         // 5. GUARDAR ASISTENCIA - BAREMO INDIVIDUAL 0-100% (OPCION A) - FINAL SIN ERRORES
     const idcargaacad_actual = (headerData as any)?.idcargaacad || null
     await supabase.from('asistencia_visita').delete().eq('idvisitas', idvisitas).eq('tipo_actor','ALUMNO')
@@ -384,21 +300,7 @@ console.log("ALU:", porcentajeAlumno, valoracionAlumno)
     if(valoracionDocente!== 'N/A' || valoracionAlumno!== 'N/A'){
       resultadoGeneral = getGeneral(valoracionDocente, valoracionAlumno)
     }
-
-    // 7. FOTOS
-    // let fotosSubidasOK = 0
-    // if(fotos.length > 0){
-    //   for(let i = 0; i < fotos.length; i++){
-    //     const file = fotos[i]
-    //     const filePath = `${idvisitas}/${file.name}`
-    //     const { error: errUpload } = await supabase.storage.from('evidenciasSigpacuc').upload(filePath, file, { upsert: true })
-    //     if(!errUpload){
-    //       fotosSubidasOK++
-    //       await supabase.from('archivoevidencia').insert({ idvisitas, nombrearchivo: file.name, rutaarchivo: filePath, tipoarchivo: 'IMAGEN' })
-    //     }
-    //   }
-    // }
-        // 7. FOTOS - RUTA NUEVA: evidenciasSigpacuc / 202610 / idvisitas / foto.jpg
+    // 7. FOTOS - RUTA NUEVA: evidenciasSigpacuc / 202610 / idvisitas / foto.jpg
     let fotosSubidasOK = 0
     if(fotos.length > 0){
       for(let i = 0; i < fotos.length; i++){
@@ -456,21 +358,6 @@ console.log("ALU:", porcentajeAlumno, valoracionAlumno)
 
   if(!show) return null
 
-   // 1. GENERAR NOMBRE AUTOMÁTICO - USANDO headerData
-//   const generarNombreFoto = () => {
-//   if (!headerData) return `SIN_DATOS_${Date.now()}.jpg`
-
-//   const idpa = headerData?.campoclinico?.idpa || '0'
-//   const idcargaacad = headerData?.idcargaacad || '0'
-//   const nrc = headerData?.nrc || '0'
-//   const idsupervisor = visita?.asignacionsupervision?.idsupervisor || '0' // este sí viene de visita
-
-//   const ahora = new Date()
-//   const fecha = ahora.toISOString().slice(0,10).replace(/-/g,'') // 20250901
-//   const hora = ahora.toTimeString().slice(0,8).replace(/:/g,'') // 093045
-
-//   return `${idpa}_${idcargaacad}_${nrc}_${idsupervisor}_${fecha}_${hora}.jpg`
-// }
    // 1. GENERAR NOMBRE AUTOMÁTICO - USANDO periodoacademico.codigo = 202610
   const generarNombreFoto = () => {
     if (!headerData) return { periodo: 'SIN_PERIODO', nombreFoto: `SIN_DATOS_${Date.now()}.jpg` } as any
@@ -492,20 +379,7 @@ console.log("ALU:", porcentajeAlumno, valoracionAlumno)
     return { periodo, nombreFoto }
   }
 
- // 2. CAPTURAR FOTO CON CÁMARA
-//   const handleTomarFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
-//   const file = e.target.files?.[0]
-//   if (!file) return
-
-//   const nombreUnico = generarNombreFoto()
-//   const nuevoFile = new File([file], nombreUnico, { type: file.type }) // Renombramos el file
-
-//   setFotos(prev => [...prev, nuevoFile].slice(0, 5))
-//   toast.success(`Foto agregada`)
-//   e.target.value = '' // limpiar input
-// }
-
- // 2. CAPTURAR FOTO CON CÁMARA - CON PERIODO
+  // 2. CAPTURAR FOTO CON CÁMARA - CON PERIODO
   const handleTomarFoto = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -527,10 +401,8 @@ console.log("ALU:", porcentajeAlumno, valoracionAlumno)
   toast("Fotos nuevas limpiadas")
 }
 
-  const carga = headerData
-  //Cambio segun Vercel- const cc = carga?.campoclinico
-  //error 09-09- const cc = (carga as any)?.campoclinico?.[0] // <- con [0] porque es array
-  //error 09-09- const iddocente = cc?.docente?.[0]?.iddocente // <- y docente también es array
+const carga = headerData
+ 
 const cc = carga?.campoclinico
 const iddocente = cc?.docente?.iddocente
   return (
@@ -625,19 +497,7 @@ const iddocente = cc?.docente?.iddocente
               <table className="tabla-sgpc">
                 <thead><tr><th>ITEM</th><th style={{width: '20rem', textAlign:'center'}}>PUNTAJE 1-5</th></tr></thead>
                 <tbody>
-                  {/*Cambio segun Vercel-  {preguntasDocente.map(p => (
-                    <tr key={p.idficha}>
-                      <td className="col-item-docente" style={{fontSize:'1.1rem'}} >{p.item}</td>
-                      <td  className="col-puntaje">
-                            <RatingEstrellas
-                              valor={respuestas[`doc-${cc?.docente?.iddocente}-${p.idficha}`] || 0}
-                              onChange={(val) => handleRespuesta(`doc-${cc?.docente?.iddocente}-${p.idficha}`, val)}                            
-                              disabled={esSoloLectura}
-                            />
-                      </td>
-                    </tr>
-                  ))} */}
-
+  
                   {preguntasDocente
                   .filter(p => p.idficha!= null)
                   .map(p => {
@@ -666,17 +526,9 @@ const iddocente = cc?.docente?.iddocente
             <h4 style={{display:'flex', alignItems:'center',color: 'white', background:'var(--color-primario)', borderRadius:'0.5rem',height:'3rem',  margin: '0rem', paddingLeft:'0.5rem'}}>Ficha Estudiantes NRC: {carga?.nrc}</h4>
             <div className="card-sgpc" style={{overflowX: 'auto', marginBottom: '0rem', padding:'0rem'}}>
               <table className="tabla-sgpc">
-                {/* <thead style={{alignSelf:'center'}} ><tr><th className="col-dni">DNI</th><th className="col-alumno" >ESTUDIANTE</th>{preguntasAlumno.map(p => <th style={{fontSize: '1rem', textAlign:'center'}} key={p.idficha} className="col-item">{p.item}</th>)}</tr></thead> */}
-                                <thead style={{alignSelf:'center'}} ><tr><th className="col-dni">DNI / ASIST</th><th className="col-alumno" >ESTUDIANTE</th>{preguntasAlumno.map(p => <th style={{fontSize: '1rem', textAlign:'center'}} key={p.idficha} className="col-item">{p.item}</th>)}</tr></thead>
+                <thead style={{alignSelf:'center'}} ><tr><th className="col-dni">DNI / ASIST</th><th className="col-alumno" >ESTUDIANTE</th>{preguntasAlumno.map(p => <th style={{fontSize: '1rem', textAlign:'center'}} key={p.idficha} className="col-item">{p.item}</th>)}</tr></thead>
                 <tbody style={{fontSize: '1.1rem'}}>
-                  {/* {alumnos.map(a => (
-                    <tr key={a.idestudiante}>
-                      <td className="col-dni">{a.persona.dni}</td>
-                      <td className="col-alumno">
-                        <div style={{fontWeight: 600, fontSize: '1.1rem', paddingLeft: '0.5rem'}}>{a.persona.apellidos}</div>
-                        <div style={{fontSize: '1rem', color: '#64748b',paddingLeft: '0.5rem'}}>{a.persona.nombres}</div>
-                      </td> */}
-
+           
                   {alumnos.map(a => {
                     const asis = asistencia[a.idestudiante] || { presente: true, motivo_ausencia: '', tiene_permiso: false }
                     const estaPresente = asis.presente!== false
@@ -706,18 +558,7 @@ const iddocente = cc?.docente?.iddocente
                           </div>
                         )}
                       </td>
-                      {/*Cambio segun Vercel- {preguntasAlumno.map(p => (
-                        <td className="col-item" key={p.idficha}  >
-                          <div style={{display: 'flex', justifyContent: 'center'}}>
-                          <RatingEstrellas
-                            valor={respuestas[`alu-${a.idestudiante}-${p.idficha}`] || 0}
-                            onChange={(val) => handleRespuesta(`alu-${a.idestudiante}-${p.idficha}`, val)}
-                            disabled={esSoloLectura}
-                          />
-                          </div>
-                        </td>
-                      ))} */}
-
+            
                       {preguntasAlumno
                         .filter(p => p.idficha!= null) // <- MATAMOS NULL
                         .map(p => {

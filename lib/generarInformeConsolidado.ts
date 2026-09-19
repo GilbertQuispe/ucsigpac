@@ -404,14 +404,42 @@ try{
 
   const doc = new Document({ sections: [{ properties: {}, children }] })
   const blob = await Packer.toBlob(doc)
-  const fileName = `Informe_${numeroInforme}_${fechaDel}_${fechaAl}.docx`
+  //const fileName = `Informe_${numeroInforme}_${fechaDel}_${fechaAl}.docx`
+  // ANTI-CUELGUE: YYYYMMDD_HHmmss en hora Lima
+const ahoraLima = new Date().toLocaleString("sv-SE", { timeZone: "America/Lima", hour12: false }).replace(" ", "_").replace(/:/g,"").replace(/-/g,"").slice(0,15) 
+// Resultado: 20260519_103015
+
+const fileName = `Informe_${numeroInforme}_${fechaDel}_${fechaAl}_${ahoraLima}.docx`
+// Resultado final: Informe_0001-2026-JP-SC-UC_2026-03-01_2026-03-31_20260519_103015.docx
   const ab = await blob.arrayBuffer()
-  let rutaFinal = `informes/${fileName}`
+  //let rutaFinal = `informes/${fileName}`
+// TU CONSULTA TRADUCIDA A SUPABASE
+    let periodoCarpeta = 'SIN_PERIODO'
+    if (nrcsUnicos.length > 0) {
+      const { data: perData } = await supabase
+        .from('cargaacademica')
+        .select(`
+          campoclinico!inner(
+            idpa,
+            periodoacademico!inner(codigo)
+          )
+        `)
+        .in('nrc', nrcsUnicos)
+        .limit(1)
+        .maybeSingle()
+      
+      periodoCarpeta = (perData as any)?.campoclinico?.periodoacademico?.codigo || 'SIN_PERIODO'
+      console.log("Periodo carpeta detectado:", periodoCarpeta) // debe imprimir 202610
+    }
+
+    let rutaFinal = `${periodoCarpeta}/Informes/${fileName}`
+
   try{
-    const { data, error } = await supabase.storage.from('evidenciasSigpacuc').upload(rutaFinal, ab, { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', upsert: true })
-    if(error) throw error
+   const { data, error } = await supabase.storage.from('evidenciasSigpacuc').upload(rutaFinal, ab, { contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', upsert: true })
+   if(error) throw error
     rutaFinal = data.path
   }catch(e:any){ console.warn("Storage warn:", e.message) }
+
   const { data: ins, error } = await supabase.from('informesupervision').insert({
     idsupervisor: supervisor.idsupervisor,
     idpersona_supervisor: supervisor.idpersona || supervisor.persona?.idpersona,
